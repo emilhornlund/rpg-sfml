@@ -1,5 +1,5 @@
 /**
-* @file Game.cpp
+ * @file Game.cpp
  *
  * MIT License
  *
@@ -28,12 +28,16 @@
 
 #include <SFML/Graphics.hpp>
 
-rpg::Game::Game() : m_renderWindow(nullptr) {}
+rpg::Game::Game() : m_renderWindow(nullptr)
+{
+}
 
 rpg::Game::~Game() = default;
 
-int rpg::Game::run() {
-    if (this->m_running) {
+int rpg::Game::run()
+{
+    if (this->m_running)
+    {
         return this->m_exitCode;
     }
 
@@ -44,13 +48,18 @@ int rpg::Game::run() {
     this->m_running = true;
 
     sf::Clock clock;
-    while (this->m_running) {
-        while (const auto event = this->m_renderWindow->pollEvent()) {
-            if (event->is<sf::Event::Closed>()) {
+    while (this->m_running)
+    {
+        while (const auto event = this->m_renderWindow->pollEvent())
+        {
+            if (event->is<sf::Event::Closed>())
+            {
                 this->quit(0);
             }
-            if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-                if (key->scancode == sf::Keyboard::Scan::Escape) {
+            if (const auto* key = event->getIf<sf::Event::KeyPressed>())
+            {
+                if (key->scancode == sf::Keyboard::Scan::Escape)
+                {
                     this->quit(0);
                 }
             }
@@ -67,17 +76,21 @@ int rpg::Game::run() {
     return this->m_exitCode;
 }
 
-void rpg::Game::quit(const int exitCode) noexcept {
+void rpg::Game::quit(const int exitCode) noexcept
+{
     this->m_exitCode = exitCode;
     this->m_running  = false;
 
-    if (this->m_renderWindow) {
+    if (this->m_renderWindow)
+    {
         this->m_renderWindow->close();
     }
 }
 
-void rpg::Game::update([[maybe_unused]] float deltaTime) noexcept {
+void rpg::Game::update([[maybe_unused]] float deltaTime) noexcept
+{
 }
 
-void rpg::Game::draw() noexcept {
+void rpg::Game::draw() noexcept
+{
 }

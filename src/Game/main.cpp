@@ -1,5 +1,5 @@
 /**
-* @file main.cpp
+ * @file main.cpp
  *
  * MIT License
  *
@@ -26,7 +26,8 @@
 
 #include <RPG/Game/Game.hpp>
 
-int main() {
+int main()
+{
     rpg::Game game;
     return game.run();
 }

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Allow override: CLANG_FORMAT=/usr/bin/clang-format-18 git commit ...
+CLANG_FORMAT_BIN="${CLANG_FORMAT:-clang-format}"
+
+if ! command -v "$CLANG_FORMAT_BIN" >/dev/null 2>&1; then
+  echo "[pre-commit] ERROR: clang-format not found: '$CLANG_FORMAT_BIN'"
+  echo "Set CLANG_FORMAT env var or install clang-format (e.g., 'sudo apt install clang-format')."
+  exit 1
+fi
+
+# Collect staged files that we want to format
+mapfile -t files < <(
+  git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '\.(c|cc|cpp|cxx|h|hh|hpp|hxx|inl)$' || true
+)
+
+# Nothing to do?
+if [ "${#files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+echo "[pre-commit] Formatting staged C/C++ files with ${CLANG_FORMAT_BIN}…"
+for f in "${files[@]}"; do
+  if [ -f "$f" ]; then
+    "$CLANG_FORMAT_BIN" -style=file -i "$f"
+    git add "$f"
+  fi
+done
+
+# Optional: uncomment to force a second commit if formatting changed anything.
+# if ! git diff --cached --quiet; then
+#   echo "[pre-commit] Files were re-formatted and re-staged. Review and commit again."
+#   exit 1
+# fi
+
+echo "[pre-commit] Done."

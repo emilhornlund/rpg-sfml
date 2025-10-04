@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BUILD_DIR="build"
+CLANG_FORMAT_BIN="${CLANG_FORMAT:-clang-format}"
+
+# Configure once if needed
+if [ ! -d "$BUILD_DIR" ]; then
+  cmake -S . -B "$BUILD_DIR" -DCLANG_FORMAT_EXECUTABLE="$CLANG_FORMAT_BIN" >/dev/null
+fi
+
+echo "[pre-push] Running clang-format check…"
+cmake --build "$BUILD_DIR" --target rpg-tools-format-check >/dev/null
+echo "[pre-push] OK"

@@ -34,16 +34,19 @@
 /**
  * Forward declaration to avoid pulling heavy SFML headers into the public API.
  */
-namespace sf {
-    class RenderWindow;
+namespace sf
+{
+class RenderWindow;
 }
 
-namespace rpg {
+namespace rpg
+{
 
-    /**
-     * @brief Owns the main loop and render window for the RPG application.
-     */
-class Game : sf::NonCopyable {
+/**
+ * @brief Owns the main loop and render window for the RPG application.
+ */
+class Game : sf::NonCopyable
+{
 public:
     /**
      * @brief Construct a non-running game instance.
@@ -98,9 +101,9 @@ private:
      */
     void draw() noexcept;
 
-    int  m_exitCode{0};                                   //!< Exit code returned from run().
-    bool m_running{false};                                //!< True while the main loop is active.
-    std::unique_ptr<sf::RenderWindow> m_renderWindow;     //!< Owned SFML render window.
+    int                               m_exitCode{0};    //!< Exit code returned from run().
+    bool                              m_running{false}; //!< True while the main loop is active.
+    std::unique_ptr<sf::RenderWindow> m_renderWindow;   //!< Owned SFML render window.
 
 }; // class Game
 

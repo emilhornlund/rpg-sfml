@@ -12,6 +12,7 @@ A minimal starting point for a C++20 RPG project using **SFML 3** and **CMake**.
 - [Ninja](https://ninja-build.org/) (recommended; used by the included presets)
 
 On **Linux**, you may need SFML’s system dependencies (graphics/audio/windowing):
+
 ```bash
 sudo apt update
 sudo apt install \
@@ -67,6 +68,66 @@ cmake --build --preset build-debug -j
 
 > If you configure with the **Visual Studio** generator instead of Ninja, the output will be under a config subfolder, e.g.:
 > `.\build\bin\RelWithDebInfo\rpg.exe`
+
+---
+
+## 🧰 Development Utilities
+
+### 🔧 Code Style & Formatting
+
+This project enforces a consistent code style across editors and CI:
+
+| Tool               | Purpose                                                         | Location         |
+| ------------------ | --------------------------------------------------------------- | ---------------- |
+| **clang-format**   | Formats all C++ sources (`.cpp`, `.hpp`, etc.)                  | `.clang-format`  |
+| **EditorConfig**   | Consistent indentation, newlines, and whitespace across editors | `.editorconfig`  |
+| **Git Attributes** | Normalizes line endings and treats binary assets correctly      | `.gitattributes` |
+
+Format all sources:
+
+```bash
+cmake --build build --target rpg-tools-format
+````
+
+Fail the build if formatting is off (no changes applied):
+
+```bash
+cmake --build build --target rpg-tools-format-check
+```
+
+Override the formatter binary if needed (e.g., on Ubuntu 24.04):
+
+```bash
+cmake -S . -B build -DCLANG_FORMAT_EXECUTABLE=clang-format-18
+```
+
+Make sure your editor has **EditorConfig** and **clang-format** integration enabled.
+
+---
+
+### 🪝 Git Hooks
+
+Local Git hooks keep code style consistent:
+
+* **pre-commit**: Formats staged C/C++ files with `clang-format` and re-stages them.
+* **pre-push** (optional): Runs the no-changes style check before pushing.
+
+Install once:
+
+```bash
+bash tools/install-git-hooks.sh
+```
+
+Override the formatter per command (examples):
+
+```bash
+# Use a specific clang-format during commit
+CLANG_FORMAT=/usr/bin/clang-format-18 git commit -m "feat: …"
+
+# Configure build/check with a specific formatter
+cmake -S . -B build -DCLANG_FORMAT_EXECUTABLE=clang-format-18
+cmake --build build --target rpg-tools-format-check
+```
 
 ---
 

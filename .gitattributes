@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+# Treat vendored third-party as vendored and binary (no line ending munging)
+extlibs/**/* -text linguist-vendored
+
+# Common binary assets
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.wav -text
+*.ogg -text
+*.flac -text
+*.ttf -text
+*.otf -text
+*.icns -text
+*.rtf -text
