@@ -7,9 +7,10 @@ A minimal starting point for a C++20 RPG project using **SFML 3** and **CMake**.
 ## 🧱 Build
 
 ### Prerequisites
-- CMake ≥ 3.28
-- A C++20 compiler (GCC 13+, Clang 16+, or MSVC 2022)
-- [Ninja](https://ninja-build.org/) (recommended; used by the included presets)
+
+* CMake ≥ 3.28
+* A C++20 compiler (GCC 13+, Clang 16+, or MSVC 2022)
+* [Ninja](https://ninja-build.org/) (recommended; used by the included presets)
 
 On **Linux**, you may need SFML’s system dependencies (graphics/audio/windowing):
 
@@ -28,7 +29,7 @@ sudo apt install \
   libopenal-dev \
   libflac-dev \
   libvorbis-dev
-````
+```
 
 > macOS typically needs no extra packages when building via CMake + Xcode/Clang.
 
@@ -87,7 +88,7 @@ Format all sources:
 
 ```bash
 cmake --build build --target rpg-tools-format
-````
+```
 
 Fail the build if formatting is off (no changes applied):
 
@@ -102,6 +103,36 @@ cmake -S . -B build -DCLANG_FORMAT_EXECUTABLE=clang-format-18
 ```
 
 Make sure your editor has **EditorConfig** and **clang-format** integration enabled.
+
+---
+
+### 🔍 Static Analysis (clang-tidy)
+
+A convenience target runs clang-tidy over **your project sources** (`include/`, `src/`).
+Third-party/vendor directories like `_deps/`, `extlibs/`, and `third-party/` are **excluded**.
+
+Run it:
+
+```bash
+cmake --build build --target rpg-tools-tidy -j
+```
+
+Requirements:
+
+* CMake preset must generate `compile_commands.json`. (Already enabled in presets; if not, set `CMAKE_EXPORT_COMPILE_COMMANDS=ON`.)
+* Clang-Tidy ≥ 14 (tested with 20).
+
+Options:
+
+```bash
+# Use a specific clang-tidy binary
+cmake -S . -B build -DCLANG_TIDY_EXECUTABLE=clang-tidy-20
+cmake --build build --target rpg-tools-tidy
+```
+
+Tips:
+
+* If you see `'stddef.h' file not found`, make sure a matching **clang** is installed. The tooling auto-detects the clang resource dir and passes it to clang-tidy.
 
 ---
 

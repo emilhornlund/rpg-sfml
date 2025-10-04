@@ -10,7 +10,7 @@ if(NOT EXISTS ${CLANG_FORMAT_EXECUTABLE})
 endif()
 
 set(SOURCES "")
-foreach(FOLDER IN ITEMS examples include src test tools)
+foreach(FOLDER IN ITEMS include src)
     file(GLOB_RECURSE folder_files
             "${FOLDER}/*.h" "${FOLDER}/*.hpp" "${FOLDER}/*.inl"
             "${FOLDER}/*.cpp" "${FOLDER}/*.mm" "${FOLDER}/*.m")

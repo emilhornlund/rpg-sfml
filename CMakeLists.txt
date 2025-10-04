@@ -19,31 +19,44 @@ endif()
 
 include(FetchContent)
 FetchContent_Declare(SFML
-        GIT_REPOSITORY https://github.com/SFML/SFML.git
-        GIT_TAG 3.0.2
-        GIT_SHALLOW ON
-        EXCLUDE_FROM_ALL
-        SYSTEM)
+    GIT_REPOSITORY https://github.com/SFML/SFML.git
+    GIT_TAG 3.0.2
+    GIT_SHALLOW ON
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
 FetchContent_MakeAvailable(SFML)
 
 add_subdirectory(src/Game)
 
 set(CLANG_FORMAT_EXECUTABLE "clang-format" CACHE STRING "Path or name of clang-format executable")
 add_custom_target(
-        rpg-tools-format
-        COMMAND ${CMAKE_COMMAND} -DCLANG_FORMAT_EXECUTABLE=${CLANG_FORMAT_EXECUTABLE}
-        -P ${PROJECT_SOURCE_DIR}/cmake/Format.cmake
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMENT "Formatting sources with clang-format"
-        VERBATIM
+    rpg-tools-format
+    COMMAND ${CMAKE_COMMAND} -DCLANG_FORMAT_EXECUTABLE=${CLANG_FORMAT_EXECUTABLE}
+    -P ${PROJECT_SOURCE_DIR}/cmake/Format.cmake
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Formatting sources with clang-format"
+    VERBATIM
 )
 
 add_custom_target(
-        rpg-tools-format-check
-        COMMAND ${CMAKE_COMMAND}
-        -DCLANG_FORMAT_EXECUTABLE=${CLANG_FORMAT_EXECUTABLE}
-        -P ${PROJECT_SOURCE_DIR}/cmake/FormatCheck.cmake
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        COMMENT "Checking code style with clang-format (no changes)"
-        VERBATIM
+    rpg-tools-format-check
+    COMMAND ${CMAKE_COMMAND}
+    -DCLANG_FORMAT_EXECUTABLE=${CLANG_FORMAT_EXECUTABLE}
+    -P ${PROJECT_SOURCE_DIR}/cmake/FormatCheck.cmake
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Checking code style with clang-format (no changes)"
+    VERBATIM
+)
+
+set(CLANG_TIDY_EXECUTABLE "clang-tidy" CACHE STRING "Path or name of clang-tidy executable")
+add_custom_target(
+    rpg-tools-tidy
+    COMMAND ${CMAKE_COMMAND}
+    -DCLANG_TIDY_EXECUTABLE=${CLANG_TIDY_EXECUTABLE}
+    -DPROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}
+    -P ${PROJECT_SOURCE_DIR}/cmake/Tidy.cmake
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Running clang-tidy analysis"
+    VERBATIM
 )
