@@ -1,0 +1,12 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": { "major": 3, "minor": 28 },
+  "configurePresets": [
+    { "name": "dev", "generator": "Ninja", "binaryDir": "build", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
+    { "name": "debug", "inherits": "dev", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } }
+  ],
+  "buildPresets": [
+    { "name": "build", "configurePreset": "dev" },
+    { "name": "build-debug", "configurePreset": "debug" }
+  ]
+}

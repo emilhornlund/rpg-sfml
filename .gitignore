@@ -1,0 +1,35 @@
+# General
+.DS_Store
+*.swp
+*.user
+*.log
+
+# IDE
+.idea/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake-install.cmake
+compile_commands.json
+Testing/
+CTestTestfile.cmake
+cmake-build-*/
+build/
+
+# Ninja/Make
+.ninja_deps
+.ninja_log
+Makefile
+
+# Windows
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.dll
+*.lib
+*.exp
+
+# macOS
+*.dSYM/
