@@ -26,17 +26,4 @@ FetchContent_Declare(SFML
         SYSTEM)
 FetchContent_MakeAvailable(SFML)
 
-# App
-add_executable(rpg src/main.cpp)
-target_link_libraries(rpg PRIVATE SFML::Graphics)
-target_compile_features(rpg PRIVATE cxx_std_20)
-
-if (NOT MSVC)
-    target_compile_options(rpg PRIVATE -Wconversion -Wsign-conversion)
-endif()
-
-# Dev sanitizers on Unix Debug
-if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT MSVC)
-    target_compile_options(rpg PRIVATE -fsanitize=address,undefined)
-    target_link_options(rpg PRIVATE -fsanitize=address,undefined)
-endif()
+add_subdirectory(src/Game)
