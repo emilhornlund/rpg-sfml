@@ -27,8 +27,6 @@
 #ifndef RPG_SFML_GAME_HPP
 #define RPG_SFML_GAME_HPP
 
-#include <SFML/System/NonCopyable.hpp>
-
 #include <memory>
 
 /**
@@ -45,7 +43,7 @@ namespace rpg
 /**
  * @brief Owns the main loop and render window for the RPG application.
  */
-class Game : sf::NonCopyable
+class Game final
 {
 public:
     /**
@@ -59,6 +57,18 @@ public:
      * @brief Destroy the game instance and release owned resources.
      */
     ~Game();
+
+    /**
+     * @brief Deleted copy constructor
+     */
+    Game(const Game&) = delete;
+
+    /**
+     * @brief Deleted copy assignment
+     *
+     * @return description here.
+     */
+    Game& operator=(const Game&) = delete;
 
     /**
      * @brief Enter the main loop.
