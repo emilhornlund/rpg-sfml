@@ -1,5 +1,5 @@
 /**
- * @file Camera.cpp
+ * @file OverworldTypes.hpp
  *
  * MIT License
  *
@@ -24,51 +24,60 @@
  * THE SOFTWARE.
  */
 
-#include <main/Camera.hpp>
-#include <main/World.hpp>
+#ifndef RPG_MAIN_OVERWORLD_TYPES_HPP
+#define RPG_MAIN_OVERWORLD_TYPES_HPP
 
-#include <algorithm>
-
+/**
+ * @brief Core runtime types for the RPG executable.
+ */
 namespace rpg
 {
 
-namespace
+/**
+ * @brief Tile-space coordinates inside the overworld grid.
+ */
+struct TileCoordinates
 {
+    int x;
+    int y;
+};
 
-[[nodiscard]] float clampValue(const float value, const float minimum, const float maximum) noexcept
+/**
+ * @brief Position in world-space units.
+ */
+struct WorldPosition
 {
-    return std::max(minimum, std::min(value, maximum));
-}
+    float x;
+    float y;
+};
 
-} // namespace
-
-Camera::Camera() = default;
-
-Camera::~Camera() = default;
-
-void Camera::update(
-    const WorldPosition& focusPosition,
-    const World& world,
-    const float viewportWidth,
-    const float viewportHeight) noexcept
+/**
+ * @brief Width and height in world-space units.
+ */
+struct WorldSize
 {
-    const WorldSize worldSize = world.getWorldSize();
+    float width;
+    float height;
+};
 
-    m_state.frame.size = {
-        std::min(viewportWidth, worldSize.width),
-        std::min(viewportHeight, worldSize.height)};
-
-    const float halfWidth = m_state.frame.size.width * 0.5F;
-    const float halfHeight = m_state.frame.size.height * 0.5F;
-
-    m_state.frame.center = {
-        clampValue(focusPosition.x, halfWidth, worldSize.width - halfWidth),
-        clampValue(focusPosition.y, halfHeight, worldSize.height - halfHeight)};
-}
-
-ViewFrame Camera::getFrame() const noexcept
+/**
+ * @brief View framing data for the camera.
+ */
+struct ViewFrame
 {
-    return m_state.frame;
-}
+    WorldPosition center;
+    WorldSize size;
+};
+
+/**
+ * @brief Normalized movement intent for the player update step.
+ */
+struct MovementIntent
+{
+    float x;
+    float y;
+};
 
 } // namespace rpg
+
+#endif // RPG_MAIN_OVERWORLD_TYPES_HPP

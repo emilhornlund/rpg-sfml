@@ -27,11 +27,15 @@
 #ifndef RPG_MAIN_CAMERA_HPP
 #define RPG_MAIN_CAMERA_HPP
 
+#include <main/OverworldTypes.hpp>
+
 /**
  * @brief Core runtime types for the RPG executable.
  */
 namespace rpg
 {
+
+class World;
 
 /**
  * @brief Owns camera-specific runtime state.
@@ -58,6 +62,27 @@ public:
      */
     ~Camera();
 
+    /**
+     * @brief Update the camera frame from the player position and world bounds.
+     *
+     * @param focusPosition World-space position to follow.
+     * @param world World data used to clamp the frame.
+     * @param viewportWidth Desired viewport width in world units.
+     * @param viewportHeight Desired viewport height in world units.
+     */
+    void update(
+        const WorldPosition& focusPosition,
+        const World& world,
+        float viewportWidth,
+        float viewportHeight) noexcept;
+
+    /**
+     * @brief Read the current camera frame.
+     *
+     * @return The current frame center and size.
+     */
+    [[nodiscard]] ViewFrame getFrame() const noexcept;
+
 private:
     /**
      * @brief Internal camera state container.
@@ -67,6 +92,7 @@ private:
      */
     struct State
     {
+        ViewFrame frame{{0.0F, 0.0F}, {0.0F, 0.0F}};
     };
 
     /**

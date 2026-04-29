@@ -32,9 +32,12 @@
 #include "GameRuntimeSupport.hpp"
 
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/View.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
+#include <SFML/Window/Keyboard.hpp>
 #include <SFML/Window/VideoMode.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 
@@ -46,6 +49,59 @@ namespace rpg
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 const sf::Color kBackgroundColor(24, 24, 27);
+const sf::Color kGrassColor(74, 138, 72);
+const sf::Color kSandColor(196, 182, 112);
+const sf::Color kWaterColor(48, 102, 190);
+const sf::Color kForestColor(39, 92, 46);
+const sf::Color kPlayerColor(231, 231, 236);
+
+[[nodiscard]] MovementIntent readMovementIntent() noexcept
+{
+    MovementIntent movementIntent{0.0F, 0.0F};
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)
+        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
+    {
+        movementIntent.x -= 1.0F;
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)
+        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
+    {
+        movementIntent.x += 1.0F;
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)
+        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
+    {
+        movementIntent.y -= 1.0F;
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)
+        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
+    {
+        movementIntent.y += 1.0F;
+    }
+
+    return movementIntent;
+}
+
+[[nodiscard]] sf::Color getTileColor(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Grass:
+        return kGrassColor;
+    case TileType::Sand:
+        return kSandColor;
+    case TileType::Forest:
+        return kForestColor;
+    case TileType::Water:
+        return kWaterColor;
+    }
+
+    return kBackgroundColor;
+}
 
 class Game::Impl
 {
@@ -60,6 +116,7 @@ public:
     World world;
     Player player;
     Camera camera;
+    bool isOverworldInitialized = false;
 };
 
 Game::Game()
@@ -127,16 +184,73 @@ void Game::processEvents()
 
 void Game::update(float deltaTimeSeconds)
 {
-    (void)deltaTimeSeconds;
-    (void)m_impl->world;
-    (void)m_impl->player;
-    (void)m_impl->camera;
+    if (!m_impl->isOverworldInitialized)
+    {
+        initializeOverworldSlice();
+    }
+
+    m_impl->player.setMovementIntent(readMovementIntent());
+    m_impl->player.update(deltaTimeSeconds, m_impl->world);
+    m_impl->camera.update(
+        m_impl->player.getPosition(),
+        m_impl->world,
+        static_cast<float>(kWindowWidth),
+        static_cast<float>(kWindowHeight));
 }
 
 void Game::render()
 {
     m_impl->window.clear(kBackgroundColor);
+
+    const ViewFrame frame = m_impl->camera.getFrame();
+    sf::View view;
+    view.setCenter({frame.center.x, frame.center.y});
+    view.setSize({frame.size.width, frame.size.height});
+    m_impl->window.setView(view);
+
+    sf::RectangleShape tileShape;
+    tileShape.setSize({m_impl->world.getTileSize(), m_impl->world.getTileSize()});
+
+    for (int y = 0; y < m_impl->world.getHeightInTiles(); ++y)
+    {
+        for (int x = 0; x < m_impl->world.getWidthInTiles(); ++x)
+        {
+            const TileCoordinates coordinates{x, y};
+            const WorldPosition tilePosition = m_impl->world.getTileCenter(coordinates);
+
+            tileShape.setPosition({
+                tilePosition.x - (m_impl->world.getTileSize() * 0.5F),
+                tilePosition.y - (m_impl->world.getTileSize() * 0.5F)});
+            tileShape.setFillColor(getTileColor(m_impl->world.getTileType(coordinates)));
+            m_impl->window.draw(tileShape);
+        }
+    }
+
+    sf::RectangleShape playerMarker;
+    playerMarker.setSize({
+        m_impl->world.getTileSize() * 0.5F,
+        m_impl->world.getTileSize() * 0.5F});
+    playerMarker.setOrigin({
+        playerMarker.getSize().x * 0.5F,
+        playerMarker.getSize().y * 0.5F});
+    playerMarker.setPosition({
+        m_impl->player.getPosition().x,
+        m_impl->player.getPosition().y});
+    playerMarker.setFillColor(kPlayerColor);
+    m_impl->window.draw(playerMarker);
+
     m_impl->window.display();
+}
+
+void Game::initializeOverworldSlice()
+{
+    m_impl->player.spawn(m_impl->world.getSpawnPosition());
+    m_impl->camera.update(
+        m_impl->player.getPosition(),
+        m_impl->world,
+        static_cast<float>(kWindowWidth),
+        static_cast<float>(kWindowHeight));
+    m_impl->isOverworldInitialized = true;
 }
 
 } // namespace rpg

@@ -27,11 +27,15 @@
 #ifndef RPG_MAIN_PLAYER_HPP
 #define RPG_MAIN_PLAYER_HPP
 
+#include <main/OverworldTypes.hpp>
+
 /**
  * @brief Core runtime types for the RPG executable.
  */
 namespace rpg
 {
+
+class World;
 
 /**
  * @brief Owns player-specific runtime state.
@@ -58,6 +62,42 @@ public:
      */
     ~Player();
 
+    /**
+     * @brief Place the player at a world-space position.
+     *
+     * @param position Position to use as the player's starting point.
+     */
+    void spawn(const WorldPosition& position) noexcept;
+
+    /**
+     * @brief Set the current movement intent.
+     *
+     * @param movementIntent Desired movement direction for the next update.
+     */
+    void setMovementIntent(const MovementIntent& movementIntent) noexcept;
+
+    /**
+     * @brief Advance the player simulation.
+     *
+     * @param deltaTimeSeconds Frame delta time in seconds.
+     * @param world World data used for traversability checks.
+     */
+    void update(float deltaTimeSeconds, const World& world) noexcept;
+
+    /**
+     * @brief Read the player's current position.
+     *
+     * @return Current player position in world-space units.
+     */
+    [[nodiscard]] WorldPosition getPosition() const noexcept;
+
+    /**
+     * @brief Read the player's movement speed.
+     *
+     * @return Movement speed in world-space units per second.
+     */
+    [[nodiscard]] float getMovementSpeed() const noexcept;
+
 private:
     /**
      * @brief Internal player state container.
@@ -67,6 +107,10 @@ private:
      */
     struct State
     {
+        WorldPosition position{0.0F, 0.0F};
+        MovementIntent movementIntent{0.0F, 0.0F};
+        float movementSpeed = 160.0F;
+        bool isSpawned = false;
     };
 
     /**
