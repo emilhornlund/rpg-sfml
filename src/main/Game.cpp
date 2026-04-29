@@ -25,6 +25,9 @@
  */
 
 #include <main/Game.hpp>
+#include <main/Camera.hpp>
+#include <main/Player.hpp>
+#include <main/World.hpp>
 
 #include "GameRuntimeSupport.hpp"
 
@@ -40,27 +43,9 @@
 
 namespace rpg
 {
-
-namespace
-{
-
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 const sf::Color kBackgroundColor(24, 24, 27);
-
-struct World
-{
-};
-
-struct Player
-{
-};
-
-struct Camera
-{
-};
-
-} // namespace
 
 class Game::Impl
 {
