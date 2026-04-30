@@ -28,8 +28,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <utility>
 #include <vector>
 
 namespace rpg
@@ -40,9 +43,24 @@ namespace detail
 namespace
 {
 
+std::size_t g_generatedChunkCount = 0;
+
 [[nodiscard]] std::size_t toIndex(const TileCoordinates& coordinates, const int widthInTiles) noexcept
 {
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
+}
+
+[[nodiscard]] int floorDivide(const int value, const int divisor) noexcept
+{
+    const int quotient = value / divisor;
+    const int remainder = value % divisor;
+    return remainder < 0 ? quotient - 1 : quotient;
+}
+
+[[nodiscard]] int floorModulo(const int value, const int divisor) noexcept
+{
+    const int remainder = value % divisor;
+    return remainder < 0 ? remainder + divisor : remainder;
 }
 
 [[nodiscard]] float clamp01(const float value) noexcept
@@ -98,54 +116,54 @@ namespace
     return interpolate(top, bottom, fractionY);
 }
 
-[[nodiscard]] float normalizeCoordinate(const int coordinate, const int maxCoordinate) noexcept
+[[nodiscard]] float toNoiseCoordinate(const int coordinate, const float scaleInTiles) noexcept
 {
-    if (maxCoordinate <= 1)
-    {
-        return 0.0F;
-    }
-
-    return static_cast<float>(coordinate) / static_cast<float>(maxCoordinate - 1);
+    return static_cast<float>(coordinate) / scaleInTiles;
 }
 
-[[nodiscard]] float evaluateEdgeFalloff(const float normalizedX, const float normalizedY) noexcept
+[[nodiscard]] float evaluateEdgeFalloff(const WorldConfig& config, const int x, const int y) noexcept
 {
-    const float distanceToVerticalEdge = std::min(normalizedX, 1.0F - normalizedX);
-    const float distanceToHorizontalEdge = std::min(normalizedY, 1.0F - normalizedY);
-    const float minDistanceToEdge = std::min(distanceToVerticalEdge, distanceToHorizontalEdge);
-    return smoothstep(minDistanceToEdge / 0.22F);
+    constexpr float kEdgeFadeDistanceInTiles = 10.0F;
+
+    const int distanceToVerticalEdge = std::min(x, (config.widthInTiles - 1) - x);
+    const int distanceToHorizontalEdge = std::min(y, (config.heightInTiles - 1) - y);
+    const int minDistanceToEdge = std::min(distanceToVerticalEdge, distanceToHorizontalEdge);
+
+    return smoothstep(static_cast<float>(minDistanceToEdge) / kEdgeFadeDistanceInTiles);
 }
 
 [[nodiscard]] float evaluateElevation(const WorldConfig& config, const int x, const int y) noexcept
 {
-    const float normalizedX = normalizeCoordinate(x, config.widthInTiles);
-    const float normalizedY = normalizeCoordinate(y, config.heightInTiles);
-    const float continent = sampleValueNoise(config.seed ^ 0xA511E9B3U, normalizedX * 2.4F, normalizedY * 2.4F);
-    const float region = sampleValueNoise(config.seed ^ 0x63D83595U, normalizedX * 5.8F, normalizedY * 5.8F);
-    const float detail = sampleValueNoise(config.seed ^ 0xC2B2AE35U, normalizedX * 11.6F, normalizedY * 11.6F);
+    const float sampleX = toNoiseCoordinate(x, 24.0F);
+    const float sampleY = toNoiseCoordinate(y, 24.0F);
+    const float continent = sampleValueNoise(config.seed ^ 0xA511E9B3U, sampleX, sampleY);
+    const float region = sampleValueNoise(config.seed ^ 0x63D83595U, sampleX * 2.4F, sampleY * 2.4F);
+    const float detail = sampleValueNoise(config.seed ^ 0xC2B2AE35U, sampleX * 4.8F, sampleY * 4.8F);
     const float baseElevation = (0.58F * continent) + (0.27F * region) + (0.15F * detail);
-    const float edgeFalloff = evaluateEdgeFalloff(normalizedX, normalizedY);
+    const float edgeFalloff = evaluateEdgeFalloff(config, x, y);
     return clamp01(baseElevation - ((1.0F - edgeFalloff) * 0.48F));
 }
 
 [[nodiscard]] float evaluateMoisture(const WorldConfig& config, const int x, const int y) noexcept
 {
-    const float normalizedX = normalizeCoordinate(x, config.widthInTiles);
-    const float normalizedY = normalizeCoordinate(y, config.heightInTiles);
     const float climate = sampleValueNoise(
         config.seed ^ 0x9E3779B9U,
-        (normalizedX * 3.1F) + 11.0F,
-        (normalizedY * 3.1F) + 7.0F);
+        toNoiseCoordinate(x, 18.0F) + 11.0F,
+        toNoiseCoordinate(y, 18.0F) + 7.0F);
     const float localVariation = sampleValueNoise(
         config.seed ^ 0x7F4A7C15U,
-        (normalizedX * 9.4F) + 19.0F,
-        (normalizedY * 9.4F) + 13.0F);
+        toNoiseCoordinate(x, 6.0F) + 19.0F,
+        toNoiseCoordinate(y, 6.0F) + 13.0F);
     return clamp01((0.68F * climate) + (0.32F * localVariation));
 }
 
 [[nodiscard]] TileType classifyTile(const WorldConfig& config, const int x, const int y) noexcept
 {
-    if (x == 0
+    if (x < 0
+        || y < 0
+        || x >= config.widthInTiles
+        || y >= config.heightInTiles
+        || x == 0
         || y == 0
         || x == config.widthInTiles - 1
         || y == config.heightInTiles - 1)
@@ -155,7 +173,7 @@ namespace
 
     constexpr float kSeaLevel = 0.39F;
     constexpr float kShorelineLevel = 0.47F;
-    constexpr float kForestMoisture = 0.59F;
+    constexpr float kForestMoisture = 0.53F;
 
     const float elevation = evaluateElevation(config, x, y);
     const float moisture = evaluateMoisture(config, x, y);
@@ -216,17 +234,96 @@ GeneratedWorldData generateWorldData(const WorldConfig& config)
     GeneratedWorldData worldData;
     worldData.tiles.resize(static_cast<std::size_t>(config.widthInTiles * config.heightInTiles));
 
+    if (config.widthInTiles <= 0 || config.heightInTiles <= 0)
+    {
+        return worldData;
+    }
+
+    std::map<std::pair<int, int>, GeneratedChunkData> generatedChunks;
+    const int lastChunkX = getChunkCoordinate(config.widthInTiles - 1);
+    const int lastChunkY = getChunkCoordinate(config.heightInTiles - 1);
+
+    for (int chunkY = 0; chunkY <= lastChunkY; ++chunkY)
+    {
+        for (int chunkX = 0; chunkX <= lastChunkX; ++chunkX)
+        {
+            generatedChunks.emplace(
+                std::make_pair(chunkX, chunkY),
+                generateChunkData(config, chunkX, chunkY));
+        }
+    }
+
     for (int y = 0; y < config.heightInTiles; ++y)
     {
         for (int x = 0; x < config.widthInTiles; ++x)
         {
-            const TileCoordinates coordinates{x, y};
-            worldData.tiles[toIndex(coordinates, config.widthInTiles)] = classifyTile(config, x, y);
+            const int chunkX = getChunkCoordinate(x);
+            const int chunkY = getChunkCoordinate(y);
+            const TileCoordinates localCoordinates{
+                getChunkLocalCoordinate(x),
+                getChunkLocalCoordinate(y)};
+            const GeneratedChunkData& chunk = generatedChunks.at(std::make_pair(chunkX, chunkY));
+
+            worldData.tiles[toIndex({x, y}, config.widthInTiles)] =
+                chunk.tiles[toIndex(localCoordinates, getChunkSizeInTiles())];
         }
     }
 
     worldData.spawnTile = findSpawnTile(worldData.tiles, config.widthInTiles, config.heightInTiles);
     return worldData;
+}
+
+int getChunkCoordinate(const int tileCoordinate) noexcept
+{
+    return floorDivide(tileCoordinate, getChunkSizeInTiles());
+}
+
+int getChunkLocalCoordinate(const int tileCoordinate) noexcept
+{
+    return floorModulo(tileCoordinate, getChunkSizeInTiles());
+}
+
+TileCoordinates getWorldTileCoordinates(
+    const int chunkX,
+    const int chunkY,
+    const TileCoordinates& localCoordinates) noexcept
+{
+    return {
+        (chunkX * getChunkSizeInTiles()) + localCoordinates.x,
+        (chunkY * getChunkSizeInTiles()) + localCoordinates.y};
+}
+
+GeneratedChunkData generateChunkData(const WorldConfig& config, const int chunkX, const int chunkY)
+{
+    GeneratedChunkData chunkData;
+    chunkData.chunkX = chunkX;
+    chunkData.chunkY = chunkY;
+    chunkData.tiles.resize(static_cast<std::size_t>(getChunkSizeInTiles() * getChunkSizeInTiles()));
+
+    for (int localY = 0; localY < getChunkSizeInTiles(); ++localY)
+    {
+        for (int localX = 0; localX < getChunkSizeInTiles(); ++localX)
+        {
+            const TileCoordinates localCoordinates{localX, localY};
+            const TileCoordinates worldCoordinates = getWorldTileCoordinates(chunkX, chunkY, localCoordinates);
+
+            chunkData.tiles[toIndex(localCoordinates, getChunkSizeInTiles())] =
+                classifyTile(config, worldCoordinates.x, worldCoordinates.y);
+        }
+    }
+
+    ++g_generatedChunkCount;
+    return chunkData;
+}
+
+std::size_t getGeneratedChunkCount() noexcept
+{
+    return g_generatedChunkCount;
+}
+
+void resetGeneratedChunkCount() noexcept
+{
+    g_generatedChunkCount = 0;
 }
 
 bool isTraversableTileType(const TileType tileType) noexcept

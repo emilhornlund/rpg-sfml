@@ -30,6 +30,8 @@
 #include <main/OverworldTypes.hpp>
 
 #include <cstdint>
+#include <map>
+#include <utility>
 #include <vector>
 
 /**
@@ -197,7 +199,7 @@ private:
     {
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
-        std::vector<TileType> tiles;
+        std::map<std::pair<int, int>, std::vector<TileType>> chunks;
     };
 
     /**

@@ -29,6 +29,7 @@
 
 #include <main/World.hpp>
 
+#include <cstddef>
 #include <vector>
 
 namespace rpg
@@ -42,7 +43,34 @@ struct GeneratedWorldData
     std::vector<TileType> tiles;
 };
 
+struct GeneratedChunkData
+{
+    int chunkX = 0;
+    int chunkY = 0;
+    std::vector<TileType> tiles;
+};
+
+[[nodiscard]] constexpr int getChunkSizeInTiles() noexcept
+{
+    return 16;
+}
+
+[[nodiscard]] int getChunkCoordinate(int tileCoordinate) noexcept;
+
+[[nodiscard]] int getChunkLocalCoordinate(int tileCoordinate) noexcept;
+
+[[nodiscard]] TileCoordinates getWorldTileCoordinates(
+    int chunkX,
+    int chunkY,
+    const TileCoordinates& localCoordinates) noexcept;
+
+[[nodiscard]] GeneratedChunkData generateChunkData(const WorldConfig& config, int chunkX, int chunkY);
+
 [[nodiscard]] GeneratedWorldData generateWorldData(const WorldConfig& config);
+
+[[nodiscard]] std::size_t getGeneratedChunkCount() noexcept;
+
+void resetGeneratedChunkCount() noexcept;
 
 [[nodiscard]] bool isTraversableTileType(TileType tileType) noexcept;
 

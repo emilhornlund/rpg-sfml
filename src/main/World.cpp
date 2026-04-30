@@ -29,6 +29,7 @@
 #include "WorldTerrainGenerator.hpp"
 
 #include <cmath>
+#include <utility>
 
 namespace rpg
 {
@@ -41,6 +42,42 @@ namespace
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
+[[nodiscard]] std::pair<int, int> toChunkKey(const TileCoordinates& coordinates) noexcept
+{
+    return {
+        detail::getChunkCoordinate(coordinates.x),
+        detail::getChunkCoordinate(coordinates.y)};
+}
+
+[[nodiscard]] TileCoordinates toChunkLocalCoordinates(const TileCoordinates& coordinates) noexcept
+{
+    return {
+        detail::getChunkLocalCoordinate(coordinates.x),
+        detail::getChunkLocalCoordinate(coordinates.y)};
+}
+
+void populateChunkCache(
+    const WorldConfig& config,
+    std::map<std::pair<int, int>, std::vector<TileType>>& chunks)
+{
+    if (config.widthInTiles <= 0 || config.heightInTiles <= 0)
+    {
+        return;
+    }
+
+    const int lastChunkX = detail::getChunkCoordinate(config.widthInTiles - 1);
+    const int lastChunkY = detail::getChunkCoordinate(config.heightInTiles - 1);
+
+    for (int chunkY = 0; chunkY <= lastChunkY; ++chunkY)
+    {
+        for (int chunkX = 0; chunkX <= lastChunkX; ++chunkX)
+        {
+            detail::GeneratedChunkData chunkData = detail::generateChunkData(config, chunkX, chunkY);
+            chunks.emplace(std::make_pair(chunkX, chunkY), std::move(chunkData.tiles));
+        }
+    }
+}
+
 } // namespace
 
 World::World()
@@ -51,9 +88,33 @@ World::World()
 World::World(const WorldConfig& config)
 {
     m_state.config = config;
-    const detail::GeneratedWorldData worldData = detail::generateWorldData(m_state.config);
-    m_state.spawnTile = worldData.spawnTile;
-    m_state.tiles = worldData.tiles;
+    populateChunkCache(m_state.config, m_state.chunks);
+
+    const TileCoordinates center{m_state.config.widthInTiles / 2, m_state.config.heightInTiles / 2};
+
+    for (int radius = 0; radius < std::max(m_state.config.widthInTiles, m_state.config.heightInTiles); ++radius)
+    {
+        const int minY = std::max(1, center.y - radius);
+        const int maxY = std::min(m_state.config.heightInTiles - 2, center.y + radius);
+        const int minX = std::max(1, center.x - radius);
+        const int maxX = std::min(m_state.config.widthInTiles - 2, center.x + radius);
+
+        for (int y = minY; y <= maxY; ++y)
+        {
+            for (int x = minX; x <= maxX; ++x)
+            {
+                const TileCoordinates coordinates{x, y};
+
+                if (detail::isTraversableTileType(getTileType(coordinates)))
+                {
+                    m_state.spawnTile = coordinates;
+                    return;
+                }
+            }
+        }
+    }
+
+    m_state.spawnTile = center;
 }
 
 World::~World() = default;
@@ -115,7 +176,14 @@ TileType World::getTileType(const TileCoordinates& coordinates) const noexcept
         return TileType::Water;
     }
 
-    return m_state.tiles[toIndex(coordinates, m_state.config.widthInTiles)];
+    const auto chunkIt = m_state.chunks.find(toChunkKey(coordinates));
+
+    if (chunkIt == m_state.chunks.end())
+    {
+        return TileType::Water;
+    }
+
+    return chunkIt->second[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
 }
 
 WorldPosition World::getTileCenter(const TileCoordinates& coordinates) const noexcept

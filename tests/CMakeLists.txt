@@ -18,6 +18,7 @@ add_executable(overworld_vertical_slice_tests
 )
 add_executable(world_terrain_generator_tests
     WorldTerrainGeneratorTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
 )
 
