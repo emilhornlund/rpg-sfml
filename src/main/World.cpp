@@ -26,9 +26,9 @@
 
 #include <main/World.hpp>
 
-#include <algorithm>
+#include "WorldTerrainGenerator.hpp"
+
 #include <cmath>
-#include <cstdint>
 
 namespace rpg
 {
@@ -41,83 +41,6 @@ namespace
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
-[[nodiscard]] std::uint32_t hashCoordinates(const std::uint32_t seed, const int x, const int y) noexcept
-{
-    std::uint32_t value = seed;
-    value ^= static_cast<std::uint32_t>(x * 73856093);
-    value ^= static_cast<std::uint32_t>(y * 19349663);
-    value ^= value >> 13U;
-    value *= 1274126177U;
-    value ^= value >> 16U;
-    return value;
-}
-
-[[nodiscard]] TileType classifyTile(const WorldConfig& config, const int x, const int y) noexcept
-{
-    if (x == 0
-        || y == 0
-        || x == config.widthInTiles - 1
-        || y == config.heightInTiles - 1)
-    {
-        return TileType::Water;
-    }
-
-    const std::uint32_t noise = hashCoordinates(config.seed, x, y) % 100U;
-
-    if (noise < 12U)
-    {
-        return TileType::Water;
-    }
-
-    if (noise < 26U)
-    {
-        return TileType::Sand;
-    }
-
-    if (noise > 84U)
-    {
-        return TileType::Forest;
-    }
-
-    return TileType::Grass;
-}
-
-[[nodiscard]] bool isTraversableTileType(const TileType tileType) noexcept
-{
-    return tileType != TileType::Water;
-}
-
-[[nodiscard]] TileCoordinates findSpawnTile(
-    const std::vector<TileType>& tiles,
-    const int widthInTiles,
-    const int heightInTiles) noexcept
-{
-    const TileCoordinates center{widthInTiles / 2, heightInTiles / 2};
-
-    for (int radius = 0; radius < std::max(widthInTiles, heightInTiles); ++radius)
-    {
-        const int minY = std::max(1, center.y - radius);
-        const int maxY = std::min(heightInTiles - 2, center.y + radius);
-        const int minX = std::max(1, center.x - radius);
-        const int maxX = std::min(widthInTiles - 2, center.x + radius);
-
-        for (int y = minY; y <= maxY; ++y)
-        {
-            for (int x = minX; x <= maxX; ++x)
-            {
-                const TileCoordinates coordinates{x, y};
-
-                if (isTraversableTileType(tiles[toIndex(coordinates, widthInTiles)]))
-                {
-                    return coordinates;
-                }
-            }
-        }
-    }
-
-    return center;
-}
-
 } // namespace
 
 World::World()
@@ -128,18 +51,9 @@ World::World()
 World::World(const WorldConfig& config)
 {
     m_state.config = config;
-    m_state.tiles.resize(static_cast<std::size_t>(m_state.config.widthInTiles * m_state.config.heightInTiles));
-
-    for (int y = 0; y < m_state.config.heightInTiles; ++y)
-    {
-        for (int x = 0; x < m_state.config.widthInTiles; ++x)
-        {
-            const TileCoordinates coordinates{x, y};
-            m_state.tiles[toIndex(coordinates, m_state.config.widthInTiles)] = classifyTile(m_state.config, x, y);
-        }
-    }
-
-    m_state.spawnTile = findSpawnTile(m_state.tiles, m_state.config.widthInTiles, m_state.config.heightInTiles);
+    const detail::GeneratedWorldData worldData = detail::generateWorldData(m_state.config);
+    m_state.spawnTile = worldData.spawnTile;
+    m_state.tiles = worldData.tiles;
 }
 
 World::~World() = default;
@@ -186,7 +100,7 @@ bool World::isInBounds(const TileCoordinates& coordinates) const noexcept
 
 bool World::isTraversable(const TileCoordinates& coordinates) const noexcept
 {
-    return isInBounds(coordinates) && isTraversableTileType(getTileType(coordinates));
+    return isInBounds(coordinates) && detail::isTraversableTileType(getTileType(coordinates));
 }
 
 bool World::isTraversable(const WorldPosition& position) const noexcept

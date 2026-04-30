@@ -8,6 +8,7 @@ add_executable(main
     Game.cpp
     Player.cpp
     World.cpp
+    WorldTerrainGenerator.cpp
     main.cpp
 )
 
