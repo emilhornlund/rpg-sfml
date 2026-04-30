@@ -24,3 +24,20 @@ endif()
 if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw")
     message(FATAL_ERROR "Game.cpp does not draw overworld content")
 endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "getPlayerMarkerPlacement")
+    message(FATAL_ERROR "Game.cpp does not derive player marker placement through runtime support")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "playerMarker\\.setPosition\\(\\{"
+    OR NOT GAME_CPP_CONTENT MATCHES "playerMarkerPlacement\\.position\\.x"
+    OR NOT GAME_CPP_CONTENT MATCHES "playerMarkerPlacement\\.position\\.y")
+    message(FATAL_ERROR "Game.cpp does not position the player marker from the current player position")
+endif()
+
+string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.setView(view);" VIEW_INDEX)
+string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.draw(playerMarker);" PLAYER_MARKER_DRAW_INDEX)
+
+if(VIEW_INDEX EQUAL -1 OR PLAYER_MARKER_DRAW_INDEX EQUAL -1 OR VIEW_INDEX GREATER PLAYER_MARKER_DRAW_INDEX)
+    message(FATAL_ERROR "Game.cpp does not apply camera framing before drawing the player marker")
+endif()

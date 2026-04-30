@@ -28,6 +28,7 @@
 
 #include "WorldTerrainGenerator.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -54,6 +55,46 @@ namespace
     return {
         detail::getChunkLocalCoordinate(coordinates.x),
         detail::getChunkLocalCoordinate(coordinates.y)};
+}
+
+struct VisibleTileBounds
+{
+    int minX = 0;
+    int maxX = -1;
+    int minY = 0;
+    int maxY = -1;
+};
+
+[[nodiscard]] VisibleTileBounds getVisibleTileBounds(const WorldConfig& config, const ViewFrame& frame) noexcept
+{
+    constexpr int kVisibleOverscanInTiles = 1;
+    VisibleTileBounds bounds;
+
+    if (config.widthInTiles <= 0 || config.heightInTiles <= 0 || config.tileSize <= 0.0F)
+    {
+        return bounds;
+    }
+
+    const float halfWidth = frame.size.width * 0.5F;
+    const float halfHeight = frame.size.height * 0.5F;
+    const float left = frame.center.x - halfWidth;
+    const float right = frame.center.x + halfWidth;
+    const float top = frame.center.y - halfHeight;
+    const float bottom = frame.center.y + halfHeight;
+
+    bounds.minX = std::max(
+        0,
+        static_cast<int>(std::floor(left / config.tileSize)) - kVisibleOverscanInTiles);
+    bounds.maxX = std::min(
+        config.widthInTiles - 1,
+        static_cast<int>(std::ceil(right / config.tileSize)) - 1 + kVisibleOverscanInTiles);
+    bounds.minY = std::max(
+        0,
+        static_cast<int>(std::floor(top / config.tileSize)) - kVisibleOverscanInTiles);
+    bounds.maxY = std::min(
+        config.heightInTiles - 1,
+        static_cast<int>(std::ceil(bottom / config.tileSize)) - 1 + kVisibleOverscanInTiles);
+    return bounds;
 }
 
 void populateChunkCache(
@@ -184,6 +225,66 @@ TileType World::getTileType(const TileCoordinates& coordinates) const noexcept
     }
 
     return chunkIt->second[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
+}
+
+std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const
+{
+    std::vector<VisibleWorldTile> visibleTiles;
+
+    const VisibleTileBounds bounds = getVisibleTileBounds(m_state.config, frame);
+
+    if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
+    {
+        return visibleTiles;
+    }
+
+    visibleTiles.reserve(static_cast<std::size_t>((bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1)));
+
+    const int minChunkX = detail::getChunkCoordinate(bounds.minX);
+    const int maxChunkX = detail::getChunkCoordinate(bounds.maxX);
+    const int minChunkY = detail::getChunkCoordinate(bounds.minY);
+    const int maxChunkY = detail::getChunkCoordinate(bounds.maxY);
+    const int chunkSizeInTiles = detail::getChunkSizeInTiles();
+
+    for (int chunkY = minChunkY; chunkY <= maxChunkY; ++chunkY)
+    {
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
+        {
+            const auto chunkIt = m_state.chunks.find(std::make_pair(chunkX, chunkY));
+
+            if (chunkIt == m_state.chunks.end())
+            {
+                continue;
+            }
+
+            for (int localY = 0; localY < chunkSizeInTiles; ++localY)
+            {
+                for (int localX = 0; localX < chunkSizeInTiles; ++localX)
+                {
+                    const TileCoordinates worldCoordinates = detail::getWorldTileCoordinates(
+                        chunkX,
+                        chunkY,
+                        {localX, localY});
+
+                    if (!isInBounds(worldCoordinates)
+                        || worldCoordinates.x < bounds.minX
+                        || worldCoordinates.x > bounds.maxX
+                        || worldCoordinates.y < bounds.minY
+                        || worldCoordinates.y > bounds.maxY)
+                    {
+                        continue;
+                    }
+
+                    visibleTiles.push_back({
+                        worldCoordinates,
+                        chunkIt->second[toIndex({localX, localY}, chunkSizeInTiles)],
+                        getTileCenter(worldCoordinates)});
+                }
+            }
+        }
+    }
+
+    return visibleTiles;
 }
 
 WorldPosition World::getTileCenter(const TileCoordinates& coordinates) const noexcept

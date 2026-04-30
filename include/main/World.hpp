@@ -67,6 +67,16 @@ enum class TileType
 };
 
 /**
+ * @brief Render-facing data for a visible overworld tile.
+ */
+struct VisibleWorldTile
+{
+    TileCoordinates coordinates{0, 0};
+    TileType tileType = TileType::Water;
+    WorldPosition center{0.0F, 0.0F};
+};
+
+/**
  * @brief Owns world-specific runtime state.
  *
  * The World class provides the dedicated boundary for world-facing gameplay
@@ -171,6 +181,18 @@ public:
      * @return Tile type at the coordinates, or water when out of bounds.
      */
     [[nodiscard]] TileType getTileType(const TileCoordinates& coordinates) const noexcept;
+
+    /**
+     * @brief Enumerate the visible world tiles for a camera frame.
+     *
+     * The query derives visible tile and chunk bounds from the frame, applies a
+     * bounded overscan margin, clips the result to valid world coordinates, and
+     * serves tiles from retained chunk data.
+     *
+     * @param frame Camera frame used to determine visible terrain.
+     * @return Render-facing data for the visible world tiles.
+     */
+    [[nodiscard]] std::vector<VisibleWorldTile> getVisibleTiles(const ViewFrame& frame) const;
 
     /**
      * @brief Convert a tile coordinate to the center of that tile in world space.

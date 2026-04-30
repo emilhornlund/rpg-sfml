@@ -211,31 +211,28 @@ void Game::render()
     sf::RectangleShape tileShape;
     tileShape.setSize({m_impl->world.getTileSize(), m_impl->world.getTileSize()});
 
-    for (int y = 0; y < m_impl->world.getHeightInTiles(); ++y)
+    for (const VisibleWorldTile& visibleTile : m_impl->world.getVisibleTiles(frame))
     {
-        for (int x = 0; x < m_impl->world.getWidthInTiles(); ++x)
-        {
-            const TileCoordinates coordinates{x, y};
-            const WorldPosition tilePosition = m_impl->world.getTileCenter(coordinates);
-
-            tileShape.setPosition({
-                tilePosition.x - (m_impl->world.getTileSize() * 0.5F),
-                tilePosition.y - (m_impl->world.getTileSize() * 0.5F)});
-            tileShape.setFillColor(getTileColor(m_impl->world.getTileType(coordinates)));
-            m_impl->window.draw(tileShape);
-        }
+        tileShape.setPosition({
+            visibleTile.center.x - (m_impl->world.getTileSize() * 0.5F),
+            visibleTile.center.y - (m_impl->world.getTileSize() * 0.5F)});
+        tileShape.setFillColor(getTileColor(visibleTile.tileType));
+        m_impl->window.draw(tileShape);
     }
 
     sf::RectangleShape playerMarker;
+    const detail::PlayerMarkerPlacement playerMarkerPlacement = detail::getPlayerMarkerPlacement(
+        m_impl->world.getTileSize(),
+        m_impl->player.getPosition());
     playerMarker.setSize({
-        m_impl->world.getTileSize() * 0.5F,
-        m_impl->world.getTileSize() * 0.5F});
+        playerMarkerPlacement.size.width,
+        playerMarkerPlacement.size.height});
     playerMarker.setOrigin({
-        playerMarker.getSize().x * 0.5F,
-        playerMarker.getSize().y * 0.5F});
+        playerMarkerPlacement.origin.x,
+        playerMarkerPlacement.origin.y});
     playerMarker.setPosition({
-        m_impl->player.getPosition().x,
-        m_impl->player.getPosition().y});
+        playerMarkerPlacement.position.x,
+        playerMarkerPlacement.position.y});
     playerMarker.setFillColor(kPlayerColor);
     m_impl->window.draw(playerMarker);
 

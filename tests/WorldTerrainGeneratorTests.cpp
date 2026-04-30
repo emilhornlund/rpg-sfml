@@ -252,6 +252,26 @@ namespace
     return rpg::detail::getGeneratedChunkCount() == generatedChunkCount;
 }
 
+[[nodiscard]] bool verifyVisibleRenderQueriesReuseWorldCache()
+{
+    const rpg::WorldConfig config{.seed = 0x0BADCAFEU, .widthInTiles = 48, .heightInTiles = 32, .tileSize = 24.0F};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const std::size_t generatedChunkCount = rpg::detail::getGeneratedChunkCount();
+    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+    const rpg::ViewFrame frame{spawnPosition, {config.tileSize * 8.0F, config.tileSize * 6.0F}};
+
+    if (generatedChunkCount != expectedGeneratedChunkCount(config))
+    {
+        return false;
+    }
+
+    (void)world.getVisibleTiles(frame);
+    (void)world.getVisibleTiles(frame);
+
+    return rpg::detail::getGeneratedChunkCount() == generatedChunkCount;
+}
+
 [[nodiscard]] bool verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent()
 {
     const rpg::WorldConfig smallerWorldConfig{
@@ -320,6 +340,11 @@ int main()
     }
 
     if (!verifyChunkReuseThroughWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleRenderQueriesReuseWorldCache())
     {
         return 1;
     }

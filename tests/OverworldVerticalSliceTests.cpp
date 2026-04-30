@@ -30,6 +30,7 @@
 
 #include <cmath>
 #include <optional>
+#include <vector>
 
 namespace
 {
@@ -312,6 +313,103 @@ constexpr float kFloatTolerance = 0.001F;
     return foundShorelineSand && foundInlandGrass && foundInlandForest;
 }
 
+[[nodiscard]] bool containsVisibleTile(
+    const std::vector<rpg::VisibleWorldTile>& visibleTiles,
+    const rpg::TileCoordinates& coordinates) noexcept
+{
+    for (const rpg::VisibleWorldTile& visibleTile : visibleTiles)
+    {
+        if (visibleTile.coordinates.x == coordinates.x && visibleTile.coordinates.y == coordinates.y)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+[[nodiscard]] bool verifyVisibleTerrainTraversal()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 64, .heightInTiles = 64, .tileSize = 32.0F};
+    rpg::World world(config);
+    rpg::Camera camera;
+
+    camera.update(world.getSpawnPosition(), world, 320.0F, 224.0F);
+    const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(camera.getFrame());
+
+    if (visibleTiles.empty()
+        || visibleTiles.size() >= static_cast<std::size_t>(world.getWidthInTiles() * world.getHeightInTiles())
+        || !containsVisibleTile(visibleTiles, world.getSpawnTile()))
+    {
+        return false;
+    }
+
+    for (const rpg::VisibleWorldTile& visibleTile : visibleTiles)
+    {
+        if (!world.isInBounds(visibleTile.coordinates)
+            || visibleTile.tileType != world.getTileType(visibleTile.coordinates))
+        {
+            return false;
+        }
+
+        const rpg::TileCoordinates recoveredCoordinates = world.getTileCoordinates(visibleTile.center);
+
+        if (recoveredCoordinates.x != visibleTile.coordinates.x || recoveredCoordinates.y != visibleTile.coordinates.y)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+[[nodiscard]] bool verifyVisibleTerrainOverscan()
+{
+    const rpg::WorldConfig config{.seed = 0x13572468U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 20.0F};
+    rpg::World world(config);
+    const rpg::ViewFrame frame{
+        world.getTileCenter({10, 10}),
+        {world.getTileSize(), world.getTileSize()}};
+    const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(frame);
+
+    return visibleTiles.size() == 9
+        && containsVisibleTile(visibleTiles, {9, 9})
+        && containsVisibleTile(visibleTiles, {10, 10})
+        && containsVisibleTile(visibleTiles, {11, 11})
+        && !containsVisibleTile(visibleTiles, {8, 10})
+        && !containsVisibleTile(visibleTiles, {12, 10});
+}
+
+[[nodiscard]] bool verifyVisibleTerrainClipsAtWorldEdges()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
+    rpg::World world(config);
+    rpg::Camera camera;
+    const rpg::WorldSize worldSize = world.getWorldSize();
+
+    camera.update({0.0F, 0.0F}, world, 128.0F, 96.0F);
+    const std::vector<rpg::VisibleWorldTile> topLeftVisibleTiles = world.getVisibleTiles(camera.getFrame());
+
+    if (topLeftVisibleTiles.empty() || !containsVisibleTile(topLeftVisibleTiles, {0, 0}))
+    {
+        return false;
+    }
+
+    for (const rpg::VisibleWorldTile& visibleTile : topLeftVisibleTiles)
+    {
+        if (!world.isInBounds(visibleTile.coordinates))
+        {
+            return false;
+        }
+    }
+
+    camera.update({worldSize.width, worldSize.height}, world, 128.0F, 96.0F);
+    const std::vector<rpg::VisibleWorldTile> bottomRightVisibleTiles = world.getVisibleTiles(camera.getFrame());
+    return containsVisibleTile(
+        bottomRightVisibleTiles,
+        {world.getWidthInTiles() - 1, world.getHeightInTiles() - 1});
+}
+
 } // namespace
 
 int main()
@@ -347,6 +445,21 @@ int main()
     }
 
     if (!verifySignalDrivenBiomeDistribution())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleTerrainTraversal())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleTerrainOverscan())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleTerrainClipsAtWorldEdges())
     {
         return 1;
     }

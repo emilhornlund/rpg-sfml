@@ -27,6 +27,8 @@
 #ifndef RPG_MAIN_GAME_RUNTIME_SUPPORT_HPP
 #define RPG_MAIN_GAME_RUNTIME_SUPPORT_HPP
 
+#include <main/OverworldTypes.hpp>
+
 #include <utility>
 
 namespace rpg::detail
@@ -39,9 +41,27 @@ enum class RuntimeEvent
     EscapePressed
 };
 
+struct PlayerMarkerPlacement
+{
+    WorldSize size{0.0F, 0.0F};
+    WorldPosition origin{0.0F, 0.0F};
+    WorldPosition position{0.0F, 0.0F};
+};
+
 [[nodiscard]] constexpr bool shouldCloseForEvent(const RuntimeEvent event) noexcept
 {
     return event == RuntimeEvent::WindowClosed || event == RuntimeEvent::EscapePressed;
+}
+
+[[nodiscard]] constexpr PlayerMarkerPlacement getPlayerMarkerPlacement(
+    const float tileSize,
+    const WorldPosition& playerPosition) noexcept
+{
+    const float markerSize = tileSize * 0.5F;
+    return {
+        {markerSize, markerSize},
+        {markerSize * 0.5F, markerSize * 0.5F},
+        playerPosition};
 }
 
 template <typename ProcessEventsFn, typename UpdateFn, typename RenderFn>
