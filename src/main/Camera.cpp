@@ -25,22 +25,9 @@
  */
 
 #include <main/Camera.hpp>
-#include <main/World.hpp>
-
-#include <algorithm>
 
 namespace rpg
 {
-
-namespace
-{
-
-[[nodiscard]] float clampValue(const float value, const float minimum, const float maximum) noexcept
-{
-    return std::max(minimum, std::min(value, maximum));
-}
-
-} // namespace
 
 Camera::Camera() = default;
 
@@ -48,22 +35,11 @@ Camera::~Camera() = default;
 
 void Camera::update(
     const WorldPosition& focusPosition,
-    const World& world,
     const float viewportWidth,
     const float viewportHeight) noexcept
 {
-    const WorldSize worldSize = world.getWorldSize();
-
-    m_state.frame.size = {
-        std::min(viewportWidth, worldSize.width),
-        std::min(viewportHeight, worldSize.height)};
-
-    const float halfWidth = m_state.frame.size.width * 0.5F;
-    const float halfHeight = m_state.frame.size.height * 0.5F;
-
-    m_state.frame.center = {
-        clampValue(focusPosition.x, halfWidth, worldSize.width - halfWidth),
-        clampValue(focusPosition.y, halfHeight, worldSize.height - halfHeight)};
+    m_state.frame.size = {viewportWidth, viewportHeight};
+    m_state.frame.center = focusPosition;
 }
 
 ViewFrame Camera::getFrame() const noexcept

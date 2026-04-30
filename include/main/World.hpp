@@ -130,13 +130,6 @@ public:
     [[nodiscard]] float getTileSize() const noexcept;
 
     /**
-     * @brief Get the total world size in world units.
-     *
-     * @return The width and height of the generated world.
-     */
-    [[nodiscard]] WorldSize getWorldSize() const noexcept;
-
-    /**
      * @brief Get the deterministic player spawn tile.
      *
      * @return Traversable spawn coordinates inside the world grid.

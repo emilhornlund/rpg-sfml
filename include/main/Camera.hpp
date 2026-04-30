@@ -35,8 +35,6 @@
 namespace rpg
 {
 
-class World;
-
 /**
  * @brief Owns camera-specific runtime state.
  *
@@ -63,16 +61,14 @@ public:
     ~Camera();
 
     /**
-     * @brief Update the camera frame from the player position and world bounds.
+     * @brief Update the camera frame from the player position.
      *
      * @param focusPosition World-space position to follow.
-     * @param world World data used to clamp the frame.
      * @param viewportWidth Desired viewport width in world units.
      * @param viewportHeight Desired viewport height in world units.
      */
     void update(
         const WorldPosition& focusPosition,
-        const World& world,
         float viewportWidth,
         float viewportHeight) noexcept;
 

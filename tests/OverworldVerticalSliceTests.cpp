@@ -134,7 +134,6 @@ constexpr float kFloatTolerance = 0.001F;
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
     rpg::World world(config);
-    const rpg::WorldSize worldSize = world.getWorldSize();
     const rpg::TileCoordinates cornerTile{config.widthInTiles - 1, config.heightInTiles - 1};
     const rpg::WorldPosition cornerCenter = world.getTileCenter(cornerTile);
     const rpg::TileCoordinates recoveredTile = world.getTileCoordinates(cornerCenter);
@@ -142,8 +141,8 @@ constexpr float kFloatTolerance = 0.001F;
     return world.getWidthInTiles() == config.widthInTiles
         && world.getHeightInTiles() == config.heightInTiles
         && areClose(world.getTileSize(), config.tileSize)
-        && areClose(worldSize.width, static_cast<float>(config.widthInTiles) * config.tileSize)
-        && areClose(worldSize.height, static_cast<float>(config.heightInTiles) * config.tileSize)
+        && areClose(cornerCenter.x, (static_cast<float>(config.widthInTiles) - 0.5F) * config.tileSize)
+        && areClose(cornerCenter.y, (static_cast<float>(config.heightInTiles) - 0.5F) * config.tileSize)
         && recoveredTile.x == cornerTile.x
         && recoveredTile.y == cornerTile.y;
 }
@@ -239,32 +238,25 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
-[[nodiscard]] bool verifyCameraClamping()
+[[nodiscard]] bool verifyCameraFollowsFocus()
 {
-    rpg::World world;
     rpg::Camera camera;
+    const rpg::WorldPosition firstFocus{0.0F, 0.0F};
+    const rpg::WorldPosition secondFocus{384.0F, 288.0F};
 
-    const rpg::WorldSize worldSize = world.getWorldSize();
+    camera.update(firstFocus, 1280.0F, 720.0F);
+    const rpg::ViewFrame firstFrame = camera.getFrame();
+    camera.update(secondFocus, 320.0F, 224.0F);
+    const rpg::ViewFrame secondFrame = camera.getFrame();
 
-    camera.update({0.0F, 0.0F}, world, 1280.0F, 720.0F);
-    const rpg::ViewFrame topLeftFrame = camera.getFrame();
-
-    if (!areClose(topLeftFrame.center.x, topLeftFrame.size.width * 0.5F)
-        || !areClose(topLeftFrame.center.y, topLeftFrame.size.height * 0.5F))
-    {
-        return false;
-    }
-
-    camera.update({worldSize.width, worldSize.height}, world, 1280.0F, 720.0F);
-    const rpg::ViewFrame bottomRightFrame = camera.getFrame();
-
-    if (!areClose(bottomRightFrame.center.x, worldSize.width - (bottomRightFrame.size.width * 0.5F))
-        || !areClose(bottomRightFrame.center.y, worldSize.height - (bottomRightFrame.size.height * 0.5F)))
-    {
-        return false;
-    }
-
-    return true;
+    return areClose(firstFrame.center.x, firstFocus.x)
+        && areClose(firstFrame.center.y, firstFocus.y)
+        && areClose(firstFrame.size.width, 1280.0F)
+        && areClose(firstFrame.size.height, 720.0F)
+        && areClose(secondFrame.center.x, secondFocus.x)
+        && areClose(secondFrame.center.y, secondFocus.y)
+        && areClose(secondFrame.size.width, 320.0F)
+        && areClose(secondFrame.size.height, 224.0F);
 }
 
 [[nodiscard]] bool verifySignalDrivenBiomeDistribution()
@@ -334,7 +326,7 @@ constexpr float kFloatTolerance = 0.001F;
     rpg::World world(config);
     rpg::Camera camera;
 
-    camera.update(world.getSpawnPosition(), world, 320.0F, 224.0F);
+    camera.update(world.getSpawnPosition(), 320.0F, 224.0F);
     const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(camera.getFrame());
 
     if (visibleTiles.empty()
@@ -380,17 +372,21 @@ constexpr float kFloatTolerance = 0.001F;
         && !containsVisibleTile(visibleTiles, {12, 10});
 }
 
-[[nodiscard]] bool verifyVisibleTerrainClipsAtWorldEdges()
+[[nodiscard]] bool verifyVisibleTerrainSupportsUnclampedFramesAtWorldEdges()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
     rpg::World world(config);
     rpg::Camera camera;
-    const rpg::WorldSize worldSize = world.getWorldSize();
+    const float worldWidth = static_cast<float>(config.widthInTiles) * config.tileSize;
+    const float worldHeight = static_cast<float>(config.heightInTiles) * config.tileSize;
 
-    camera.update({0.0F, 0.0F}, world, 128.0F, 96.0F);
+    camera.update({0.0F, 0.0F}, 128.0F, 96.0F);
     const std::vector<rpg::VisibleWorldTile> topLeftVisibleTiles = world.getVisibleTiles(camera.getFrame());
 
-    if (topLeftVisibleTiles.empty() || !containsVisibleTile(topLeftVisibleTiles, {0, 0}))
+    if (topLeftVisibleTiles.empty()
+        || !areClose(camera.getFrame().center.x, 0.0F)
+        || !areClose(camera.getFrame().center.y, 0.0F)
+        || !containsVisibleTile(topLeftVisibleTiles, {0, 0}))
     {
         return false;
     }
@@ -403,11 +399,27 @@ constexpr float kFloatTolerance = 0.001F;
         }
     }
 
-    camera.update({worldSize.width, worldSize.height}, world, 128.0F, 96.0F);
+    camera.update({worldWidth, worldHeight}, 128.0F, 96.0F);
     const std::vector<rpg::VisibleWorldTile> bottomRightVisibleTiles = world.getVisibleTiles(camera.getFrame());
-    return containsVisibleTile(
-        bottomRightVisibleTiles,
-        {world.getWidthInTiles() - 1, world.getHeightInTiles() - 1});
+
+    if (!areClose(camera.getFrame().center.x, worldWidth)
+        || !areClose(camera.getFrame().center.y, worldHeight)
+        || !containsVisibleTile(
+            bottomRightVisibleTiles,
+            {world.getWidthInTiles() - 1, world.getHeightInTiles() - 1}))
+    {
+        return false;
+    }
+
+    for (const rpg::VisibleWorldTile& visibleTile : bottomRightVisibleTiles)
+    {
+        if (!world.isInBounds(visibleTile.coordinates))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 } // namespace
@@ -439,7 +451,7 @@ int main()
         return 1;
     }
 
-    if (!verifyCameraClamping())
+    if (!verifyCameraFollowsFocus())
     {
         return 1;
     }
@@ -459,7 +471,7 @@ int main()
         return 1;
     }
 
-    if (!verifyVisibleTerrainClipsAtWorldEdges())
+    if (!verifyVisibleTerrainSupportsUnclampedFramesAtWorldEdges())
     {
         return 1;
     }

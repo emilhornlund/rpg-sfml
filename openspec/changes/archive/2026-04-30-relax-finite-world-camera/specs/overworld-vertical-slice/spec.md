@@ -1,8 +1,4 @@
-## Purpose
-
-Define the deterministic overworld vertical slice, including generation, movement, camera behavior, and basic rendering.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Deterministic overworld generation
 The runtime SHALL generate the overworld from explicit world configuration inputs that include a deterministic seed, tile size, and any finite-slice sizing inputs still required by the current vertical slice so the resulting terrain queries, spawn point, and generated slice extent remain stable for a given configuration. The generated terrain SHALL derive its tile categories from deterministic layered environmental signals that include elevation and moisture so neighboring tiles form spatially coherent landforms and biomes rather than independent per-tile noise. The world implementation SHALL be allowed to satisfy those deterministic terrain queries through chunk-addressed generated data retained behind `World` instead of requiring one eagerly generated full-world tile grid, and camera-facing runtime flows SHALL NOT require world-size accessors in order to frame the view.
@@ -42,21 +38,6 @@ The runtime SHALL generate the overworld from explicit world configuration input
 - **THEN** the world module uses the built-in default configuration
 - **AND** the generated overworld remains deterministic across repeated launches of the same build
 
-### Requirement: Player movement within the overworld slice
-The runtime SHALL place the player in the generated overworld and update the player's position in response to configured movement input while keeping the player inside valid traversable space for the slice.
-
-#### Scenario: Initial player placement
-- **WHEN** a new overworld slice starts
-- **THEN** the player is placed at the world-provided spawn position
-
-#### Scenario: Traversing a valid tile
-- **WHEN** the player provides movement input toward an in-bounds traversable location
-- **THEN** the player position advances in that direction during update processing
-
-#### Scenario: Rejecting invalid movement
-- **WHEN** the player provides movement input toward an out-of-bounds or non-traversable location
-- **THEN** the runtime keeps the player in the nearest valid position inside the slice
-
 ### Requirement: Camera tracks the player in the overworld
 The runtime SHALL frame the overworld through the camera module so the view follows the player's current position without clamping the camera frame to generated world bounds.
 
@@ -70,7 +51,7 @@ The runtime SHALL frame the overworld through the camera module so the view foll
 - **AND** the rendered view may expose space outside the generated overworld bounds
 
 ### Requirement: Basic tile rendering for the overworld slice
-The runtime SHALL render the generated overworld and the player marker each frame using basic built-in visuals that distinguish at least the traversable terrain from non-traversable terrain, and it SHALL derive terrain drawing from camera-visible terrain traversal instead of full-world tile loops.
+The runtime SHALL render the generated overworld and the player marker each frame using basic built-in visuals that distinguish at least the traversable terrain from non-traversable terrain.
 
 #### Scenario: Rendering the generated map
 - **WHEN** the runtime renders a frame for the overworld slice

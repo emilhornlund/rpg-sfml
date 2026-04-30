@@ -193,7 +193,6 @@ void Game::update(float deltaTimeSeconds)
     m_impl->player.update(deltaTimeSeconds, m_impl->world);
     m_impl->camera.update(
         m_impl->player.getPosition(),
-        m_impl->world,
         static_cast<float>(kWindowWidth),
         static_cast<float>(kWindowHeight));
 }
@@ -244,7 +243,6 @@ void Game::initializeOverworldSlice()
     m_impl->player.spawn(m_impl->world.getSpawnPosition());
     m_impl->camera.update(
         m_impl->player.getPosition(),
-        m_impl->world,
         static_cast<float>(kWindowWidth),
         static_cast<float>(kWindowHeight));
     m_impl->isOverworldInitialized = true;

@@ -175,13 +175,6 @@ float World::getTileSize() const noexcept
     return m_state.config.tileSize;
 }
 
-WorldSize World::getWorldSize() const noexcept
-{
-    return {
-        static_cast<float>(m_state.config.widthInTiles) * m_state.config.tileSize,
-        static_cast<float>(m_state.config.heightInTiles) * m_state.config.tileSize};
-}
-
 TileCoordinates World::getSpawnTile() const noexcept
 {
     return m_state.spawnTile;
