@@ -31,16 +31,19 @@
 #include <type_traits>
 
 static_assert(std::is_default_constructible_v<rpg::World>);
+static_assert(std::is_constructible_v<rpg::World, rpg::WorldConfig>);
 static_assert(std::is_default_constructible_v<rpg::Player>);
 static_assert(std::is_default_constructible_v<rpg::Camera>);
 
 int main()
 {
     rpg::World world;
+    rpg::World configuredWorld(rpg::WorldConfig{});
     rpg::Player player;
     rpg::Camera camera;
 
     (void)world;
+    (void)configuredWorld;
     (void)player;
     (void)camera;
 

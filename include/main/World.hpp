@@ -29,6 +29,7 @@
 
 #include <main/OverworldTypes.hpp>
 
+#include <cstdint>
 #include <vector>
 
 /**
@@ -36,6 +37,21 @@
  */
 namespace rpg
 {
+
+/**
+ * @brief Configuration inputs for deterministic overworld generation.
+ *
+ * The world configuration captures the generation inputs that define a finite
+ * overworld slice. Reusing the same configuration produces the same tile
+ * layout, spawn point, dimensions, and tile size.
+ */
+struct WorldConfig
+{
+    std::uint32_t seed = 0x00C0FFEEU;
+    int widthInTiles = 64;
+    int heightInTiles = 64;
+    float tileSize = 32.0F;
+};
 
 /**
  * @brief Tile categories for the overworld slice.
@@ -65,6 +81,13 @@ public:
      * Prepares the world-owned state used by the runtime.
      */
     World();
+
+    /**
+     * @brief Construct a new world module from explicit generation inputs.
+     *
+     * @param config Deterministic configuration used to generate the world.
+     */
+    explicit World(const WorldConfig& config);
 
     /**
      * @brief Destroy the world module.
@@ -172,9 +195,7 @@ private:
      */
     struct State
     {
-        int widthInTiles = 0;
-        int heightInTiles = 0;
-        float tileSize = 0.0F;
+        WorldConfig config;
         TileCoordinates spawnTile{0, 0};
         std::vector<TileType> tiles;
     };

@@ -76,8 +76,9 @@ constexpr float kFloatTolerance = 0.001F;
 
 [[nodiscard]] bool verifyDeterministicWorld()
 {
-    rpg::World firstWorld;
-    rpg::World secondWorld;
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    rpg::World firstWorld(config);
+    rpg::World secondWorld(config);
 
     if (firstWorld.getWidthInTiles() != secondWorld.getWidthInTiles()
         || firstWorld.getHeightInTiles() != secondWorld.getHeightInTiles()
@@ -104,16 +105,58 @@ constexpr float kFloatTolerance = 0.001F;
     return true;
 }
 
+[[nodiscard]] bool verifyConfiguredWorldDimensions()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
+    rpg::World world(config);
+    const rpg::WorldSize worldSize = world.getWorldSize();
+    const rpg::TileCoordinates cornerTile{config.widthInTiles - 1, config.heightInTiles - 1};
+    const rpg::WorldPosition cornerCenter = world.getTileCenter(cornerTile);
+    const rpg::TileCoordinates recoveredTile = world.getTileCoordinates(cornerCenter);
+
+    return world.getWidthInTiles() == config.widthInTiles
+        && world.getHeightInTiles() == config.heightInTiles
+        && areClose(world.getTileSize(), config.tileSize)
+        && areClose(worldSize.width, static_cast<float>(config.widthInTiles) * config.tileSize)
+        && areClose(worldSize.height, static_cast<float>(config.heightInTiles) * config.tileSize)
+        && recoveredTile.x == cornerTile.x
+        && recoveredTile.y == cornerTile.y;
+}
+
 [[nodiscard]] bool verifySpawnValidity()
 {
-    rpg::World world;
-    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
-    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+    const auto hasValidSpawn = [](const rpg::World& world)
+    {
+        const rpg::TileCoordinates spawnTile = world.getSpawnTile();
+        const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
 
-    return world.isInBounds(spawnTile)
-        && world.isTraversable(spawnTile)
-        && world.getTileCoordinates(spawnPosition).x == spawnTile.x
-        && world.getTileCoordinates(spawnPosition).y == spawnTile.y;
+        return world.isInBounds(spawnTile)
+            && world.isTraversable(spawnTile)
+            && world.getTileCoordinates(spawnPosition).x == spawnTile.x
+            && world.getTileCoordinates(spawnPosition).y == spawnTile.y;
+    };
+
+    rpg::World defaultWorld;
+    const rpg::WorldConfig configuredWorldConfig{
+        .seed = 0x13572468U,
+        .widthInTiles = 36,
+        .heightInTiles = 20,
+        .tileSize = 20.0F};
+    rpg::World configuredWorld(configuredWorldConfig);
+
+    return hasValidSpawn(defaultWorld) && hasValidSpawn(configuredWorld);
+}
+
+[[nodiscard]] bool verifyDefaultWorldConfiguration()
+{
+    rpg::World firstWorld;
+    rpg::World secondWorld;
+
+    return firstWorld.getWidthInTiles() == 64
+        && firstWorld.getHeightInTiles() == 64
+        && areClose(firstWorld.getTileSize(), 32.0F)
+        && firstWorld.getSpawnTile().x == secondWorld.getSpawnTile().x
+        && firstWorld.getSpawnTile().y == secondWorld.getSpawnTile().y;
 }
 
 [[nodiscard]] bool verifyPlayerMovement()
@@ -209,6 +252,16 @@ int main()
     }
 
     if (!verifySpawnValidity())
+    {
+        return 1;
+    }
+
+    if (!verifyConfiguredWorldDimensions())
+    {
+        return 1;
+    }
+
+    if (!verifyDefaultWorldConfiguration())
     {
         return 1;
     }

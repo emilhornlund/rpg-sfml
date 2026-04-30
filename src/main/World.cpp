@@ -36,19 +36,14 @@ namespace rpg
 namespace
 {
 
-constexpr int kWorldWidthInTiles = 64;
-constexpr int kWorldHeightInTiles = 64;
-constexpr float kTileSize = 32.0F;
-constexpr std::uint32_t kWorldSeed = 0x00C0FFEEU;
-
 [[nodiscard]] std::size_t toIndex(const TileCoordinates& coordinates, const int widthInTiles) noexcept
 {
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
-[[nodiscard]] std::uint32_t hashCoordinates(const int x, const int y) noexcept
+[[nodiscard]] std::uint32_t hashCoordinates(const std::uint32_t seed, const int x, const int y) noexcept
 {
-    std::uint32_t value = kWorldSeed;
+    std::uint32_t value = seed;
     value ^= static_cast<std::uint32_t>(x * 73856093);
     value ^= static_cast<std::uint32_t>(y * 19349663);
     value ^= value >> 13U;
@@ -57,14 +52,17 @@ constexpr std::uint32_t kWorldSeed = 0x00C0FFEEU;
     return value;
 }
 
-[[nodiscard]] TileType classifyTile(const int x, const int y) noexcept
+[[nodiscard]] TileType classifyTile(const WorldConfig& config, const int x, const int y) noexcept
 {
-    if (x == 0 || y == 0 || x == kWorldWidthInTiles - 1 || y == kWorldHeightInTiles - 1)
+    if (x == 0
+        || y == 0
+        || x == config.widthInTiles - 1
+        || y == config.heightInTiles - 1)
     {
         return TileType::Water;
     }
 
-    const std::uint32_t noise = hashCoordinates(x, y) % 100U;
+    const std::uint32_t noise = hashCoordinates(config.seed, x, y) % 100U;
 
     if (noise < 12U)
     {
@@ -123,46 +121,49 @@ constexpr std::uint32_t kWorldSeed = 0x00C0FFEEU;
 } // namespace
 
 World::World()
+    : World(WorldConfig{})
 {
-    m_state.widthInTiles = kWorldWidthInTiles;
-    m_state.heightInTiles = kWorldHeightInTiles;
-    m_state.tileSize = kTileSize;
-    m_state.tiles.resize(static_cast<std::size_t>(m_state.widthInTiles * m_state.heightInTiles));
+}
 
-    for (int y = 0; y < m_state.heightInTiles; ++y)
+World::World(const WorldConfig& config)
+{
+    m_state.config = config;
+    m_state.tiles.resize(static_cast<std::size_t>(m_state.config.widthInTiles * m_state.config.heightInTiles));
+
+    for (int y = 0; y < m_state.config.heightInTiles; ++y)
     {
-        for (int x = 0; x < m_state.widthInTiles; ++x)
+        for (int x = 0; x < m_state.config.widthInTiles; ++x)
         {
             const TileCoordinates coordinates{x, y};
-            m_state.tiles[toIndex(coordinates, m_state.widthInTiles)] = classifyTile(x, y);
+            m_state.tiles[toIndex(coordinates, m_state.config.widthInTiles)] = classifyTile(m_state.config, x, y);
         }
     }
 
-    m_state.spawnTile = findSpawnTile(m_state.tiles, m_state.widthInTiles, m_state.heightInTiles);
+    m_state.spawnTile = findSpawnTile(m_state.tiles, m_state.config.widthInTiles, m_state.config.heightInTiles);
 }
 
 World::~World() = default;
 
 int World::getWidthInTiles() const noexcept
 {
-    return m_state.widthInTiles;
+    return m_state.config.widthInTiles;
 }
 
 int World::getHeightInTiles() const noexcept
 {
-    return m_state.heightInTiles;
+    return m_state.config.heightInTiles;
 }
 
 float World::getTileSize() const noexcept
 {
-    return m_state.tileSize;
+    return m_state.config.tileSize;
 }
 
 WorldSize World::getWorldSize() const noexcept
 {
     return {
-        static_cast<float>(m_state.widthInTiles) * m_state.tileSize,
-        static_cast<float>(m_state.heightInTiles) * m_state.tileSize};
+        static_cast<float>(m_state.config.widthInTiles) * m_state.config.tileSize,
+        static_cast<float>(m_state.config.heightInTiles) * m_state.config.tileSize};
 }
 
 TileCoordinates World::getSpawnTile() const noexcept
@@ -178,9 +179,9 @@ WorldPosition World::getSpawnPosition() const noexcept
 bool World::isInBounds(const TileCoordinates& coordinates) const noexcept
 {
     return coordinates.x >= 0
-        && coordinates.x < m_state.widthInTiles
+        && coordinates.x < m_state.config.widthInTiles
         && coordinates.y >= 0
-        && coordinates.y < m_state.heightInTiles;
+        && coordinates.y < m_state.config.heightInTiles;
 }
 
 bool World::isTraversable(const TileCoordinates& coordinates) const noexcept
@@ -200,21 +201,21 @@ TileType World::getTileType(const TileCoordinates& coordinates) const noexcept
         return TileType::Water;
     }
 
-    return m_state.tiles[toIndex(coordinates, m_state.widthInTiles)];
+    return m_state.tiles[toIndex(coordinates, m_state.config.widthInTiles)];
 }
 
 WorldPosition World::getTileCenter(const TileCoordinates& coordinates) const noexcept
 {
     return {
-        (static_cast<float>(coordinates.x) + 0.5F) * m_state.tileSize,
-        (static_cast<float>(coordinates.y) + 0.5F) * m_state.tileSize};
+        (static_cast<float>(coordinates.x) + 0.5F) * m_state.config.tileSize,
+        (static_cast<float>(coordinates.y) + 0.5F) * m_state.config.tileSize};
 }
 
 TileCoordinates World::getTileCoordinates(const WorldPosition& position) const noexcept
 {
     return {
-        static_cast<int>(std::floor(position.x / m_state.tileSize)),
-        static_cast<int>(std::floor(position.y / m_state.tileSize))};
+        static_cast<int>(std::floor(position.x / m_state.config.tileSize)),
+        static_cast<int>(std::floor(position.y / m_state.config.tileSize))};
 }
 
 } // namespace rpg
