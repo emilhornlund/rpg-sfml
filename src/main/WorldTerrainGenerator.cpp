@@ -121,17 +121,6 @@ std::size_t g_generatedChunkCount = 0;
     return static_cast<float>(coordinate) / scaleInTiles;
 }
 
-[[nodiscard]] float evaluateEdgeFalloff(const WorldConfig& config, const int x, const int y) noexcept
-{
-    constexpr float kEdgeFadeDistanceInTiles = 10.0F;
-
-    const int distanceToVerticalEdge = std::min(x, (config.widthInTiles - 1) - x);
-    const int distanceToHorizontalEdge = std::min(y, (config.heightInTiles - 1) - y);
-    const int minDistanceToEdge = std::min(distanceToVerticalEdge, distanceToHorizontalEdge);
-
-    return smoothstep(static_cast<float>(minDistanceToEdge) / kEdgeFadeDistanceInTiles);
-}
-
 [[nodiscard]] float evaluateElevation(const WorldConfig& config, const int x, const int y) noexcept
 {
     const float sampleX = toNoiseCoordinate(x, 24.0F);
@@ -139,9 +128,7 @@ std::size_t g_generatedChunkCount = 0;
     const float continent = sampleValueNoise(config.seed ^ 0xA511E9B3U, sampleX, sampleY);
     const float region = sampleValueNoise(config.seed ^ 0x63D83595U, sampleX * 2.4F, sampleY * 2.4F);
     const float detail = sampleValueNoise(config.seed ^ 0xC2B2AE35U, sampleX * 4.8F, sampleY * 4.8F);
-    const float baseElevation = (0.58F * continent) + (0.27F * region) + (0.15F * detail);
-    const float edgeFalloff = evaluateEdgeFalloff(config, x, y);
-    return clamp01(baseElevation - ((1.0F - edgeFalloff) * 0.48F));
+    return clamp01((0.58F * continent) + (0.27F * region) + (0.15F * detail));
 }
 
 [[nodiscard]] float evaluateMoisture(const WorldConfig& config, const int x, const int y) noexcept
@@ -159,18 +146,6 @@ std::size_t g_generatedChunkCount = 0;
 
 [[nodiscard]] TileType classifyTile(const WorldConfig& config, const int x, const int y) noexcept
 {
-    if (x < 0
-        || y < 0
-        || x >= config.widthInTiles
-        || y >= config.heightInTiles
-        || x == 0
-        || y == 0
-        || x == config.widthInTiles - 1
-        || y == config.heightInTiles - 1)
-    {
-        return TileType::Water;
-    }
-
     constexpr float kSeaLevel = 0.39F;
     constexpr float kShorelineLevel = 0.47F;
     constexpr float kForestMoisture = 0.53F;

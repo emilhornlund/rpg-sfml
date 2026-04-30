@@ -28,6 +28,7 @@
 #include <main/Player.hpp>
 #include <main/World.hpp>
 
+#include <array>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -57,9 +58,42 @@ constexpr float kFloatTolerance = 0.001F;
     {
         const rpg::TileCoordinates candidate{origin.x + offset.x, origin.y + offset.y};
 
-        if (world.isInBounds(candidate) && world.isTraversable(candidate) == wantTraversable)
+        if (world.isTraversable(candidate) == wantTraversable)
         {
             return candidate;
+        }
+    }
+
+    return std::nullopt;
+}
+
+[[nodiscard]] std::optional<rpg::TileCoordinates> findTraversableTileNear(
+    const rpg::World& world,
+    const rpg::TileCoordinates& anchor,
+    const int searchRadius)
+{
+    for (int radius = 0; radius <= searchRadius; ++radius)
+    {
+        for (int y = anchor.y - radius; y <= anchor.y + radius; ++y)
+        {
+            for (int x = anchor.x - radius; x <= anchor.x + radius; ++x)
+            {
+                if (radius > 0
+                    && x != anchor.x - radius
+                    && x != anchor.x + radius
+                    && y != anchor.y - radius
+                    && y != anchor.y + radius)
+                {
+                    continue;
+                }
+
+                const rpg::TileCoordinates coordinates{x, y};
+
+                if (world.isTraversable(coordinates))
+                {
+                    return coordinates;
+                }
+            }
         }
     }
 
@@ -90,7 +124,7 @@ constexpr float kFloatTolerance = 0.001F;
     {
         const rpg::TileCoordinates candidate{coordinates.x + offset.x, coordinates.y + offset.y};
 
-        if (world.isInBounds(candidate) && world.getTileType(candidate) == tileType)
+        if (world.getTileType(candidate) == tileType)
         {
             return true;
         }
@@ -104,47 +138,45 @@ constexpr float kFloatTolerance = 0.001F;
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
     rpg::World firstWorld(config);
     rpg::World secondWorld(config);
+    const std::array<rpg::TileCoordinates, 5> sampleCoordinates = {{
+        {-24, -12},
+        {-1, 0},
+        {0, 0},
+        {16, 8},
+        {72, 40},
+    }};
 
-    if (firstWorld.getWidthInTiles() != secondWorld.getWidthInTiles()
-        || firstWorld.getHeightInTiles() != secondWorld.getHeightInTiles()
-        || !areClose(firstWorld.getTileSize(), secondWorld.getTileSize())
+    if (!areClose(firstWorld.getTileSize(), secondWorld.getTileSize())
         || firstWorld.getSpawnTile().x != secondWorld.getSpawnTile().x
         || firstWorld.getSpawnTile().y != secondWorld.getSpawnTile().y)
     {
         return false;
     }
 
-    for (int y = 0; y < firstWorld.getHeightInTiles(); ++y)
+    for (const rpg::TileCoordinates& coordinates : sampleCoordinates)
     {
-        for (int x = 0; x < firstWorld.getWidthInTiles(); ++x)
+        if (firstWorld.getTileType(coordinates) != secondWorld.getTileType(coordinates))
         {
-            const rpg::TileCoordinates coordinates{x, y};
-
-            if (firstWorld.getTileType(coordinates) != secondWorld.getTileType(coordinates))
-            {
-                return false;
-            }
+            return false;
         }
     }
 
     return true;
 }
 
-[[nodiscard]] bool verifyConfiguredWorldDimensions()
+[[nodiscard]] bool verifyConfiguredWorldCoordinates()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
     rpg::World world(config);
-    const rpg::TileCoordinates cornerTile{config.widthInTiles - 1, config.heightInTiles - 1};
-    const rpg::WorldPosition cornerCenter = world.getTileCenter(cornerTile);
-    const rpg::TileCoordinates recoveredTile = world.getTileCoordinates(cornerCenter);
+    const rpg::TileCoordinates tile{24, -18};
+    const rpg::WorldPosition tileCenter = world.getTileCenter(tile);
+    const rpg::TileCoordinates recoveredTile = world.getTileCoordinates(tileCenter);
 
-    return world.getWidthInTiles() == config.widthInTiles
-        && world.getHeightInTiles() == config.heightInTiles
-        && areClose(world.getTileSize(), config.tileSize)
-        && areClose(cornerCenter.x, (static_cast<float>(config.widthInTiles) - 0.5F) * config.tileSize)
-        && areClose(cornerCenter.y, (static_cast<float>(config.heightInTiles) - 0.5F) * config.tileSize)
-        && recoveredTile.x == cornerTile.x
-        && recoveredTile.y == cornerTile.y;
+    return areClose(world.getTileSize(), config.tileSize)
+        && areClose(tileCenter.x, (static_cast<float>(tile.x) + 0.5F) * config.tileSize)
+        && areClose(tileCenter.y, (static_cast<float>(tile.y) + 0.5F) * config.tileSize)
+        && recoveredTile.x == tile.x
+        && recoveredTile.y == tile.y;
 }
 
 [[nodiscard]] bool verifySpawnValidity()
@@ -154,8 +186,7 @@ constexpr float kFloatTolerance = 0.001F;
         const rpg::TileCoordinates spawnTile = world.getSpawnTile();
         const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
 
-        return world.isInBounds(spawnTile)
-            && world.isTraversable(spawnTile)
+        return world.isTraversable(spawnTile)
             && world.getTileCoordinates(spawnPosition).x == spawnTile.x
             && world.getTileCoordinates(spawnPosition).y == spawnTile.y;
     };
@@ -176,9 +207,7 @@ constexpr float kFloatTolerance = 0.001F;
     rpg::World firstWorld;
     rpg::World secondWorld;
 
-    return firstWorld.getWidthInTiles() == 64
-        && firstWorld.getHeightInTiles() == 64
-        && areClose(firstWorld.getTileSize(), 32.0F)
+    return areClose(firstWorld.getTileSize(), 32.0F)
         && firstWorld.getSpawnTile().x == secondWorld.getSpawnTile().x
         && firstWorld.getSpawnTile().y == secondWorld.getSpawnTile().y;
 }
@@ -207,35 +236,63 @@ constexpr float kFloatTolerance = 0.001F;
         return false;
     }
 
-    for (int y = 1; y < world.getHeightInTiles() - 1; ++y)
+    for (int radius = 0; radius <= 32; ++radius)
     {
-        for (int x = 1; x < world.getWidthInTiles() - 1; ++x)
+        for (int y = spawnTile.y - radius; y <= spawnTile.y + radius; ++y)
         {
-            const rpg::TileCoordinates coordinates{x, y};
-
-            if (!world.isTraversable(coordinates))
+            for (int x = spawnTile.x - radius; x <= spawnTile.x + radius; ++x)
             {
-                continue;
+                const rpg::TileCoordinates coordinates{x, y};
+
+                if (!world.isTraversable(coordinates))
+                {
+                    continue;
+                }
+
+                const std::optional<rpg::TileCoordinates> blockedNeighbor = findAdjacentTile(world, coordinates, false);
+
+                if (!blockedNeighbor.has_value())
+                {
+                    continue;
+                }
+
+                player.spawn(world.getTileCenter(coordinates));
+                player.setMovementIntent(movementIntentForTiles(coordinates, *blockedNeighbor));
+                player.update(world.getTileSize() / player.getMovementSpeed(), world);
+
+                const rpg::TileCoordinates blockedResult = world.getTileCoordinates(player.getPosition());
+                return blockedResult.x == coordinates.x && blockedResult.y == coordinates.y;
             }
-
-            const std::optional<rpg::TileCoordinates> blockedNeighbor = findAdjacentTile(world, coordinates, false);
-
-            if (!blockedNeighbor.has_value())
-            {
-                continue;
-            }
-
-            player.spawn(world.getTileCenter(coordinates));
-            player.setMovementIntent(movementIntentForTiles(coordinates, *blockedNeighbor));
-            player.update(world.getTileSize() / player.getMovementSpeed(), world);
-
-            const rpg::TileCoordinates blockedResult = world.getTileCoordinates(player.getPosition());
-
-            return blockedResult.x == coordinates.x && blockedResult.y == coordinates.y;
         }
     }
 
     return false;
+}
+
+[[nodiscard]] bool verifyPlayerMovementBeyondInitialArea()
+{
+    rpg::World world;
+    rpg::Player player;
+    const std::optional<rpg::TileCoordinates> originNearFarTile = findTraversableTileNear(world, {96, 64}, 32);
+
+    if (!originNearFarTile.has_value())
+    {
+        return false;
+    }
+
+    const std::optional<rpg::TileCoordinates> traversableNeighbor = findAdjacentTile(world, *originNearFarTile, true);
+
+    if (!traversableNeighbor.has_value())
+    {
+        return false;
+    }
+
+    player.spawn(world.getTileCenter(*originNearFarTile));
+    player.setMovementIntent(movementIntentForTiles(*originNearFarTile, *traversableNeighbor));
+    player.update(world.getTileSize() / player.getMovementSpeed(), world);
+
+    const rpg::TileCoordinates movedTile = world.getTileCoordinates(player.getPosition());
+    return movedTile.x == traversableNeighbor->x && movedTile.y == traversableNeighbor->y;
 }
 
 [[nodiscard]] bool verifyCameraFollowsFocus()
@@ -268,17 +325,15 @@ constexpr float kFloatTolerance = 0.001F;
     bool foundInlandGrass = false;
     bool foundInlandForest = false;
 
-    for (int y = 1; y < world.getHeightInTiles() - 1; ++y)
+    for (int y = -32; y <= 32; ++y)
     {
-        for (int x = 1; x < world.getWidthInTiles() - 1; ++x)
+        for (int x = -32; x <= 32; ++x)
         {
             const rpg::TileCoordinates coordinates{x, y};
             const rpg::TileType tileType = world.getTileType(coordinates);
             const bool adjacentToWater = hasAdjacentTileType(world, coordinates, rpg::TileType::Water);
-            const bool isInland = x > 2
-                && x < world.getWidthInTiles() - 3
-                && y > 2
-                && y < world.getHeightInTiles() - 3
+            const bool isInland = std::abs(x) > 4
+                && std::abs(y) > 4
                 && !adjacentToWater;
 
             if (tileType == rpg::TileType::Sand && adjacentToWater)
@@ -330,7 +385,6 @@ constexpr float kFloatTolerance = 0.001F;
     const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(camera.getFrame());
 
     if (visibleTiles.empty()
-        || visibleTiles.size() >= static_cast<std::size_t>(world.getWidthInTiles() * world.getHeightInTiles())
         || !containsVisibleTile(visibleTiles, world.getSpawnTile()))
     {
         return false;
@@ -338,8 +392,7 @@ constexpr float kFloatTolerance = 0.001F;
 
     for (const rpg::VisibleWorldTile& visibleTile : visibleTiles)
     {
-        if (!world.isInBounds(visibleTile.coordinates)
-            || visibleTile.tileType != world.getTileType(visibleTile.coordinates))
+        if (visibleTile.tileType != world.getTileType(visibleTile.coordinates))
         {
             return false;
         }
@@ -372,54 +425,26 @@ constexpr float kFloatTolerance = 0.001F;
         && !containsVisibleTile(visibleTiles, {12, 10});
 }
 
-[[nodiscard]] bool verifyVisibleTerrainSupportsUnclampedFramesAtWorldEdges()
+[[nodiscard]] bool verifyVisibleTerrainSupportsFarFrames()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
     rpg::World world(config);
     rpg::Camera camera;
-    const float worldWidth = static_cast<float>(config.widthInTiles) * config.tileSize;
-    const float worldHeight = static_cast<float>(config.heightInTiles) * config.tileSize;
 
-    camera.update({0.0F, 0.0F}, 128.0F, 96.0F);
-    const std::vector<rpg::VisibleWorldTile> topLeftVisibleTiles = world.getVisibleTiles(camera.getFrame());
+    camera.update(world.getTileCenter({-48, 32}), 128.0F, 96.0F);
+    const std::vector<rpg::VisibleWorldTile> negativeVisibleTiles = world.getVisibleTiles(camera.getFrame());
 
-    if (topLeftVisibleTiles.empty()
-        || !areClose(camera.getFrame().center.x, 0.0F)
-        || !areClose(camera.getFrame().center.y, 0.0F)
-        || !containsVisibleTile(topLeftVisibleTiles, {0, 0}))
+    if (negativeVisibleTiles.empty()
+        || !containsVisibleTile(negativeVisibleTiles, {-48, 32}))
     {
         return false;
     }
 
-    for (const rpg::VisibleWorldTile& visibleTile : topLeftVisibleTiles)
-    {
-        if (!world.isInBounds(visibleTile.coordinates))
-        {
-            return false;
-        }
-    }
+    camera.update(world.getTileCenter({96, -72}), 128.0F, 96.0F);
+    const std::vector<rpg::VisibleWorldTile> positiveVisibleTiles = world.getVisibleTiles(camera.getFrame());
 
-    camera.update({worldWidth, worldHeight}, 128.0F, 96.0F);
-    const std::vector<rpg::VisibleWorldTile> bottomRightVisibleTiles = world.getVisibleTiles(camera.getFrame());
-
-    if (!areClose(camera.getFrame().center.x, worldWidth)
-        || !areClose(camera.getFrame().center.y, worldHeight)
-        || !containsVisibleTile(
-            bottomRightVisibleTiles,
-            {world.getWidthInTiles() - 1, world.getHeightInTiles() - 1}))
-    {
-        return false;
-    }
-
-    for (const rpg::VisibleWorldTile& visibleTile : bottomRightVisibleTiles)
-    {
-        if (!world.isInBounds(visibleTile.coordinates))
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return !positiveVisibleTiles.empty()
+        && containsVisibleTile(positiveVisibleTiles, {96, -72});
 }
 
 } // namespace
@@ -436,7 +461,7 @@ int main()
         return 1;
     }
 
-    if (!verifyConfiguredWorldDimensions())
+    if (!verifyConfiguredWorldCoordinates())
     {
         return 1;
     }
@@ -447,6 +472,11 @@ int main()
     }
 
     if (!verifyPlayerMovement())
+    {
+        return 1;
+    }
+
+    if (!verifyPlayerMovementBeyondInitialArea())
     {
         return 1;
     }
@@ -471,7 +501,7 @@ int main()
         return 1;
     }
 
-    if (!verifyVisibleTerrainSupportsUnclampedFramesAtWorldEdges())
+    if (!verifyVisibleTerrainSupportsFarFrames())
     {
         return 1;
     }

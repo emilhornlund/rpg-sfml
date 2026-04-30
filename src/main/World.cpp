@@ -65,12 +65,12 @@ struct VisibleTileBounds
     int maxY = -1;
 };
 
-[[nodiscard]] VisibleTileBounds getVisibleTileBounds(const WorldConfig& config, const ViewFrame& frame) noexcept
+[[nodiscard]] VisibleTileBounds getVisibleTileBounds(const float tileSize, const ViewFrame& frame) noexcept
 {
     constexpr int kVisibleOverscanInTiles = 1;
     VisibleTileBounds bounds;
 
-    if (config.widthInTiles <= 0 || config.heightInTiles <= 0 || config.tileSize <= 0.0F)
+    if (tileSize <= 0.0F || frame.size.width <= 0.0F || frame.size.height <= 0.0F)
     {
         return bounds;
     }
@@ -82,41 +82,75 @@ struct VisibleTileBounds
     const float top = frame.center.y - halfHeight;
     const float bottom = frame.center.y + halfHeight;
 
-    bounds.minX = std::max(
-        0,
-        static_cast<int>(std::floor(left / config.tileSize)) - kVisibleOverscanInTiles);
-    bounds.maxX = std::min(
-        config.widthInTiles - 1,
-        static_cast<int>(std::ceil(right / config.tileSize)) - 1 + kVisibleOverscanInTiles);
-    bounds.minY = std::max(
-        0,
-        static_cast<int>(std::floor(top / config.tileSize)) - kVisibleOverscanInTiles);
-    bounds.maxY = std::min(
-        config.heightInTiles - 1,
-        static_cast<int>(std::ceil(bottom / config.tileSize)) - 1 + kVisibleOverscanInTiles);
+    bounds.minX = static_cast<int>(std::floor(left / tileSize)) - kVisibleOverscanInTiles;
+    bounds.maxX = static_cast<int>(std::ceil(right / tileSize)) - 1 + kVisibleOverscanInTiles;
+    bounds.minY = static_cast<int>(std::floor(top / tileSize)) - kVisibleOverscanInTiles;
+    bounds.maxY = static_cast<int>(std::ceil(bottom / tileSize)) - 1 + kVisibleOverscanInTiles;
     return bounds;
 }
 
-void populateChunkCache(
+[[nodiscard]] std::vector<TileType>& ensureChunkGenerated(
+    const WorldConfig& config,
+    std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
+    const int chunkX,
+    const int chunkY)
+{
+    const auto chunkKey = std::make_pair(chunkX, chunkY);
+    const auto chunkIt = chunks.find(chunkKey);
+
+    if (chunkIt != chunks.end())
+    {
+        return chunkIt->second;
+    }
+
+    detail::GeneratedChunkData chunkData = detail::generateChunkData(config, chunkX, chunkY);
+    const auto insertedChunk = chunks.emplace(chunkKey, std::move(chunkData.tiles));
+    return insertedChunk.first->second;
+}
+
+[[nodiscard]] TileType getTileTypeFromCache(
+    const WorldConfig& config,
+    std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
+    const TileCoordinates& coordinates)
+{
+    const std::pair<int, int> chunkKey = toChunkKey(coordinates);
+    std::vector<TileType>& chunk = ensureChunkGenerated(config, chunks, chunkKey.first, chunkKey.second);
+    return chunk[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
+}
+
+[[nodiscard]] TileCoordinates findSpawnTile(
     const WorldConfig& config,
     std::map<std::pair<int, int>, std::vector<TileType>>& chunks)
 {
-    if (config.widthInTiles <= 0 || config.heightInTiles <= 0)
-    {
-        return;
-    }
+    constexpr int kSpawnSearchLimitInTiles = detail::getChunkSizeInTiles() * 8;
+    const TileCoordinates anchor{0, 0};
 
-    const int lastChunkX = detail::getChunkCoordinate(config.widthInTiles - 1);
-    const int lastChunkY = detail::getChunkCoordinate(config.heightInTiles - 1);
-
-    for (int chunkY = 0; chunkY <= lastChunkY; ++chunkY)
+    for (int radius = 0; radius <= kSpawnSearchLimitInTiles; ++radius)
     {
-        for (int chunkX = 0; chunkX <= lastChunkX; ++chunkX)
+        for (int y = anchor.y - radius; y <= anchor.y + radius; ++y)
         {
-            detail::GeneratedChunkData chunkData = detail::generateChunkData(config, chunkX, chunkY);
-            chunks.emplace(std::make_pair(chunkX, chunkY), std::move(chunkData.tiles));
+            for (int x = anchor.x - radius; x <= anchor.x + radius; ++x)
+            {
+                if (radius > 0
+                    && x != anchor.x - radius
+                    && x != anchor.x + radius
+                    && y != anchor.y - radius
+                    && y != anchor.y + radius)
+                {
+                    continue;
+                }
+
+                const TileCoordinates coordinates{x, y};
+
+                if (detail::isTraversableTileType(getTileTypeFromCache(config, chunks, coordinates)))
+                {
+                    return coordinates;
+                }
+            }
         }
     }
+
+    return anchor;
 }
 
 } // namespace
@@ -129,46 +163,10 @@ World::World()
 World::World(const WorldConfig& config)
 {
     m_state.config = config;
-    populateChunkCache(m_state.config, m_state.chunks);
-
-    const TileCoordinates center{m_state.config.widthInTiles / 2, m_state.config.heightInTiles / 2};
-
-    for (int radius = 0; radius < std::max(m_state.config.widthInTiles, m_state.config.heightInTiles); ++radius)
-    {
-        const int minY = std::max(1, center.y - radius);
-        const int maxY = std::min(m_state.config.heightInTiles - 2, center.y + radius);
-        const int minX = std::max(1, center.x - radius);
-        const int maxX = std::min(m_state.config.widthInTiles - 2, center.x + radius);
-
-        for (int y = minY; y <= maxY; ++y)
-        {
-            for (int x = minX; x <= maxX; ++x)
-            {
-                const TileCoordinates coordinates{x, y};
-
-                if (detail::isTraversableTileType(getTileType(coordinates)))
-                {
-                    m_state.spawnTile = coordinates;
-                    return;
-                }
-            }
-        }
-    }
-
-    m_state.spawnTile = center;
+    m_state.spawnTile = findSpawnTile(m_state.config, m_state.chunks);
 }
 
 World::~World() = default;
-
-int World::getWidthInTiles() const noexcept
-{
-    return m_state.config.widthInTiles;
-}
-
-int World::getHeightInTiles() const noexcept
-{
-    return m_state.config.heightInTiles;
-}
 
 float World::getTileSize() const noexcept
 {
@@ -185,46 +183,26 @@ WorldPosition World::getSpawnPosition() const noexcept
     return getTileCenter(m_state.spawnTile);
 }
 
-bool World::isInBounds(const TileCoordinates& coordinates) const noexcept
+bool World::isTraversable(const TileCoordinates& coordinates) const
 {
-    return coordinates.x >= 0
-        && coordinates.x < m_state.config.widthInTiles
-        && coordinates.y >= 0
-        && coordinates.y < m_state.config.heightInTiles;
+    return detail::isTraversableTileType(getTileType(coordinates));
 }
 
-bool World::isTraversable(const TileCoordinates& coordinates) const noexcept
-{
-    return isInBounds(coordinates) && detail::isTraversableTileType(getTileType(coordinates));
-}
-
-bool World::isTraversable(const WorldPosition& position) const noexcept
+bool World::isTraversable(const WorldPosition& position) const
 {
     return isTraversable(getTileCoordinates(position));
 }
 
-TileType World::getTileType(const TileCoordinates& coordinates) const noexcept
+TileType World::getTileType(const TileCoordinates& coordinates) const
 {
-    if (!isInBounds(coordinates))
-    {
-        return TileType::Water;
-    }
-
-    const auto chunkIt = m_state.chunks.find(toChunkKey(coordinates));
-
-    if (chunkIt == m_state.chunks.end())
-    {
-        return TileType::Water;
-    }
-
-    return chunkIt->second[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
+    return getTileTypeFromCache(m_state.config, m_state.chunks, coordinates);
 }
 
 std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const
 {
     std::vector<VisibleWorldTile> visibleTiles;
 
-    const VisibleTileBounds bounds = getVisibleTileBounds(m_state.config, frame);
+    const VisibleTileBounds bounds = getVisibleTileBounds(m_state.config.tileSize, frame);
 
     if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
     {
@@ -243,12 +221,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     {
         for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
         {
-            const auto chunkIt = m_state.chunks.find(std::make_pair(chunkX, chunkY));
-
-            if (chunkIt == m_state.chunks.end())
-            {
-                continue;
-            }
+            const std::vector<TileType>& chunk = ensureChunkGenerated(m_state.config, m_state.chunks, chunkX, chunkY);
 
             for (int localY = 0; localY < chunkSizeInTiles; ++localY)
             {
@@ -259,8 +232,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
                         chunkY,
                         {localX, localY});
 
-                    if (!isInBounds(worldCoordinates)
-                        || worldCoordinates.x < bounds.minX
+                    if (worldCoordinates.x < bounds.minX
                         || worldCoordinates.x > bounds.maxX
                         || worldCoordinates.y < bounds.minY
                         || worldCoordinates.y > bounds.maxY)
@@ -270,7 +242,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
                     visibleTiles.push_back({
                         worldCoordinates,
-                        chunkIt->second[toIndex({localX, localY}, chunkSizeInTiles)],
+                        chunk[toIndex({localX, localY}, chunkSizeInTiles)],
                         getTileCenter(worldCoordinates)});
                 }
             }

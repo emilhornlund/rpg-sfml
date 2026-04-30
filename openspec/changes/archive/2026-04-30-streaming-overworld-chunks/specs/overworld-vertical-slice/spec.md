@@ -1,8 +1,4 @@
-## Purpose
-
-Define the deterministic overworld vertical slice, including generation, movement, camera behavior, and basic rendering.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Deterministic overworld generation
 The runtime SHALL generate the overworld from explicit world configuration inputs that include a deterministic seed and tile size, plus any compatibility sizing inputs retained during migration, so the resulting terrain queries and spawn point remain stable for a given configuration. The generated terrain SHALL derive its tile categories from deterministic layered environmental signals that include elevation and moisture so neighboring tiles form spatially coherent landforms and biomes rather than independent per-tile noise. The world implementation SHALL satisfy deterministic terrain queries through chunk-addressed generated data retained behind `World` instead of requiring one eagerly generated full-world tile grid, and camera-facing runtime flows SHALL NOT require world-size accessors in order to frame the view.
@@ -51,18 +47,6 @@ The runtime SHALL place the player in the generated overworld and update the pla
 #### Scenario: Rejecting invalid movement
 - **WHEN** the player provides movement input toward a non-traversable location
 - **THEN** the runtime keeps the player in the nearest valid position
-
-### Requirement: Camera tracks the player in the overworld
-The runtime SHALL frame the overworld through the camera module so the view follows the player's current position without clamping the camera frame to an initially retained terrain area.
-
-#### Scenario: Camera follows active player position
-- **WHEN** the player position changes during the overworld slice
-- **THEN** the camera updates its framing from the player's current position
-
-#### Scenario: Camera can move beyond the initial retained area
-- **WHEN** the player approaches the edge of the terrain retained during initial world setup
-- **THEN** the camera frame remains centered on the tracked focus position instead of being clamped to that initial retained area
-- **AND** the rendered view may extend into terrain that will be generated on demand
 
 ### Requirement: Basic tile rendering for the overworld slice
 The runtime SHALL render the generated overworld and the player marker each frame using basic built-in visuals that distinguish at least the traversable terrain from non-traversable terrain, and it SHALL derive terrain drawing from camera-visible terrain traversal instead of full-world tile loops.

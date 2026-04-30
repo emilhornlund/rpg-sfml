@@ -1,8 +1,4 @@
-## Purpose
-
-Define camera-bounded terrain traversal rules for visible overworld rendering.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: World provides camera-bounded terrain traversal
 The world-owned rendering boundary SHALL derive visible terrain traversal from the active camera frame and enumerate only terrain that intersects the visible region plus bounded overscan. When the visible region reaches chunks that are not yet retained, the world-owned rendering boundary SHALL ensure those chunks are generated before traversing their visible tiles.

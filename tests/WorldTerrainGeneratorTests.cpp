@@ -48,14 +48,6 @@ namespace
         && coordinates.y < config.heightInTiles;
 }
 
-[[nodiscard]] bool isTraversable(
-    const std::vector<rpg::TileType>& tiles,
-    const rpg::TileCoordinates& coordinates,
-    const int widthInTiles) noexcept
-{
-    return rpg::detail::isTraversableTileType(tiles[toIndex(coordinates, widthInTiles)]);
-}
-
 [[nodiscard]] bool hasAdjacentTileType(
     const std::vector<rpg::TileType>& tiles,
     const rpg::TileCoordinates& coordinates,
@@ -92,55 +84,41 @@ namespace
 [[nodiscard]] bool verifyDeterministicChunkGeneration()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
-    const rpg::detail::GeneratedChunkData firstChunk = rpg::detail::generateChunkData(config, 1, 0);
-    const rpg::detail::GeneratedChunkData secondChunk = rpg::detail::generateChunkData(config, 1, 0);
+    const rpg::detail::GeneratedChunkData firstChunk = rpg::detail::generateChunkData(config, 1, -2);
+    const rpg::detail::GeneratedChunkData secondChunk = rpg::detail::generateChunkData(config, 1, -2);
 
     return firstChunk.chunkX == secondChunk.chunkX
         && firstChunk.chunkY == secondChunk.chunkY
         && firstChunk.tiles == secondChunk.tiles;
 }
 
-[[nodiscard]] bool verifySpawnValidity()
+[[nodiscard]] bool verifyOriginAnchoredSpawnSelection()
 {
-    const rpg::WorldConfig config{.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F};
-    const rpg::detail::GeneratedWorldData worldData = rpg::detail::generateWorldData(config);
+    const rpg::WorldConfig smallerWorldConfig{
+        .seed = 0x13572468U,
+        .widthInTiles = 36,
+        .heightInTiles = 20,
+        .tileSize = 20.0F};
+    const rpg::WorldConfig largerWorldConfig{
+        .seed = smallerWorldConfig.seed,
+        .widthInTiles = 96,
+        .heightInTiles = 72,
+        .tileSize = smallerWorldConfig.tileSize};
+    const rpg::World smallerWorld(smallerWorldConfig);
+    const rpg::World largerWorld(largerWorldConfig);
 
-    return isInBounds(worldData.spawnTile, config)
-        && isTraversable(worldData.tiles, worldData.spawnTile, config.widthInTiles);
+    return smallerWorld.getSpawnTile().x == largerWorld.getSpawnTile().x
+        && smallerWorld.getSpawnTile().y == largerWorld.getSpawnTile().y;
 }
 
-[[nodiscard]] bool verifyBorderAndInteriorTraversal()
+[[nodiscard]] bool verifySpawnValidity()
 {
-    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 24, .heightInTiles = 18, .tileSize = 16.0F};
-    const rpg::detail::GeneratedWorldData worldData = rpg::detail::generateWorldData(config);
+    rpg::World world({.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F});
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
 
-    for (int x = 0; x < config.widthInTiles; ++x)
-    {
-        if (worldData.tiles[toIndex({x, 0}, config.widthInTiles)] != rpg::TileType::Water
-            || worldData.tiles[toIndex({x, config.heightInTiles - 1}, config.widthInTiles)] != rpg::TileType::Water)
-        {
-            return false;
-        }
-    }
-
-    for (int y = 0; y < config.heightInTiles; ++y)
-    {
-        if (worldData.tiles[toIndex({0, y}, config.widthInTiles)] != rpg::TileType::Water
-            || worldData.tiles[toIndex({config.widthInTiles - 1, y}, config.widthInTiles)] != rpg::TileType::Water)
-        {
-            return false;
-        }
-    }
-
-    for (const rpg::TileType tileType : worldData.tiles)
-    {
-        if (tileType != rpg::TileType::Water && rpg::detail::isTraversableTileType(tileType) == false)
-        {
-            return false;
-        }
-    }
-
-    return true;
+    return world.isTraversable(spawnTile)
+        && world.getTileCoordinates(world.getSpawnPosition()).x == spawnTile.x
+        && world.getTileCoordinates(world.getSpawnPosition()).y == spawnTile.y;
 }
 
 [[nodiscard]] bool verifyCoastlinesAndInlandBiomes()
@@ -223,53 +201,54 @@ namespace
         && recoveredOrigin.y == 16;
 }
 
-[[nodiscard]] std::size_t expectedGeneratedChunkCount(const rpg::WorldConfig& config) noexcept
-{
-    const int chunkCountX = rpg::detail::getChunkCoordinate(config.widthInTiles - 1) + 1;
-    const int chunkCountY = rpg::detail::getChunkCoordinate(config.heightInTiles - 1) + 1;
-    return static_cast<std::size_t>(chunkCountX * chunkCountY);
-}
-
-[[nodiscard]] bool verifyChunkReuseThroughWorldCache()
+[[nodiscard]] bool verifyChunkGenerationExtendsBeyondInitialArea()
 {
     const rpg::WorldConfig config{.seed = 0x2468ACE0U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::TileCoordinates farCoordinates{
+        rpg::detail::getChunkSizeInTiles() * 8 + 1,
+        rpg::detail::getChunkSizeInTiles() * 6 + 2};
     rpg::detail::resetGeneratedChunkCount();
     rpg::World world(config);
-    const std::size_t generatedChunkCount = rpg::detail::getGeneratedChunkCount();
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
 
-    if (generatedChunkCount != expectedGeneratedChunkCount(config))
+    (void)world.getTileType(farCoordinates);
+    const std::size_t generatedAfterFirstFarQuery = rpg::detail::getGeneratedChunkCount();
+
+    if (generatedAfterFirstFarQuery <= generatedAfterConstruction)
     {
         return false;
     }
 
-    (void)world.getTileType({0, 0});
-    (void)world.getTileType({1, 1});
-    (void)world.getTileType({15, 15});
-    (void)world.getTileType({16, 0});
-    (void)world.getTileType({39, 23});
-    (void)world.getTileType({-1, 0});
+    (void)world.getTileType({farCoordinates.x + 1, farCoordinates.y + 1});
+    (void)world.getTileType(farCoordinates);
 
-    return rpg::detail::getGeneratedChunkCount() == generatedChunkCount;
+    return rpg::detail::getGeneratedChunkCount() == generatedAfterFirstFarQuery;
 }
 
-[[nodiscard]] bool verifyVisibleRenderQueriesReuseWorldCache()
+[[nodiscard]] bool verifyVisibleRenderQueriesGenerateAndReuseWorldCache()
 {
     const rpg::WorldConfig config{.seed = 0x0BADCAFEU, .widthInTiles = 48, .heightInTiles = 32, .tileSize = 24.0F};
+    const rpg::TileCoordinates farTile{
+        rpg::detail::getChunkSizeInTiles() * 10,
+        rpg::detail::getChunkSizeInTiles() * 8};
     rpg::detail::resetGeneratedChunkCount();
     rpg::World world(config);
-    const std::size_t generatedChunkCount = rpg::detail::getGeneratedChunkCount();
-    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
-    const rpg::ViewFrame frame{spawnPosition, {config.tileSize * 8.0F, config.tileSize * 6.0F}};
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+    const rpg::ViewFrame frame{
+        world.getTileCenter(farTile),
+        {config.tileSize * 8.0F, config.tileSize * 6.0F}};
 
-    if (generatedChunkCount != expectedGeneratedChunkCount(config))
+    const std::vector<rpg::VisibleWorldTile> firstVisibleTiles = world.getVisibleTiles(frame);
+    const std::size_t generatedAfterFirstFrame = rpg::detail::getGeneratedChunkCount();
+
+    if (firstVisibleTiles.empty() || generatedAfterFirstFrame <= generatedAfterConstruction)
     {
         return false;
     }
 
     (void)world.getVisibleTiles(frame);
-    (void)world.getVisibleTiles(frame);
 
-    return rpg::detail::getGeneratedChunkCount() == generatedChunkCount;
+    return rpg::detail::getGeneratedChunkCount() == generatedAfterFirstFrame;
 }
 
 [[nodiscard]] bool verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent()
@@ -285,10 +264,10 @@ namespace
         .heightInTiles = 64,
         .tileSize = smallerWorldConfig.tileSize};
     const std::array<rpg::TileCoordinates, 4> sampleCoordinates = {{
-        {16, 10},
-        {20, 12},
-        {24, 11},
-        {28, 12},
+        {80, 64},
+        {96, 64},
+        {-32, 48},
+        {120, -24},
     }};
 
     const rpg::World smallerWorld(smallerWorldConfig);
@@ -314,17 +293,17 @@ int main()
         return 1;
     }
 
-    if (!verifySpawnValidity())
-    {
-        return 1;
-    }
-
     if (!verifyDeterministicChunkGeneration())
     {
         return 1;
     }
 
-    if (!verifyBorderAndInteriorTraversal())
+    if (!verifyOriginAnchoredSpawnSelection())
+    {
+        return 1;
+    }
+
+    if (!verifySpawnValidity())
     {
         return 1;
     }
@@ -339,12 +318,12 @@ int main()
         return 1;
     }
 
-    if (!verifyChunkReuseThroughWorldCache())
+    if (!verifyChunkGenerationExtendsBeyondInitialArea())
     {
         return 1;
     }
 
-    if (!verifyVisibleRenderQueriesReuseWorldCache())
+    if (!verifyVisibleRenderQueriesGenerateAndReuseWorldCache())
     {
         return 1;
     }

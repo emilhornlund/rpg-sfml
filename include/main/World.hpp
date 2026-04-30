@@ -43,9 +43,11 @@ namespace rpg
 /**
  * @brief Configuration inputs for deterministic overworld generation.
  *
- * The world configuration captures the generation inputs that define a finite
- * overworld slice. Reusing the same configuration produces the same tile
- * layout, spawn point, dimensions, and tile size.
+ * The world configuration captures deterministic generation inputs for the
+ * overworld. Reusing the same configuration produces the same terrain and
+ * spawn behavior. Width and height remain available for compatibility and
+ * finite sampling helpers, but they do not define a hard world boundary for
+ * runtime terrain queries.
  */
 struct WorldConfig
 {
@@ -109,20 +111,6 @@ public:
     ~World();
 
     /**
-     * @brief Get the tile-grid width.
-     *
-     * @return Number of tiles across the generated world.
-     */
-    [[nodiscard]] int getWidthInTiles() const noexcept;
-
-    /**
-     * @brief Get the tile-grid height.
-     *
-     * @return Number of tiles down the generated world.
-     */
-    [[nodiscard]] int getHeightInTiles() const noexcept;
-
-    /**
      * @brief Get the size of a rendered tile in world units.
      *
      * @return Tile size in world units.
@@ -144,42 +132,34 @@ public:
     [[nodiscard]] WorldPosition getSpawnPosition() const noexcept;
 
     /**
-     * @brief Check whether tile coordinates are inside the world.
-     *
-     * @param coordinates Tile coordinates to inspect.
-     * @return True when the coordinates are inside the generated grid.
-     */
-    [[nodiscard]] bool isInBounds(const TileCoordinates& coordinates) const noexcept;
-
-    /**
      * @brief Check whether a tile is traversable.
      *
      * @param coordinates Tile coordinates to inspect.
-     * @return True when the tile exists and can be walked on.
+     * @return True when the resolved tile can be walked on.
      */
-    [[nodiscard]] bool isTraversable(const TileCoordinates& coordinates) const noexcept;
+    [[nodiscard]] bool isTraversable(const TileCoordinates& coordinates) const;
 
     /**
      * @brief Check whether a world position is traversable.
      *
      * @param position World position to inspect.
-     * @return True when the position maps to a valid traversable tile.
+     * @return True when the position maps to a traversable tile.
      */
-    [[nodiscard]] bool isTraversable(const WorldPosition& position) const noexcept;
+    [[nodiscard]] bool isTraversable(const WorldPosition& position) const;
 
     /**
      * @brief Read the tile type at the given coordinates.
      *
      * @param coordinates Tile coordinates to inspect.
-     * @return Tile type at the coordinates, or water when out of bounds.
+     * @return Tile type resolved for the coordinates.
      */
-    [[nodiscard]] TileType getTileType(const TileCoordinates& coordinates) const noexcept;
+    [[nodiscard]] TileType getTileType(const TileCoordinates& coordinates) const;
 
     /**
      * @brief Enumerate the visible world tiles for a camera frame.
      *
      * The query derives visible tile and chunk bounds from the frame, applies a
-     * bounded overscan margin, clips the result to valid world coordinates, and
+     * bounded overscan margin, ensures the intersecting chunks exist, and
      * serves tiles from retained chunk data.
      *
      * @param frame Camera frame used to determine visible terrain.
@@ -214,7 +194,7 @@ private:
     {
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
-        std::map<std::pair<int, int>, std::vector<TileType>> chunks;
+        mutable std::map<std::pair<int, int>, std::vector<TileType>> chunks;
     };
 
     /**
