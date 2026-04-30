@@ -74,6 +74,30 @@ constexpr float kFloatTolerance = 0.001F;
         static_cast<float>(to.y - from.y)};
 }
 
+[[nodiscard]] bool hasAdjacentTileType(
+    const rpg::World& world,
+    const rpg::TileCoordinates& coordinates,
+    const rpg::TileType tileType)
+{
+    constexpr rpg::TileCoordinates kOffsets[] = {
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1}};
+
+    for (const rpg::TileCoordinates& offset : kOffsets)
+    {
+        const rpg::TileCoordinates candidate{coordinates.x + offset.x, coordinates.y + offset.y};
+
+        if (world.isInBounds(candidate) && world.getTileType(candidate) == tileType)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [[nodiscard]] bool verifyDeterministicWorld()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
@@ -242,6 +266,52 @@ constexpr float kFloatTolerance = 0.001F;
     return true;
 }
 
+[[nodiscard]] bool verifySignalDrivenBiomeDistribution()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    rpg::World world(config);
+
+    bool foundShorelineSand = false;
+    bool foundInlandGrass = false;
+    bool foundInlandForest = false;
+
+    for (int y = 1; y < world.getHeightInTiles() - 1; ++y)
+    {
+        for (int x = 1; x < world.getWidthInTiles() - 1; ++x)
+        {
+            const rpg::TileCoordinates coordinates{x, y};
+            const rpg::TileType tileType = world.getTileType(coordinates);
+            const bool adjacentToWater = hasAdjacentTileType(world, coordinates, rpg::TileType::Water);
+            const bool isInland = x > 2
+                && x < world.getWidthInTiles() - 3
+                && y > 2
+                && y < world.getHeightInTiles() - 3
+                && !adjacentToWater;
+
+            if (tileType == rpg::TileType::Sand && adjacentToWater)
+            {
+                foundShorelineSand = true;
+            }
+
+            if (!isInland)
+            {
+                continue;
+            }
+
+            if (tileType == rpg::TileType::Grass)
+            {
+                foundInlandGrass = true;
+            }
+            else if (tileType == rpg::TileType::Forest)
+            {
+                foundInlandForest = true;
+            }
+        }
+    }
+
+    return foundShorelineSand && foundInlandGrass && foundInlandForest;
+}
+
 } // namespace
 
 int main()
@@ -272,6 +342,11 @@ int main()
     }
 
     if (!verifyCameraClamping())
+    {
+        return 1;
+    }
+
+    if (!verifySignalDrivenBiomeDistribution())
     {
         return 1;
     }

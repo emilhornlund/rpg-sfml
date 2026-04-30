@@ -26,6 +26,7 @@
 
 #include "WorldTerrainGenerator.hpp"
 
+#include <array>
 #include <vector>
 
 namespace
@@ -50,6 +51,28 @@ namespace
     const int widthInTiles) noexcept
 {
     return rpg::detail::isTraversableTileType(tiles[toIndex(coordinates, widthInTiles)]);
+}
+
+[[nodiscard]] bool hasAdjacentTileType(
+    const std::vector<rpg::TileType>& tiles,
+    const rpg::TileCoordinates& coordinates,
+    const rpg::WorldConfig& config,
+    const rpg::TileType tileType) noexcept
+{
+    constexpr std::array<rpg::TileCoordinates, 4> kOffsets = {{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}};
+
+    for (const rpg::TileCoordinates& offset : kOffsets)
+    {
+        const rpg::TileCoordinates candidate{coordinates.x + offset.x, coordinates.y + offset.y};
+
+        if (isInBounds(candidate, config)
+            && tiles[toIndex(candidate, config.widthInTiles)] == tileType)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 [[nodiscard]] bool verifyDeterministicGeneration()
@@ -106,6 +129,60 @@ namespace
     return true;
 }
 
+[[nodiscard]] bool verifyCoastlinesAndInlandBiomes()
+{
+    const std::array<rpg::WorldConfig, 3> configs = {{
+        {.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F},
+        {.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F},
+        {.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F},
+    }};
+
+    bool foundShorelineSand = false;
+    bool foundInlandGrass = false;
+    bool foundInlandForest = false;
+
+    for (const rpg::WorldConfig& config : configs)
+    {
+        const rpg::detail::GeneratedWorldData worldData = rpg::detail::generateWorldData(config);
+
+        for (int y = 1; y < config.heightInTiles - 1; ++y)
+        {
+            for (int x = 1; x < config.widthInTiles - 1; ++x)
+            {
+                const rpg::TileCoordinates coordinates{x, y};
+                const rpg::TileType tileType = worldData.tiles[toIndex(coordinates, config.widthInTiles)];
+                const bool adjacentToWater = hasAdjacentTileType(worldData.tiles, coordinates, config, rpg::TileType::Water);
+                const bool isInland = x > 2
+                    && x < config.widthInTiles - 3
+                    && y > 2
+                    && y < config.heightInTiles - 3
+                    && !adjacentToWater;
+
+                if (tileType == rpg::TileType::Sand && adjacentToWater)
+                {
+                    foundShorelineSand = true;
+                }
+
+                if (!isInland)
+                {
+                    continue;
+                }
+
+                if (tileType == rpg::TileType::Grass)
+                {
+                    foundInlandGrass = true;
+                }
+                else if (tileType == rpg::TileType::Forest)
+                {
+                    foundInlandForest = true;
+                }
+            }
+        }
+    }
+
+    return foundShorelineSand && foundInlandGrass && foundInlandForest;
+}
+
 } // namespace
 
 int main()
@@ -121,6 +198,11 @@ int main()
     }
 
     if (!verifyBorderAndInteriorTraversal())
+    {
+        return 1;
+    }
+
+    if (!verifyCoastlinesAndInlandBiomes())
     {
         return 1;
     }

@@ -27,7 +27,9 @@
 #include "WorldTerrainGenerator.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace rpg
@@ -43,6 +45,11 @@ namespace
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
+[[nodiscard]] float clamp01(const float value) noexcept
+{
+    return std::clamp(value, 0.0F, 1.0F);
+}
+
 [[nodiscard]] std::uint32_t hashCoordinates(const std::uint32_t seed, const int x, const int y) noexcept
 {
     std::uint32_t value = seed;
@@ -52,6 +59,88 @@ namespace
     value *= 1274126177U;
     value ^= value >> 16U;
     return value;
+}
+
+[[nodiscard]] float smoothstep(const float value) noexcept
+{
+    const float clampedValue = clamp01(value);
+    return clampedValue * clampedValue * (3.0F - (2.0F * clampedValue));
+}
+
+[[nodiscard]] float interpolate(const float start, const float end, const float factor) noexcept
+{
+    return start + ((end - start) * factor);
+}
+
+[[nodiscard]] float toUnitFloat(const std::uint32_t seed, const int x, const int y) noexcept
+{
+    return static_cast<float>(hashCoordinates(seed, x, y))
+        / static_cast<float>(std::numeric_limits<std::uint32_t>::max());
+}
+
+[[nodiscard]] float sampleValueNoise(
+    const std::uint32_t seed,
+    const float sampleX,
+    const float sampleY) noexcept
+{
+    const int originX = static_cast<int>(std::floor(sampleX));
+    const int originY = static_cast<int>(std::floor(sampleY));
+    const float fractionX = smoothstep(sampleX - static_cast<float>(originX));
+    const float fractionY = smoothstep(sampleY - static_cast<float>(originY));
+
+    const float topLeft = toUnitFloat(seed, originX, originY);
+    const float topRight = toUnitFloat(seed, originX + 1, originY);
+    const float bottomLeft = toUnitFloat(seed, originX, originY + 1);
+    const float bottomRight = toUnitFloat(seed, originX + 1, originY + 1);
+
+    const float top = interpolate(topLeft, topRight, fractionX);
+    const float bottom = interpolate(bottomLeft, bottomRight, fractionX);
+    return interpolate(top, bottom, fractionY);
+}
+
+[[nodiscard]] float normalizeCoordinate(const int coordinate, const int maxCoordinate) noexcept
+{
+    if (maxCoordinate <= 1)
+    {
+        return 0.0F;
+    }
+
+    return static_cast<float>(coordinate) / static_cast<float>(maxCoordinate - 1);
+}
+
+[[nodiscard]] float evaluateEdgeFalloff(const float normalizedX, const float normalizedY) noexcept
+{
+    const float distanceToVerticalEdge = std::min(normalizedX, 1.0F - normalizedX);
+    const float distanceToHorizontalEdge = std::min(normalizedY, 1.0F - normalizedY);
+    const float minDistanceToEdge = std::min(distanceToVerticalEdge, distanceToHorizontalEdge);
+    return smoothstep(minDistanceToEdge / 0.22F);
+}
+
+[[nodiscard]] float evaluateElevation(const WorldConfig& config, const int x, const int y) noexcept
+{
+    const float normalizedX = normalizeCoordinate(x, config.widthInTiles);
+    const float normalizedY = normalizeCoordinate(y, config.heightInTiles);
+    const float continent = sampleValueNoise(config.seed ^ 0xA511E9B3U, normalizedX * 2.4F, normalizedY * 2.4F);
+    const float region = sampleValueNoise(config.seed ^ 0x63D83595U, normalizedX * 5.8F, normalizedY * 5.8F);
+    const float detail = sampleValueNoise(config.seed ^ 0xC2B2AE35U, normalizedX * 11.6F, normalizedY * 11.6F);
+    const float baseElevation = (0.58F * continent) + (0.27F * region) + (0.15F * detail);
+    const float edgeFalloff = evaluateEdgeFalloff(normalizedX, normalizedY);
+    return clamp01(baseElevation - ((1.0F - edgeFalloff) * 0.48F));
+}
+
+[[nodiscard]] float evaluateMoisture(const WorldConfig& config, const int x, const int y) noexcept
+{
+    const float normalizedX = normalizeCoordinate(x, config.widthInTiles);
+    const float normalizedY = normalizeCoordinate(y, config.heightInTiles);
+    const float climate = sampleValueNoise(
+        config.seed ^ 0x9E3779B9U,
+        (normalizedX * 3.1F) + 11.0F,
+        (normalizedY * 3.1F) + 7.0F);
+    const float localVariation = sampleValueNoise(
+        config.seed ^ 0x7F4A7C15U,
+        (normalizedX * 9.4F) + 19.0F,
+        (normalizedY * 9.4F) + 13.0F);
+    return clamp01((0.68F * climate) + (0.32F * localVariation));
 }
 
 [[nodiscard]] TileType classifyTile(const WorldConfig& config, const int x, const int y) noexcept
@@ -64,19 +153,24 @@ namespace
         return TileType::Water;
     }
 
-    const std::uint32_t noise = hashCoordinates(config.seed, x, y) % 100U;
+    constexpr float kSeaLevel = 0.39F;
+    constexpr float kShorelineLevel = 0.47F;
+    constexpr float kForestMoisture = 0.59F;
 
-    if (noise < 12U)
+    const float elevation = evaluateElevation(config, x, y);
+    const float moisture = evaluateMoisture(config, x, y);
+
+    if (elevation < kSeaLevel)
     {
         return TileType::Water;
     }
 
-    if (noise < 26U)
+    if (elevation < kShorelineLevel)
     {
         return TileType::Sand;
     }
 
-    if (noise > 84U)
+    if (moisture >= kForestMoisture)
     {
         return TileType::Forest;
     }
