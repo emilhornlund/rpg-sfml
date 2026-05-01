@@ -78,7 +78,7 @@ The runtime SHALL frame the overworld through the camera module so the view foll
 - **AND** the rendered view may extend into terrain that will be generated on demand
 
 ### Requirement: Basic tile rendering for the overworld slice
-The runtime SHALL render the generated overworld and the player marker each frame using basic built-in visuals that distinguish at least the traversable terrain from non-traversable terrain, and it SHALL derive terrain drawing from camera-visible terrain traversal instead of full-world tile loops.
+The runtime SHALL render the generated overworld and the player each frame using built-in terrain visuals and sprite-backed player presentation, and it SHALL derive terrain drawing from camera-visible terrain traversal instead of full-world tile loops. The player presentation SHALL align to the 16x16 world tile baseline while allowing the visible character art to extend upward beyond a single tile.
 
 #### Scenario: Rendering the generated map
 - **WHEN** the runtime renders a frame for the overworld
@@ -91,7 +91,8 @@ The runtime SHALL render the generated overworld and the player marker each fram
 
 #### Scenario: Rendering the player in the world view
 - **WHEN** the runtime renders a frame after the player has been placed in the overworld
-- **THEN** it draws a visible player marker at the player's current world position using the active camera framing
+- **THEN** it draws the player from the active walking spritesheet using the active camera framing
+- **AND** the player remains aligned to the occupied world tile through the sprite pivot rather than through a generic marker rectangle
 
 ### Requirement: Render-facing overworld frame state
 The runtime SHALL expose render-facing overworld frame state through the dedicated overworld runtime boundary so the SFML shell can render the current frame without deriving visible terrain traversal and player marker placement directly from gameplay modules.

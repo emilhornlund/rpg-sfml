@@ -77,6 +77,8 @@ struct OverworldRenderMarker
     WorldPosition origin{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
     OverworldRenderMarkerAppearance appearance = OverworldRenderMarkerAppearance::Player;
+    PlayerFacingDirection facingDirection = PlayerFacingDirection::Down;
+    int animationFrameIndex = 1;
 };
 
 /**

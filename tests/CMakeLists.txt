@@ -96,6 +96,7 @@ add_test(
 add_test(
     NAME main_asset_staging_check
     COMMAND ${CMAKE_COMMAND}
-        -DASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
+        -DTERRAIN_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
+        -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/player-walking-spritesheet.png
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_main_asset_staging.cmake"
 )

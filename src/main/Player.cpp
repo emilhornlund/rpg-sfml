@@ -36,6 +36,10 @@ namespace rpg
 namespace
 {
 
+constexpr int kWalkAnimationStepCount = 4;
+constexpr float kWalkFrameDurationSeconds = 0.12F;
+constexpr int kWalkAnimationFrames[kWalkAnimationStepCount] = {1, 2, 1, 0};
+
 [[nodiscard]] float vectorLength(const MovementIntent& movementIntent) noexcept
 {
     return std::sqrt(
@@ -53,6 +57,30 @@ namespace
     }
 
     return {movementIntent.x / length, movementIntent.y / length};
+}
+
+[[nodiscard]] PlayerFacingDirection resolveFacingDirection(
+    const MovementIntent& movementIntent,
+    const PlayerFacingDirection currentFacingDirection) noexcept
+{
+    const float absoluteX = std::fabs(movementIntent.x);
+    const float absoluteY = std::fabs(movementIntent.y);
+
+    if (absoluteX <= 0.0F && absoluteY <= 0.0F)
+    {
+        return currentFacingDirection;
+    }
+
+    if (absoluteY >= absoluteX)
+    {
+        return movementIntent.y < 0.0F
+            ? PlayerFacingDirection::Up
+            : PlayerFacingDirection::Down;
+    }
+
+    return movementIntent.x < 0.0F
+        ? PlayerFacingDirection::Left
+        : PlayerFacingDirection::Right;
 }
 
 void applyAxisConstrainedStep(WorldPosition& position, const WorldPosition& step, const World& world) noexcept
@@ -90,6 +118,10 @@ void Player::spawn(const WorldPosition& position) noexcept
 {
     m_state.position = position;
     m_state.movementIntent = {0.0F, 0.0F};
+    m_state.animationElapsedSeconds = 0.0F;
+    m_state.walkAnimationStepIndex = 0;
+    m_state.facingDirection = PlayerFacingDirection::Down;
+    m_state.isMoving = false;
     m_state.isSpawned = true;
 }
 
@@ -105,14 +137,21 @@ void Player::update(const float deltaTimeSeconds, const World& world) noexcept
         return;
     }
 
+    const float clampedDeltaTimeSeconds = std::max(deltaTimeSeconds, 0.0F);
+    m_state.facingDirection = resolveFacingDirection(m_state.movementIntent, m_state.facingDirection);
     const MovementIntent direction = normalize(m_state.movementIntent);
 
     if (direction.x == 0.0F && direction.y == 0.0F)
     {
+        m_state.animationElapsedSeconds = 0.0F;
+        m_state.walkAnimationStepIndex = 0;
+        m_state.isMoving = false;
         return;
     }
 
-    const float travelDistance = m_state.movementSpeed * std::max(deltaTimeSeconds, 0.0F);
+    m_state.isMoving = true;
+
+    const float travelDistance = m_state.movementSpeed * clampedDeltaTimeSeconds;
 
     if (travelDistance <= 0.0F)
     {
@@ -129,6 +168,14 @@ void Player::update(const float deltaTimeSeconds, const World& world) noexcept
     {
         applyAxisConstrainedStep(m_state.position, step, world);
     }
+
+    m_state.animationElapsedSeconds += clampedDeltaTimeSeconds;
+
+    while (m_state.animationElapsedSeconds >= kWalkFrameDurationSeconds)
+    {
+        m_state.animationElapsedSeconds -= kWalkFrameDurationSeconds;
+        m_state.walkAnimationStepIndex = (m_state.walkAnimationStepIndex + 1) % kWalkAnimationStepCount;
+    }
 }
 
 WorldPosition Player::getPosition() const noexcept
@@ -139,6 +186,21 @@ WorldPosition Player::getPosition() const noexcept
 float Player::getMovementSpeed() const noexcept
 {
     return m_state.movementSpeed;
+}
+
+PlayerFacingDirection Player::getFacingDirection() const noexcept
+{
+    return m_state.facingDirection;
+}
+
+bool Player::isMoving() const noexcept
+{
+    return m_state.isMoving;
+}
+
+int Player::getWalkFrameIndex() const noexcept
+{
+    return kWalkAnimationFrames[m_state.walkAnimationStepIndex];
 }
 
 } // namespace rpg

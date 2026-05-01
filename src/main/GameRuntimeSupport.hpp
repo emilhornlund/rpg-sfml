@@ -41,7 +41,7 @@ enum class RuntimeEvent
     EscapePressed
 };
 
-struct PlayerMarkerPlacement
+struct PlayerSpritePlacement
 {
     WorldSize size{0.0F, 0.0F};
     WorldPosition origin{0.0F, 0.0F};
@@ -77,14 +77,14 @@ struct OverworldDirectionalInput
         viewportSize};
 }
 
-[[nodiscard]] constexpr PlayerMarkerPlacement getPlayerMarkerPlacement(
+[[nodiscard]] constexpr PlayerSpritePlacement getPlayerSpritePlacement(
     const float tileSize,
     const WorldPosition& playerPosition) noexcept
 {
-    const float markerSize = tileSize * 0.5F;
+    const float spriteFrameSize = tileSize * 3.0F;
     return {
-        {markerSize, markerSize},
-        {markerSize * 0.5F, markerSize * 0.5F},
+        {spriteFrameSize, spriteFrameSize},
+        {spriteFrameSize * 0.5F, tileSize * 2.0F},
         playerPosition};
 }
 

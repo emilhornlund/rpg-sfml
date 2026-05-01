@@ -29,8 +29,8 @@
 
 #include "GameRuntimeSupport.hpp"
 
+#include <algorithm>
 #include <SFML/Graphics/Color.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -51,9 +51,10 @@ namespace rpg
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 constexpr int kTerrainTilesetCellSize = 16;
+constexpr int kPlayerSpritesheetCellSize = 48;
 constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
+constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 const sf::Color kBackgroundColor(24, 24, 27);
-const sf::Color kPlayerColor(231, 231, 236);
 
 [[nodiscard]] detail::OverworldDirectionalInput readOverworldDirectionalInput() noexcept
 {
@@ -78,6 +79,11 @@ const sf::Color kPlayerColor(231, 231, 236);
     return getExecutableDirectory() / "assets" / kTerrainTilesetFilename;
 }
 
+[[nodiscard]] std::filesystem::path getPlayerSpritesheetPath()
+{
+    return getExecutableDirectory() / "assets" / kPlayerSpritesheetFilename;
+}
+
 [[nodiscard]] sf::Texture loadTerrainTileset()
 {
     sf::Texture terrainTileset;
@@ -90,6 +96,20 @@ const sf::Color kPlayerColor(231, 231, 236);
 
     terrainTileset.setSmooth(false);
     return terrainTileset;
+}
+
+[[nodiscard]] sf::Texture loadPlayerSpritesheet()
+{
+    sf::Texture playerSpritesheet;
+    const std::filesystem::path playerSpritesheetPath = getPlayerSpritesheetPath();
+
+    if (!playerSpritesheet.loadFromFile(playerSpritesheetPath.string()))
+    {
+        throw std::runtime_error("Failed to load player spritesheet from " + playerSpritesheetPath.string());
+    }
+
+    playerSpritesheet.setSmooth(false);
+    return playerSpritesheet;
 }
 
 [[nodiscard]] sf::IntRect getTerrainTilesetRect(const TileType tileType) noexcept
@@ -109,15 +129,30 @@ const sf::Color kPlayerColor(231, 231, 236);
     return {{0, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
 }
 
-[[nodiscard]] sf::Color getMarkerColor(const OverworldRenderMarkerAppearance appearance) noexcept
+[[nodiscard]] int getPlayerSpritesheetRow(const PlayerFacingDirection facingDirection) noexcept
 {
-    switch (appearance)
+    switch (facingDirection)
     {
-    case OverworldRenderMarkerAppearance::Player:
-        return kPlayerColor;
+    case PlayerFacingDirection::Down:
+        return 0;
+    case PlayerFacingDirection::Left:
+        return 1;
+    case PlayerFacingDirection::Right:
+        return 2;
+    case PlayerFacingDirection::Up:
+        return 3;
     }
 
-    return kPlayerColor;
+    return 0;
+}
+
+[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept
+{
+    const int frameIndex = std::clamp(renderMarker.animationFrameIndex, 0, 2);
+    const int rowIndex = getPlayerSpritesheetRow(renderMarker.facingDirection);
+    return {
+        {frameIndex * kPlayerSpritesheetCellSize, rowIndex * kPlayerSpritesheetCellSize},
+        {kPlayerSpritesheetCellSize, kPlayerSpritesheetCellSize}};
 }
 
 class Game::Impl
@@ -126,12 +161,14 @@ public:
     Impl()
         : window(sf::VideoMode({kWindowWidth, kWindowHeight}), "rpg-sfml", sf::State::Windowed)
         , terrainTileset(loadTerrainTileset())
+        , playerSpritesheet(loadPlayerSpritesheet())
     {
         window.setFramerateLimit(60);
     }
 
     sf::RenderWindow window;
     sf::Texture terrainTileset;
+    sf::Texture playerSpritesheet;
     OverworldRuntime overworldRuntime;
 };
 
@@ -234,21 +271,17 @@ void Game::render()
         m_impl->window.draw(tileSprite);
     }
 
-    sf::RectangleShape markerShape;
+    sf::Sprite playerSprite(m_impl->playerSpritesheet);
 
     for (const OverworldRenderMarker& renderMarker : renderSnapshot.markers)
     {
-        markerShape.setSize({
-            renderMarker.size.width,
-            renderMarker.size.height});
-        markerShape.setOrigin({
-            renderMarker.origin.x,
-            renderMarker.origin.y});
-        markerShape.setPosition({
-            renderMarker.position.x,
-            renderMarker.position.y});
-        markerShape.setFillColor(getMarkerColor(renderMarker.appearance));
-        m_impl->window.draw(markerShape);
+        const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
+        const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
+        playerSprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
+        playerSprite.setScale({scaleX, scaleY});
+        playerSprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
+        playerSprite.setPosition({renderMarker.position.x, renderMarker.position.y});
+        m_impl->window.draw(playerSprite);
     }
 
     m_impl->window.display();

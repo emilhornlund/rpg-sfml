@@ -38,6 +38,17 @@ namespace rpg
 class World;
 
 /**
+ * @brief Cardinal directions used for player presentation.
+ */
+enum class PlayerFacingDirection
+{
+    Down,
+    Left,
+    Right,
+    Up
+};
+
+/**
  * @brief Owns player-specific runtime state.
  *
  * The Player class provides the dedicated boundary for player-facing gameplay
@@ -98,6 +109,27 @@ public:
      */
     [[nodiscard]] float getMovementSpeed() const noexcept;
 
+    /**
+     * @brief Read the player's current facing direction.
+     *
+     * @return Current presentation-facing direction.
+     */
+    [[nodiscard]] PlayerFacingDirection getFacingDirection() const noexcept;
+
+    /**
+     * @brief Read whether the player is currently moving.
+     *
+     * @return True when the last update advanced player movement.
+     */
+    [[nodiscard]] bool isMoving() const noexcept;
+
+    /**
+     * @brief Read the current walk animation frame index.
+     *
+     * @return Active frame index in the 3-frame walking row.
+     */
+    [[nodiscard]] int getWalkFrameIndex() const noexcept;
+
 private:
     /**
      * @brief Internal player state container.
@@ -110,6 +142,10 @@ private:
         WorldPosition position{0.0F, 0.0F};
         MovementIntent movementIntent{0.0F, 0.0F};
         float movementSpeed = 160.0F;
+        float animationElapsedSeconds = 0.0F;
+        int walkAnimationStepIndex = 0;
+        PlayerFacingDirection facingDirection = PlayerFacingDirection::Down;
+        bool isMoving = false;
         bool isSpawned = false;
     };
 

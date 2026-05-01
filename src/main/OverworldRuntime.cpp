@@ -46,14 +46,17 @@ namespace
         visibleTile.center};
 }
 
-[[nodiscard]] constexpr OverworldRenderMarker makePlayerRenderMarker(
-    const detail::PlayerMarkerPlacement& placement) noexcept
+[[nodiscard]] OverworldRenderMarker makePlayerRenderMarker(
+    const detail::PlayerSpritePlacement& placement,
+    const Player& player) noexcept
 {
     return {
         placement.size,
         placement.origin,
         placement.position,
-        OverworldRenderMarkerAppearance::Player};
+        OverworldRenderMarkerAppearance::Player,
+        player.getFacingDirection(),
+        player.getWalkFrameIndex()};
 }
 
 } // namespace
@@ -108,12 +111,12 @@ void OverworldRuntime::refreshRenderSnapshot()
         m_renderSnapshot.visibleTiles.push_back(makeRenderTile(visibleTile, tileSize));
     }
 
-    const detail::PlayerMarkerPlacement placement = detail::getPlayerMarkerPlacement(
+    const detail::PlayerSpritePlacement placement = detail::getPlayerSpritePlacement(
         tileSize,
         m_player.getPosition());
 
     m_renderSnapshot.markers.clear();
-    m_renderSnapshot.markers.push_back(makePlayerRenderMarker(placement));
+    m_renderSnapshot.markers.push_back(makePlayerRenderMarker(placement, m_player));
 }
 
 } // namespace rpg

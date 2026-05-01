@@ -103,6 +103,28 @@ constexpr float kFloatTolerance = 0.001F;
     return nullptr;
 }
 
+[[nodiscard]] rpg::PlayerFacingDirection getFacingDirectionForNeighbor(
+    const rpg::TileCoordinates& origin,
+    const rpg::TileCoordinates& neighbor) noexcept
+{
+    if (neighbor.x < origin.x)
+    {
+        return rpg::PlayerFacingDirection::Left;
+    }
+
+    if (neighbor.x > origin.x)
+    {
+        return rpg::PlayerFacingDirection::Right;
+    }
+
+    if (neighbor.y < origin.y)
+    {
+        return rpg::PlayerFacingDirection::Up;
+    }
+
+    return rpg::PlayerFacingDirection::Down;
+}
+
 [[nodiscard]] bool verifySessionInitialization()
 {
     rpg::OverworldRuntime runtime;
@@ -119,6 +141,8 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(renderSnapshot.cameraFrame.size.height, 720.0F)
         && areClose(playerMarker->position.x, spawnPosition.x)
         && areClose(playerMarker->position.y, spawnPosition.y)
+        && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
+        && playerMarker->animationFrameIndex == 1
         && containsVisibleTile(renderSnapshot.visibleTiles, world.getSpawnTile());
 }
 
@@ -155,7 +179,10 @@ constexpr float kFloatTolerance = 0.001F;
     return movedTile.x == traversableNeighbor->x
         && movedTile.y == traversableNeighbor->y
         && areClose(renderSnapshot.cameraFrame.center.x, playerMarker->position.x)
-        && areClose(renderSnapshot.cameraFrame.center.y, playerMarker->position.y);
+        && areClose(renderSnapshot.cameraFrame.center.y, playerMarker->position.y)
+        && playerMarker->facingDirection == getFacingDirectionForNeighbor(spawnTile, *traversableNeighbor)
+        && playerMarker->animationFrameIndex >= 0
+        && playerMarker->animationFrameIndex <= 2;
 }
 
 [[nodiscard]] bool verifyRenderSnapshotContents()
@@ -184,8 +211,12 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(firstVisibleTile.size.height, 16.0F)
         && areClose(firstVisibleTile.origin.x, 8.0F)
         && areClose(firstVisibleTile.origin.y, 8.0F)
-        && areClose(playerMarker->size.width, 8.0F)
-        && areClose(playerMarker->size.height, 8.0F)
+        && areClose(playerMarker->size.width, 48.0F)
+        && areClose(playerMarker->size.height, 48.0F)
+        && areClose(playerMarker->origin.x, 24.0F)
+        && areClose(playerMarker->origin.y, 32.0F)
+        && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
+        && playerMarker->animationFrameIndex == 1
         && renderSnapshot.markers.size() == 1;
 }
 

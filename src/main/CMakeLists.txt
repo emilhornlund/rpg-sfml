@@ -30,7 +30,8 @@ add_custom_command(TARGET main POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_ASSET_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset.png"
-        "${RPG_MAIN_ASSET_OUTPUT_DIR}/overworld-terrain-tileset.png"
+        "${RPG_MAIN_ASSET_SOURCE_DIR}/player-walking-spritesheet.png"
+        "${RPG_MAIN_ASSET_OUTPUT_DIR}"
 )
 
 set_target_properties(main PROPERTIES

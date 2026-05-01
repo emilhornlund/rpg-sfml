@@ -100,6 +100,78 @@ constexpr float kFloatTolerance = 0.001F;
     return std::nullopt;
 }
 
+struct TraversableRun
+{
+    rpg::TileCoordinates start;
+    rpg::MovementIntent movementIntent;
+};
+
+[[nodiscard]] std::optional<TraversableRun> findTraversableRun(
+    const rpg::World& world,
+    const rpg::TileCoordinates& anchor,
+    const int searchRadius,
+    const int runLength)
+{
+    constexpr std::array<rpg::TileCoordinates, 4> kDirections = {{
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1},
+    }};
+
+    for (int radius = 0; radius <= searchRadius; ++radius)
+    {
+        for (int y = anchor.y - radius; y <= anchor.y + radius; ++y)
+        {
+            for (int x = anchor.x - radius; x <= anchor.x + radius; ++x)
+            {
+                if (radius > 0
+                    && x != anchor.x - radius
+                    && x != anchor.x + radius
+                    && y != anchor.y - radius
+                    && y != anchor.y + radius)
+                {
+                    continue;
+                }
+
+                const rpg::TileCoordinates start{x, y};
+
+                if (!world.isTraversable(start))
+                {
+                    continue;
+                }
+
+                for (const rpg::TileCoordinates& direction : kDirections)
+                {
+                    bool runIsTraversable = true;
+
+                    for (int step = 1; step <= runLength; ++step)
+                    {
+                        const rpg::TileCoordinates candidate{
+                            start.x + direction.x * step,
+                            start.y + direction.y * step};
+
+                        if (!world.isTraversable(candidate))
+                        {
+                            runIsTraversable = false;
+                            break;
+                        }
+                    }
+
+                    if (runIsTraversable)
+                    {
+                        return TraversableRun{
+                            start,
+                            {static_cast<float>(direction.x), static_cast<float>(direction.y)}};
+                    }
+                }
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
 [[nodiscard]] rpg::MovementIntent movementIntentForTiles(
     const rpg::TileCoordinates& from,
     const rpg::TileCoordinates& to) noexcept
@@ -332,6 +404,45 @@ constexpr float kFloatTolerance = 0.001F;
     return movedTile.x == traversableNeighbor->x && movedTile.y == traversableNeighbor->y;
 }
 
+[[nodiscard]] bool verifyPlayerWalkAnimationSequence()
+{
+    constexpr float kAnimationStepSeconds = 0.12F;
+
+    rpg::World world;
+    rpg::Player player;
+    const std::optional<TraversableRun> traversableRun = findTraversableRun(world, world.getSpawnTile(), 32, 8);
+
+    if (!traversableRun.has_value())
+    {
+        return false;
+    }
+
+    player.spawn(world.getTileCenter(traversableRun->start));
+    player.setMovementIntent(traversableRun->movementIntent);
+
+    if (player.getWalkFrameIndex() != 1 || player.isMoving())
+    {
+        return false;
+    }
+
+    constexpr std::array<int, 4> kExpectedMovingFrames = {2, 1, 0, 1};
+
+    for (const int expectedFrame : kExpectedMovingFrames)
+    {
+        player.update(kAnimationStepSeconds, world);
+
+        if (!player.isMoving() || player.getWalkFrameIndex() != expectedFrame)
+        {
+            return false;
+        }
+    }
+
+    player.setMovementIntent({0.0F, 0.0F});
+    player.update(0.0F, world);
+
+    return !player.isMoving() && player.getWalkFrameIndex() == 1;
+}
+
 [[nodiscard]] bool verifyCameraFollowsFocus()
 {
     rpg::Camera camera;
@@ -519,6 +630,11 @@ int main()
     }
 
     if (!verifyPlayerMovementBeyondInitialArea())
+    {
+        return 1;
+    }
+
+    if (!verifyPlayerWalkAnimationSequence())
     {
         return 1;
     }

@@ -68,15 +68,15 @@ bool verifyFrameOrder()
         && std::fabs(observedDeltaTime - 0.25F) < 0.0001F;
 }
 
-bool verifyPlayerMarkerPlacement()
+bool verifyPlayerSpritePlacement()
 {
     const rpg::WorldPosition playerPosition{144.0F, 208.0F};
-    const rpg::detail::PlayerMarkerPlacement placement = rpg::detail::getPlayerMarkerPlacement(16.0F, playerPosition);
+    const rpg::detail::PlayerSpritePlacement placement = rpg::detail::getPlayerSpritePlacement(16.0F, playerPosition);
 
-    return std::fabs(placement.size.width - 8.0F) < 0.0001F
-        && std::fabs(placement.size.height - 8.0F) < 0.0001F
-        && std::fabs(placement.origin.x - 4.0F) < 0.0001F
-        && std::fabs(placement.origin.y - 4.0F) < 0.0001F
+    return std::fabs(placement.size.width - 48.0F) < 0.0001F
+        && std::fabs(placement.size.height - 48.0F) < 0.0001F
+        && std::fabs(placement.origin.x - 24.0F) < 0.0001F
+        && std::fabs(placement.origin.y - 32.0F) < 0.0001F
         && std::fabs(placement.position.x - playerPosition.x) < 0.0001F
         && std::fabs(placement.position.y - playerPosition.y) < 0.0001F;
 }
@@ -130,7 +130,7 @@ int main()
         return 1;
     }
 
-    if (!verifyPlayerMarkerPlacement())
+    if (!verifyPlayerSpritePlacement())
     {
         return 1;
     }
