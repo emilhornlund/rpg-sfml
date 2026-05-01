@@ -31,6 +31,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 namespace
@@ -39,6 +40,40 @@ namespace
 [[nodiscard]] std::size_t toIndex(const rpg::TileCoordinates& coordinates, const int widthInTiles) noexcept
 {
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
+}
+
+[[nodiscard]] bool areEqual(const rpg::ChunkCandidate& lhs, const rpg::ChunkCandidate& rhs) noexcept
+{
+    return lhs.coordinates.x == rhs.coordinates.x
+        && lhs.coordinates.y == rhs.coordinates.y
+        && lhs.type == rhs.type;
+}
+
+[[nodiscard]] bool areEqual(const rpg::ChunkMetadata& lhs, const rpg::ChunkMetadata& rhs) noexcept
+{
+    if (lhs.chunkCoordinates.x != rhs.chunkCoordinates.x
+        || lhs.chunkCoordinates.y != rhs.chunkCoordinates.y
+        || lhs.biomeSummary.dominantTileType != rhs.biomeSummary.dominantTileType
+        || lhs.biomeSummary.waterTileCount != rhs.biomeSummary.waterTileCount
+        || lhs.biomeSummary.sandTileCount != rhs.biomeSummary.sandTileCount
+        || lhs.biomeSummary.grassTileCount != rhs.biomeSummary.grassTileCount
+        || lhs.biomeSummary.forestTileCount != rhs.biomeSummary.forestTileCount
+        || lhs.traversabilitySummary.traversableTileCount != rhs.traversabilitySummary.traversableTileCount
+        || lhs.traversabilitySummary.blockedTileCount != rhs.traversabilitySummary.blockedTileCount
+        || lhs.candidates.size() != rhs.candidates.size())
+    {
+        return false;
+    }
+
+    for (std::size_t index = 0; index < lhs.candidates.size(); ++index)
+    {
+        if (!areEqual(lhs.candidates[index], rhs.candidates[index]))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 [[nodiscard]] bool isInBounds(const rpg::TileCoordinates& coordinates, const rpg::WorldConfig& config) noexcept
@@ -117,7 +152,8 @@ namespace
 
     return firstChunk.chunkX == secondChunk.chunkX
         && firstChunk.chunkY == secondChunk.chunkY
-        && firstChunk.tiles == secondChunk.tiles;
+        && firstChunk.tiles == secondChunk.tiles
+        && areEqual(firstChunk.metadata, secondChunk.metadata);
 }
 
 [[nodiscard]] bool verifyOriginAnchoredSpawnSelection()
@@ -280,6 +316,95 @@ namespace
     return rpg::detail::getGeneratedChunkCount() == generatedAfterFirstFrame;
 }
 
+[[nodiscard]] bool verifyMetadataQueriesGenerateAndReuseWorldCache()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::ChunkCoordinates farChunk{9, -7};
+    const rpg::TileCoordinates tileInFarChunk{
+        farChunk.x * rpg::detail::getChunkSizeInTiles() + 3,
+        farChunk.y * rpg::detail::getChunkSizeInTiles() + 5};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+
+    const rpg::ChunkMetadata firstMetadata = world.getChunkMetadata(farChunk);
+    const std::size_t generatedAfterMetadataQuery = rpg::detail::getGeneratedChunkCount();
+
+    if (generatedAfterMetadataQuery <= generatedAfterConstruction
+        || firstMetadata.chunkCoordinates.x != farChunk.x
+        || firstMetadata.chunkCoordinates.y != farChunk.y)
+    {
+        return false;
+    }
+
+    (void)world.getTileType(tileInFarChunk);
+    const rpg::ChunkMetadata secondMetadata = world.getChunkMetadata(tileInFarChunk);
+
+    return rpg::detail::getGeneratedChunkCount() == generatedAfterMetadataQuery
+        && areEqual(firstMetadata, secondMetadata);
+}
+
+[[nodiscard]] bool verifyChunkMetadataCandidates()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    std::optional<rpg::ChunkMetadata> traversableChunk;
+    std::optional<rpg::ChunkMetadata> blockedChunk;
+
+    for (int chunkY = -12; chunkY <= 12; ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkMetadata metadata = world.getChunkMetadata(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            if (!traversableChunk.has_value() && metadata.traversabilitySummary.traversableTileCount > 0)
+            {
+                traversableChunk = metadata;
+            }
+
+            if (!blockedChunk.has_value() && metadata.traversabilitySummary.traversableTileCount == 0)
+            {
+                blockedChunk = metadata;
+            }
+
+            if (traversableChunk.has_value() && blockedChunk.has_value())
+            {
+                break;
+            }
+        }
+
+        if (traversableChunk.has_value() && blockedChunk.has_value())
+        {
+            break;
+        }
+    }
+
+    if (!traversableChunk.has_value() || !blockedChunk.has_value())
+    {
+        return false;
+    }
+
+    if (!blockedChunk->candidates.empty())
+    {
+        return false;
+    }
+
+    if (traversableChunk->candidates.empty())
+    {
+        return false;
+    }
+
+    for (const rpg::ChunkCandidate& candidate : traversableChunk->candidates)
+    {
+        if (!world.isTraversable(candidate.coordinates))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 [[nodiscard]] bool verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent()
 {
     const rpg::WorldConfig smallerWorldConfig{
@@ -358,6 +483,16 @@ int main()
     }
 
     if (!verifyVisibleRenderQueriesGenerateAndReuseWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyMetadataQueriesGenerateAndReuseWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyChunkMetadataCandidates())
     {
         return 1;
     }

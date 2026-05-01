@@ -48,6 +48,7 @@ struct GeneratedChunkData
     int chunkX = 0;
     int chunkY = 0;
     std::vector<TileType> tiles;
+    ChunkMetadata metadata;
 };
 
 class TerrainGenerator

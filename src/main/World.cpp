@@ -42,13 +42,6 @@ namespace
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
-[[nodiscard]] std::pair<int, int> toChunkKey(const TileCoordinates& coordinates) noexcept
-{
-    return {
-        detail::getChunkCoordinate(coordinates.x),
-        detail::getChunkCoordinate(coordinates.y)};
-}
-
 [[nodiscard]] TileCoordinates toChunkLocalCoordinates(const TileCoordinates& coordinates) noexcept
 {
     return {
@@ -86,35 +79,6 @@ struct VisibleTileBounds
     bounds.minY = static_cast<int>(std::floor(top / tileSize)) - kVisibleOverscanInTiles;
     bounds.maxY = static_cast<int>(std::ceil(bottom / tileSize)) - 1 + kVisibleOverscanInTiles;
     return bounds;
-}
-
-[[nodiscard]] std::vector<TileType>& ensureChunkRetained(
-    const detail::TerrainGenerator& terrainGenerator,
-    std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
-    const int chunkX,
-    const int chunkY)
-{
-    const auto chunkKey = std::make_pair(chunkX, chunkY);
-    const auto chunkIt = chunks.find(chunkKey);
-
-    if (chunkIt != chunks.end())
-    {
-        return chunkIt->second;
-    }
-
-    detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(chunkX, chunkY);
-    const auto insertedChunk = chunks.emplace(chunkKey, std::move(chunkData.tiles));
-    return insertedChunk.first->second;
-}
-
-[[nodiscard]] TileType getTileTypeFromRetainedChunks(
-    const detail::TerrainGenerator& terrainGenerator,
-    std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
-    const TileCoordinates& coordinates)
-{
-    const std::pair<int, int> chunkKey = toChunkKey(coordinates);
-    std::vector<TileType>& chunk = ensureChunkRetained(terrainGenerator, chunks, chunkKey.first, chunkKey.second);
-    return chunk[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
 }
 
 } // namespace
@@ -160,8 +124,25 @@ bool World::isTraversable(const WorldPosition& position) const
 
 TileType World::getTileType(const TileCoordinates& coordinates) const
 {
-    const detail::TerrainGenerator terrainGenerator{m_state.config};
-    return getTileTypeFromRetainedChunks(terrainGenerator, m_state.chunks, coordinates);
+    const State::RetainedChunkData& chunk = ensureChunkRetained(getChunkCoordinates(coordinates));
+    return chunk.tiles[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
+}
+
+ChunkCoordinates World::getChunkCoordinates(const TileCoordinates& coordinates) const noexcept
+{
+    return {
+        detail::getChunkCoordinate(coordinates.x),
+        detail::getChunkCoordinate(coordinates.y)};
+}
+
+ChunkMetadata World::getChunkMetadata(const ChunkCoordinates& coordinates) const
+{
+    return ensureChunkRetained(coordinates).metadata;
+}
+
+ChunkMetadata World::getChunkMetadata(const TileCoordinates& coordinates) const
+{
+    return getChunkMetadata(getChunkCoordinates(coordinates));
 }
 
 std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const
@@ -177,7 +158,6 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
     visibleTiles.reserve(static_cast<std::size_t>((bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1)));
 
-    const detail::TerrainGenerator terrainGenerator{m_state.config};
     const int minChunkX = detail::getChunkCoordinate(bounds.minX);
     const int maxChunkX = detail::getChunkCoordinate(bounds.maxX);
     const int minChunkY = detail::getChunkCoordinate(bounds.minY);
@@ -188,7 +168,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     {
         for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
         {
-            const std::vector<TileType>& chunk = ensureChunkRetained(terrainGenerator, m_state.chunks, chunkX, chunkY);
+            const State::RetainedChunkData& chunk = ensureChunkRetained({chunkX, chunkY});
 
             for (int localY = 0; localY < chunkSizeInTiles; ++localY)
             {
@@ -209,7 +189,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
                     visibleTiles.push_back({
                         worldCoordinates,
-                        chunk[toIndex({localX, localY}, chunkSizeInTiles)],
+                        chunk.tiles[toIndex({localX, localY}, chunkSizeInTiles)],
                         getTileCenter(worldCoordinates)});
                 }
             }
@@ -217,6 +197,25 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     }
 
     return visibleTiles;
+}
+
+World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinates& coordinates) const
+{
+    const auto chunkKey = std::make_pair(coordinates.x, coordinates.y);
+    const auto chunkIt = m_state.chunks.find(chunkKey);
+
+    if (chunkIt != m_state.chunks.end())
+    {
+        return chunkIt->second;
+    }
+
+    const detail::TerrainGenerator terrainGenerator{m_state.config};
+    detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(coordinates.x, coordinates.y);
+    State::RetainedChunkData retainedChunk;
+    retainedChunk.tiles = std::move(chunkData.tiles);
+    retainedChunk.metadata = std::move(chunkData.metadata);
+    const auto insertedChunk = m_state.chunks.emplace(chunkKey, std::move(retainedChunk));
+    return insertedChunk.first->second;
 }
 
 WorldPosition World::getTileCenter(const TileCoordinates& coordinates) const noexcept

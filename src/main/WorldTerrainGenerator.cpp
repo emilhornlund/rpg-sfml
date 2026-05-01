@@ -29,6 +29,7 @@
 #include "BiomeSampler.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <cmath>
 #include <cstddef>
 #include <map>
@@ -82,6 +83,81 @@ std::size_t g_generatedChunkCount = 0;
         getChunkLocalCoordinate(coordinates.x),
         getChunkLocalCoordinate(coordinates.y)};
     return chunkIt->second.tiles[toIndex(localCoordinates, getChunkSizeInTiles())];
+}
+
+void incrementBiomeTileCount(ChunkBiomeSummary& summary, const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Water:
+        ++summary.waterTileCount;
+        break;
+    case TileType::Sand:
+        ++summary.sandTileCount;
+        break;
+    case TileType::Grass:
+        ++summary.grassTileCount;
+        break;
+    case TileType::Forest:
+        ++summary.forestTileCount;
+        break;
+    }
+}
+
+[[nodiscard]] TileType determineDominantTileType(const ChunkBiomeSummary& summary) noexcept
+{
+    TileType dominantTileType = TileType::Water;
+    int dominantCount = summary.waterTileCount;
+
+    if (summary.sandTileCount > dominantCount)
+    {
+        dominantTileType = TileType::Sand;
+        dominantCount = summary.sandTileCount;
+    }
+
+    if (summary.grassTileCount > dominantCount)
+    {
+        dominantTileType = TileType::Grass;
+        dominantCount = summary.grassTileCount;
+    }
+
+    if (summary.forestTileCount > dominantCount)
+    {
+        dominantTileType = TileType::Forest;
+    }
+
+    return dominantTileType;
+}
+
+[[nodiscard]] bool isPointOfInterestTileType(const TileType tileType) noexcept
+{
+    return tileType == TileType::Sand || tileType == TileType::Forest;
+}
+
+[[nodiscard]] int distanceToChunkCenterSquared(const TileCoordinates& localCoordinates) noexcept
+{
+    const int centerCoordinate = getChunkSizeInTiles() / 2;
+    const int deltaX = localCoordinates.x - centerCoordinate;
+    const int deltaY = localCoordinates.y - centerCoordinate;
+    return (deltaX * deltaX) + (deltaY * deltaY);
+}
+
+void appendChunkCandidates(
+    ChunkMetadata& metadata,
+    const bool hasSpawnCandidate,
+    const TileCoordinates& spawnCandidate,
+    const bool hasPointOfInterestCandidate,
+    const TileCoordinates& pointOfInterestCandidate)
+{
+    if (hasSpawnCandidate)
+    {
+        metadata.candidates.push_back({spawnCandidate, ChunkCandidateType::Spawn});
+    }
+
+    if (hasPointOfInterestCandidate)
+    {
+        metadata.candidates.push_back({pointOfInterestCandidate, ChunkCandidateType::PointOfInterest});
+    }
 }
 
 [[nodiscard]] TileCoordinates findSpawnTile(
@@ -183,7 +259,14 @@ GeneratedChunkData TerrainGenerator::generateChunk(const int chunkX, const int c
     chunkData.chunkX = chunkX;
     chunkData.chunkY = chunkY;
     chunkData.tiles.resize(static_cast<std::size_t>(getChunkSizeInTiles() * getChunkSizeInTiles()));
+    chunkData.metadata.chunkCoordinates = {chunkX, chunkY};
     const BiomeSampler biomeSampler{m_config};
+    bool hasSpawnCandidate = false;
+    TileCoordinates spawnCandidate{0, 0};
+    int spawnCandidateDistanceSquared = std::numeric_limits<int>::max();
+    bool hasPointOfInterestCandidate = false;
+    TileCoordinates pointOfInterestCandidate{0, 0};
+    int pointOfInterestCandidateDistanceSquared = std::numeric_limits<int>::max();
 
     for (int localY = 0; localY < getChunkSizeInTiles(); ++localY)
     {
@@ -191,11 +274,44 @@ GeneratedChunkData TerrainGenerator::generateChunk(const int chunkX, const int c
         {
             const TileCoordinates localCoordinates{localX, localY};
             const TileCoordinates worldCoordinates = getWorldTileCoordinates(chunkX, chunkY, localCoordinates);
+            const TileType tileType = biomeSampler.sampleTileType(worldCoordinates.x, worldCoordinates.y);
+            chunkData.tiles[toIndex(localCoordinates, getChunkSizeInTiles())] = tileType;
+            incrementBiomeTileCount(chunkData.metadata.biomeSummary, tileType);
 
-            chunkData.tiles[toIndex(localCoordinates, getChunkSizeInTiles())] =
-                biomeSampler.sampleTileType(worldCoordinates.x, worldCoordinates.y);
+            if (!isTraversableTileType(tileType))
+            {
+                ++chunkData.metadata.traversabilitySummary.blockedTileCount;
+                continue;
+            }
+
+            ++chunkData.metadata.traversabilitySummary.traversableTileCount;
+
+            const int centerDistanceSquared = distanceToChunkCenterSquared(localCoordinates);
+
+            if (centerDistanceSquared < spawnCandidateDistanceSquared)
+            {
+                hasSpawnCandidate = true;
+                spawnCandidate = worldCoordinates;
+                spawnCandidateDistanceSquared = centerDistanceSquared;
+            }
+
+            if (isPointOfInterestTileType(tileType)
+                && centerDistanceSquared < pointOfInterestCandidateDistanceSquared)
+            {
+                hasPointOfInterestCandidate = true;
+                pointOfInterestCandidate = worldCoordinates;
+                pointOfInterestCandidateDistanceSquared = centerDistanceSquared;
+            }
         }
     }
+
+    chunkData.metadata.biomeSummary.dominantTileType = determineDominantTileType(chunkData.metadata.biomeSummary);
+    appendChunkCandidates(
+        chunkData.metadata,
+        hasSpawnCandidate,
+        spawnCandidate,
+        hasPointOfInterestCandidate,
+        pointOfInterestCandidate);
 
     ++g_generatedChunkCount;
     return chunkData;

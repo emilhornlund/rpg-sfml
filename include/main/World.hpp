@@ -79,6 +79,65 @@ struct VisibleWorldTile
 };
 
 /**
+ * @brief Chunk coordinates in the streaming overworld grid.
+ */
+struct ChunkCoordinates
+{
+    int x = 0;
+    int y = 0;
+};
+
+/**
+ * @brief Coarse biome summary for a retained chunk.
+ */
+struct ChunkBiomeSummary
+{
+    TileType dominantTileType = TileType::Water;
+    int waterTileCount = 0;
+    int sandTileCount = 0;
+    int grassTileCount = 0;
+    int forestTileCount = 0;
+};
+
+/**
+ * @brief Coarse traversability summary for a retained chunk.
+ */
+struct ChunkTraversabilitySummary
+{
+    int traversableTileCount = 0;
+    int blockedTileCount = 0;
+};
+
+/**
+ * @brief Deterministic chunk candidate categories for future gameplay systems.
+ */
+enum class ChunkCandidateType
+{
+    Spawn,
+    PointOfInterest
+};
+
+/**
+ * @brief Deterministic candidate location retained for a chunk.
+ */
+struct ChunkCandidate
+{
+    TileCoordinates coordinates{0, 0};
+    ChunkCandidateType type = ChunkCandidateType::Spawn;
+};
+
+/**
+ * @brief Chunk-scale metadata retained alongside generated terrain tiles.
+ */
+struct ChunkMetadata
+{
+    ChunkCoordinates chunkCoordinates{0, 0};
+    ChunkBiomeSummary biomeSummary;
+    ChunkTraversabilitySummary traversabilitySummary;
+    std::vector<ChunkCandidate> candidates;
+};
+
+/**
  * @brief Owns world-specific runtime state.
  *
  * The World class provides the dedicated boundary for world-facing gameplay
@@ -156,6 +215,33 @@ public:
     [[nodiscard]] TileType getTileType(const TileCoordinates& coordinates) const;
 
     /**
+     * @brief Convert a tile coordinate to the chunk that owns it.
+     *
+     * @param coordinates Absolute tile coordinates.
+     * @return Chunk coordinates that own the tile.
+     */
+    [[nodiscard]] ChunkCoordinates getChunkCoordinates(const TileCoordinates& coordinates) const noexcept;
+
+    /**
+     * @brief Read retained metadata for a generated chunk.
+     *
+     * Missing chunks are generated on demand and retained before the metadata
+     * is returned.
+     *
+     * @param coordinates Chunk coordinates to inspect.
+     * @return Retained metadata for the chunk.
+     */
+    [[nodiscard]] ChunkMetadata getChunkMetadata(const ChunkCoordinates& coordinates) const;
+
+    /**
+     * @brief Read retained metadata for the chunk that owns a tile.
+     *
+     * @param coordinates Tile coordinates used to resolve the owning chunk.
+     * @return Retained metadata for the owning chunk.
+     */
+    [[nodiscard]] ChunkMetadata getChunkMetadata(const TileCoordinates& coordinates) const;
+
+    /**
      * @brief Enumerate the visible world tiles for a camera frame.
      *
      * The query derives visible tile and chunk bounds from the frame, applies a
@@ -192,15 +278,23 @@ private:
      */
     struct State
     {
+        struct RetainedChunkData
+        {
+            std::vector<TileType> tiles;
+            ChunkMetadata metadata;
+        };
+
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
-        mutable std::map<std::pair<int, int>, std::vector<TileType>> chunks;
+        mutable std::map<std::pair<int, int>, RetainedChunkData> chunks;
     };
 
     /**
      * @brief Storage for world-owned runtime state.
      */
     State m_state;
+
+    [[nodiscard]] State::RetainedChunkData& ensureChunkRetained(const ChunkCoordinates& coordinates) const;
 };
 
 } // namespace rpg

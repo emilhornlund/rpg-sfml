@@ -212,6 +212,43 @@ constexpr float kFloatTolerance = 0.001F;
         && firstWorld.getSpawnTile().y == secondWorld.getSpawnTile().y;
 }
 
+[[nodiscard]] bool verifyChunkMetadataQueries()
+{
+    const rpg::WorldConfig config{.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F};
+    rpg::World firstWorld(config);
+    rpg::World secondWorld(config);
+    const rpg::TileCoordinates sampleTile{36, -19};
+    const rpg::ChunkCoordinates sampleChunk = firstWorld.getChunkCoordinates(sampleTile);
+    const rpg::ChunkMetadata firstMetadata = firstWorld.getChunkMetadata(sampleChunk);
+    const rpg::ChunkMetadata repeatedMetadata = firstWorld.getChunkMetadata(sampleTile);
+    const rpg::ChunkMetadata secondMetadata = secondWorld.getChunkMetadata(sampleChunk);
+
+    if (firstMetadata.chunkCoordinates.x != sampleChunk.x
+        || firstMetadata.chunkCoordinates.y != sampleChunk.y
+        || repeatedMetadata.chunkCoordinates.x != sampleChunk.x
+        || repeatedMetadata.chunkCoordinates.y != sampleChunk.y
+        || secondMetadata.chunkCoordinates.x != sampleChunk.x
+        || secondMetadata.chunkCoordinates.y != sampleChunk.y)
+    {
+        return false;
+    }
+
+    if (firstMetadata.biomeSummary.dominantTileType != repeatedMetadata.biomeSummary.dominantTileType
+        || firstMetadata.biomeSummary.dominantTileType != secondMetadata.biomeSummary.dominantTileType
+        || firstMetadata.traversabilitySummary.traversableTileCount != repeatedMetadata.traversabilitySummary.traversableTileCount
+        || firstMetadata.traversabilitySummary.traversableTileCount != secondMetadata.traversabilitySummary.traversableTileCount
+        || firstMetadata.candidates.size() != repeatedMetadata.candidates.size()
+        || firstMetadata.candidates.size() != secondMetadata.candidates.size())
+    {
+        return false;
+    }
+
+    return firstMetadata.biomeSummary.waterTileCount == repeatedMetadata.biomeSummary.waterTileCount
+        && firstMetadata.biomeSummary.waterTileCount == secondMetadata.biomeSummary.waterTileCount
+        && firstMetadata.traversabilitySummary.blockedTileCount == repeatedMetadata.traversabilitySummary.blockedTileCount
+        && firstMetadata.traversabilitySummary.blockedTileCount == secondMetadata.traversabilitySummary.blockedTileCount;
+}
+
 [[nodiscard]] bool verifyPlayerMovement()
 {
     rpg::World world;
@@ -467,6 +504,11 @@ int main()
     }
 
     if (!verifyDefaultWorldConfiguration())
+    {
+        return 1;
+    }
+
+    if (!verifyChunkMetadataQueries())
     {
         return 1;
     }
