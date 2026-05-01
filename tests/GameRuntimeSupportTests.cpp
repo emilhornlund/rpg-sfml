@@ -33,6 +33,15 @@
 namespace
 {
 
+[[nodiscard]] bool matchesMovementIntent(
+    const rpg::MovementIntent& movementIntent,
+    const float expectedX,
+    const float expectedY) noexcept
+{
+    return std::fabs(movementIntent.x - expectedX) < 0.0001F
+        && std::fabs(movementIntent.y - expectedY) < 0.0001F;
+}
+
 bool verifyCloseSignals()
 {
     using rpg::detail::RuntimeEvent;
@@ -84,11 +93,6 @@ bool verifyPlayerSpritePlacement()
 bool verifyOverworldInputTranslation()
 {
     const rpg::WorldSize viewportSize{320.0F, 224.0F};
-    const rpg::detail::OverworldDirectionalInput diagonalInput{
-        .moveLeft = false,
-        .moveRight = true,
-        .moveUp = true,
-        .moveDown = false};
     const rpg::detail::OverworldDirectionalInput canceledHorizontalInput{
         .moveLeft = true,
         .moveRight = true,
@@ -99,19 +103,28 @@ bool verifyOverworldInputTranslation()
         .moveRight = false,
         .moveUp = true,
         .moveDown = true};
-    const rpg::MovementIntent diagonalIntent = rpg::detail::getMovementIntent(diagonalInput);
+    rpg::detail::OverworldDirectionalInput lastPressedInput;
+
+    rpg::detail::applyDirectionalInputPress(lastPressedInput, rpg::detail::OverworldDirectionalKey::Right);
+    const rpg::MovementIntent rightIntent = rpg::detail::getMovementIntent(lastPressedInput);
+    rpg::detail::applyDirectionalInputPress(lastPressedInput, rpg::detail::OverworldDirectionalKey::Up);
+    const rpg::MovementIntent upIntent = rpg::detail::getMovementIntent(lastPressedInput);
+    rpg::detail::applyDirectionalInputRelease(lastPressedInput, rpg::detail::OverworldDirectionalKey::Up);
+    const rpg::MovementIntent backToRightIntent = rpg::detail::getMovementIntent(lastPressedInput);
+    rpg::detail::applyDirectionalInputPress(lastPressedInput, rpg::detail::OverworldDirectionalKey::Down);
+    const rpg::MovementIntent downIntent = rpg::detail::getMovementIntent(lastPressedInput);
+
     const rpg::MovementIntent canceledHorizontalIntent = rpg::detail::getMovementIntent(canceledHorizontalInput);
     const rpg::MovementIntent canceledVerticalIntent = rpg::detail::getMovementIntent(canceledVerticalInput);
-    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(diagonalInput, viewportSize);
+    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(lastPressedInput, viewportSize);
 
-    return std::fabs(diagonalIntent.x - 1.0F) < 0.0001F
-        && std::fabs(diagonalIntent.y + 1.0F) < 0.0001F
-        && std::fabs(canceledHorizontalIntent.x) < 0.0001F
-        && std::fabs(canceledHorizontalIntent.y) < 0.0001F
-        && std::fabs(canceledVerticalIntent.x) < 0.0001F
-        && std::fabs(canceledVerticalIntent.y) < 0.0001F
-        && std::fabs(overworldInput.movementIntent.x - diagonalIntent.x) < 0.0001F
-        && std::fabs(overworldInput.movementIntent.y - diagonalIntent.y) < 0.0001F
+    return matchesMovementIntent(rightIntent, 1.0F, 0.0F)
+        && matchesMovementIntent(upIntent, 0.0F, -1.0F)
+        && matchesMovementIntent(backToRightIntent, 1.0F, 0.0F)
+        && matchesMovementIntent(downIntent, 0.0F, 1.0F)
+        && matchesMovementIntent(canceledHorizontalIntent, 0.0F, 0.0F)
+        && matchesMovementIntent(canceledVerticalIntent, 0.0F, 0.0F)
+        && matchesMovementIntent(overworldInput.movementIntent, downIntent.x, downIntent.y)
         && std::fabs(overworldInput.viewportSize.width - viewportSize.width) < 0.0001F
         && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F;
 }

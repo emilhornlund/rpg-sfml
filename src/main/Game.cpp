@@ -56,17 +56,26 @@ constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
 constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 const sf::Color kBackgroundColor(24, 24, 27);
 
-[[nodiscard]] detail::OverworldDirectionalInput readOverworldDirectionalInput() noexcept
+[[nodiscard]] std::optional<detail::OverworldDirectionalKey> getDirectionalKey(
+    const sf::Keyboard::Key key) noexcept
 {
-    return {
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)
-            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left),
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)
-            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right),
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)
-            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up),
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)
-            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)};
+    switch (key)
+    {
+    case sf::Keyboard::Key::A:
+    case sf::Keyboard::Key::Left:
+        return detail::OverworldDirectionalKey::Left;
+    case sf::Keyboard::Key::D:
+    case sf::Keyboard::Key::Right:
+        return detail::OverworldDirectionalKey::Right;
+    case sf::Keyboard::Key::W:
+    case sf::Keyboard::Key::Up:
+        return detail::OverworldDirectionalKey::Up;
+    case sf::Keyboard::Key::S:
+    case sf::Keyboard::Key::Down:
+        return detail::OverworldDirectionalKey::Down;
+    default:
+        return std::nullopt;
+    }
 }
 
 [[nodiscard]] std::filesystem::path getExecutableDirectory()
@@ -170,6 +179,7 @@ public:
     sf::Texture terrainTileset;
     sf::Texture playerSpritesheet;
     OverworldRuntime overworldRuntime;
+    detail::OverworldDirectionalInput directionalInput;
 };
 
 Game::Game()
@@ -222,9 +232,23 @@ void Game::processEvents()
         }
         else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
+            if (const std::optional directionalKey = getDirectionalKey(keyPressed->code);
+                directionalKey.has_value())
+            {
+                detail::applyDirectionalInputPress(m_impl->directionalInput, *directionalKey);
+            }
+
             if (keyPressed->code == sf::Keyboard::Key::Escape)
             {
                 runtimeEvent = detail::RuntimeEvent::EscapePressed;
+            }
+        }
+        else if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
+        {
+            if (const std::optional directionalKey = getDirectionalKey(keyReleased->code);
+                directionalKey.has_value())
+            {
+                detail::applyDirectionalInputRelease(m_impl->directionalInput, *directionalKey);
             }
         }
 
@@ -244,7 +268,7 @@ void Game::update(float deltaTimeSeconds)
     m_impl->overworldRuntime.update(
         deltaTimeSeconds,
         detail::getOverworldInput(
-            readOverworldDirectionalInput(),
+            m_impl->directionalInput,
             viewportSize));
 }
 

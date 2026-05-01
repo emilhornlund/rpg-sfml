@@ -39,73 +39,60 @@ namespace
 constexpr int kWalkAnimationStepCount = 4;
 constexpr float kWalkFrameDurationSeconds = 0.12F;
 constexpr int kWalkAnimationFrames[kWalkAnimationStepCount] = {1, 2, 1, 0};
+constexpr float kMovementEpsilon = 0.001F;
 
-[[nodiscard]] float vectorLength(const MovementIntent& movementIntent) noexcept
+[[nodiscard]] bool isMovementIntentZero(const MovementIntent& movementIntent) noexcept
 {
-    return std::sqrt(
-        movementIntent.x * movementIntent.x
-        + movementIntent.y * movementIntent.y);
+    return std::fabs(movementIntent.x) <= kMovementEpsilon
+        && std::fabs(movementIntent.y) <= kMovementEpsilon;
 }
 
-[[nodiscard]] MovementIntent normalize(const MovementIntent& movementIntent) noexcept
+[[nodiscard]] MovementIntent getCardinalMovementIntent(const MovementIntent& movementIntent) noexcept
 {
-    const float length = vectorLength(movementIntent);
-
-    if (length <= 0.0F)
+    if (isMovementIntentZero(movementIntent))
     {
         return {0.0F, 0.0F};
     }
 
-    return {movementIntent.x / length, movementIntent.y / length};
+    const float absoluteX = std::fabs(movementIntent.x);
+    const float absoluteY = std::fabs(movementIntent.y);
+
+    if (absoluteX >= absoluteY)
+    {
+        return {movementIntent.x < 0.0F ? -1.0F : 1.0F, 0.0F};
+    }
+
+    return {0.0F, movementIntent.y < 0.0F ? -1.0F : 1.0F};
 }
 
 [[nodiscard]] PlayerFacingDirection resolveFacingDirection(
     const MovementIntent& movementIntent,
     const PlayerFacingDirection currentFacingDirection) noexcept
 {
-    const float absoluteX = std::fabs(movementIntent.x);
-    const float absoluteY = std::fabs(movementIntent.y);
-
-    if (absoluteX <= 0.0F && absoluteY <= 0.0F)
+    if (isMovementIntentZero(movementIntent))
     {
         return currentFacingDirection;
     }
 
-    if (absoluteY >= absoluteX)
+    if (std::fabs(movementIntent.x) > std::fabs(movementIntent.y))
     {
-        return movementIntent.y < 0.0F
-            ? PlayerFacingDirection::Up
-            : PlayerFacingDirection::Down;
+        return movementIntent.x < 0.0F
+            ? PlayerFacingDirection::Left
+            : PlayerFacingDirection::Right;
     }
 
-    return movementIntent.x < 0.0F
-        ? PlayerFacingDirection::Left
-        : PlayerFacingDirection::Right;
+    return movementIntent.y < 0.0F
+        ? PlayerFacingDirection::Up
+        : PlayerFacingDirection::Down;
 }
 
-void applyAxisConstrainedStep(WorldPosition& position, const WorldPosition& step, const World& world) noexcept
+[[nodiscard]] float getDistance(
+    const WorldPosition& from,
+    const WorldPosition& to) noexcept
 {
-    const WorldPosition candidate{position.x + step.x, position.y + step.y};
-
-    if (world.isTraversable(candidate))
-    {
-        position = candidate;
-        return;
-    }
-
-    const WorldPosition xOnlyCandidate{position.x + step.x, position.y};
-
-    if (world.isTraversable(xOnlyCandidate))
-    {
-        position = xOnlyCandidate;
-    }
-
-    const WorldPosition yOnlyCandidate{position.x, position.y + step.y};
-
-    if (world.isTraversable(yOnlyCandidate))
-    {
-        position = yOnlyCandidate;
-    }
+    const float deltaX = to.x - from.x;
+    const float deltaY = to.y - from.y;
+    return std::sqrt(deltaX * deltaX + deltaY * deltaY);
 }
 
 } // namespace
@@ -117,7 +104,9 @@ Player::~Player() = default;
 void Player::spawn(const WorldPosition& position) noexcept
 {
     m_state.position = position;
+    m_state.stepDestination = position;
     m_state.movementIntent = {0.0F, 0.0F};
+    m_state.activeStepDirection = {0.0F, 0.0F};
     m_state.animationElapsedSeconds = 0.0F;
     m_state.walkAnimationStepIndex = 0;
     m_state.facingDirection = PlayerFacingDirection::Down;
@@ -138,38 +127,82 @@ void Player::update(const float deltaTimeSeconds, const World& world) noexcept
     }
 
     const float clampedDeltaTimeSeconds = std::max(deltaTimeSeconds, 0.0F);
-    m_state.facingDirection = resolveFacingDirection(m_state.movementIntent, m_state.facingDirection);
-    const MovementIntent direction = normalize(m_state.movementIntent);
+    const float movementSpeed = std::max(m_state.movementSpeed, 0.0F);
+    const MovementIntent requestedDirection = getCardinalMovementIntent(m_state.movementIntent);
+    float remainingDistance = movementSpeed * clampedDeltaTimeSeconds;
+    float movedDistance = 0.0F;
 
-    if (direction.x == 0.0F && direction.y == 0.0F)
+    if (!m_state.isMoving && !isMovementIntentZero(requestedDirection))
+    {
+        m_state.facingDirection = resolveFacingDirection(requestedDirection, m_state.facingDirection);
+    }
+
+    while (remainingDistance > 0.0F)
+    {
+        if (!m_state.isMoving)
+        {
+            if (isMovementIntentZero(requestedDirection))
+            {
+                break;
+            }
+
+            const TileCoordinates currentTile = world.getTileCoordinates(m_state.position);
+            m_state.position = world.getTileCenter(currentTile);
+
+            const TileCoordinates destinationTile{
+                currentTile.x + static_cast<int>(requestedDirection.x),
+                currentTile.y + static_cast<int>(requestedDirection.y)};
+
+            if (!world.isTraversable(destinationTile))
+            {
+                break;
+            }
+
+            m_state.stepDestination = world.getTileCenter(destinationTile);
+            m_state.activeStepDirection = requestedDirection;
+            m_state.facingDirection = resolveFacingDirection(m_state.activeStepDirection, m_state.facingDirection);
+            m_state.isMoving = true;
+        }
+
+        const float distanceToDestination = getDistance(m_state.position, m_state.stepDestination);
+
+        if (distanceToDestination <= kMovementEpsilon)
+        {
+            m_state.position = m_state.stepDestination;
+            m_state.isMoving = false;
+            continue;
+        }
+
+        const float distanceAdvanced = std::min(remainingDistance, distanceToDestination);
+        m_state.position.x += m_state.activeStepDirection.x * distanceAdvanced;
+        m_state.position.y += m_state.activeStepDirection.y * distanceAdvanced;
+        movedDistance += distanceAdvanced;
+        remainingDistance -= distanceAdvanced;
+
+        if (distanceAdvanced + kMovementEpsilon >= distanceToDestination)
+        {
+            m_state.position = m_state.stepDestination;
+            m_state.isMoving = false;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (!m_state.isMoving)
     {
         m_state.animationElapsedSeconds = 0.0F;
         m_state.walkAnimationStepIndex = 0;
-        m_state.isMoving = false;
         return;
     }
 
-    m_state.isMoving = true;
-
-    const float travelDistance = m_state.movementSpeed * clampedDeltaTimeSeconds;
-
-    if (travelDistance <= 0.0F)
+    if (movementSpeed <= 0.0F || movedDistance <= 0.0F)
     {
         return;
     }
 
-    const float maxStepDistance = std::max(world.getTileSize() * 0.25F, 1.0F);
-    const int steps = std::max(1, static_cast<int>(std::ceil(travelDistance / maxStepDistance)));
-    const WorldPosition step{
-        direction.x * (travelDistance / static_cast<float>(steps)),
-        direction.y * (travelDistance / static_cast<float>(steps))};
-
-    for (int stepIndex = 0; stepIndex < steps; ++stepIndex)
-    {
-        applyAxisConstrainedStep(m_state.position, step, world);
-    }
-
-    m_state.animationElapsedSeconds += clampedDeltaTimeSeconds;
+    m_state.animationElapsedSeconds += movedDistance / movementSpeed;
 
     while (m_state.animationElapsedSeconds >= kWalkFrameDurationSeconds)
     {

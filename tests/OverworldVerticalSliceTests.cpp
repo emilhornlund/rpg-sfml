@@ -106,6 +106,13 @@ struct TraversableRun
     rpg::MovementIntent movementIntent;
 };
 
+struct TraversableCorner
+{
+    rpg::TileCoordinates start;
+    rpg::TileCoordinates firstStep;
+    rpg::TileCoordinates secondStep;
+};
+
 [[nodiscard]] std::optional<TraversableRun> findTraversableRun(
     const rpg::World& world,
     const rpg::TileCoordinates& anchor,
@@ -163,6 +170,82 @@ struct TraversableRun
                         return TraversableRun{
                             start,
                             {static_cast<float>(direction.x), static_cast<float>(direction.y)}};
+                    }
+                }
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+[[nodiscard]] std::optional<TraversableCorner> findTraversableCorner(
+    const rpg::World& world,
+    const rpg::TileCoordinates& anchor,
+    const int searchRadius)
+{
+    constexpr std::array<rpg::TileCoordinates, 4> kDirections = {{
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1},
+    }};
+
+    for (int radius = 0; radius <= searchRadius; ++radius)
+    {
+        for (int y = anchor.y - radius; y <= anchor.y + radius; ++y)
+        {
+            for (int x = anchor.x - radius; x <= anchor.x + radius; ++x)
+            {
+                if (radius > 0
+                    && x != anchor.x - radius
+                    && x != anchor.x + radius
+                    && y != anchor.y - radius
+                    && y != anchor.y + radius)
+                {
+                    continue;
+                }
+
+                const rpg::TileCoordinates start{x, y};
+
+                if (!world.isTraversable(start))
+                {
+                    continue;
+                }
+
+                for (const rpg::TileCoordinates& firstDirection : kDirections)
+                {
+                    const rpg::TileCoordinates firstStep{
+                        start.x + firstDirection.x,
+                        start.y + firstDirection.y};
+
+                    if (!world.isTraversable(firstStep))
+                    {
+                        continue;
+                    }
+
+                    for (const rpg::TileCoordinates& secondDirection : kDirections)
+                    {
+                        if (firstDirection.x != 0 && secondDirection.x != 0)
+                        {
+                            continue;
+                        }
+
+                        if (firstDirection.y != 0 && secondDirection.y != 0)
+                        {
+                            continue;
+                        }
+
+                        const rpg::TileCoordinates secondStep{
+                            firstStep.x + secondDirection.x,
+                            firstStep.y + secondDirection.y};
+
+                        if (!world.isTraversable(secondStep))
+                        {
+                            continue;
+                        }
+
+                        return TraversableCorner{start, firstStep, secondStep};
                     }
                 }
             }
@@ -339,8 +422,15 @@ struct TraversableRun
     player.update(world.getTileSize() / player.getMovementSpeed(), world);
 
     const rpg::TileCoordinates movedTile = world.getTileCoordinates(player.getPosition());
+    const rpg::WorldPosition movedPosition = player.getPosition();
+    const rpg::WorldPosition neighborCenter = world.getTileCenter(*traversableNeighbor);
 
     if (movedTile.x != traversableNeighbor->x || movedTile.y != traversableNeighbor->y)
+    {
+        return false;
+    }
+
+    if (!areClose(movedPosition.x, neighborCenter.x) || !areClose(movedPosition.y, neighborCenter.y))
     {
         return false;
     }
@@ -378,6 +468,44 @@ struct TraversableRun
     return false;
 }
 
+[[nodiscard]] bool verifyPlayerCompletesReleasedStep()
+{
+    rpg::World world;
+    rpg::Player player;
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
+    const std::optional<rpg::TileCoordinates> traversableNeighbor = findAdjacentTile(world, spawnTile, true);
+
+    if (!traversableNeighbor.has_value())
+    {
+        return false;
+    }
+
+    const float halfStepSeconds = world.getTileSize() / player.getMovementSpeed() * 0.5F;
+    player.spawn(world.getTileCenter(spawnTile));
+    player.setMovementIntent(movementIntentForTiles(spawnTile, *traversableNeighbor));
+    player.update(halfStepSeconds, world);
+
+    const rpg::WorldPosition midStepPosition = player.getPosition();
+    const rpg::WorldPosition destinationCenter = world.getTileCenter(*traversableNeighbor);
+
+    if (areClose(midStepPosition.x, destinationCenter.x) && areClose(midStepPosition.y, destinationCenter.y))
+    {
+        return false;
+    }
+
+    player.setMovementIntent({0.0F, 0.0F});
+    player.update(halfStepSeconds, world);
+
+    const rpg::WorldPosition finalPosition = player.getPosition();
+    const rpg::TileCoordinates finalTile = world.getTileCoordinates(finalPosition);
+
+    return finalTile.x == traversableNeighbor->x
+        && finalTile.y == traversableNeighbor->y
+        && areClose(finalPosition.x, destinationCenter.x)
+        && areClose(finalPosition.y, destinationCenter.y)
+        && !player.isMoving();
+}
+
 [[nodiscard]] bool verifyPlayerMovementBeyondInitialArea()
 {
     rpg::World world;
@@ -404,9 +532,50 @@ struct TraversableRun
     return movedTile.x == traversableNeighbor->x && movedTile.y == traversableNeighbor->y;
 }
 
+[[nodiscard]] bool verifyPlayerTurnsOnlyAtTileCenter()
+{
+    rpg::World world;
+    rpg::Player player;
+    const std::optional<TraversableCorner> traversableCorner = findTraversableCorner(world, world.getSpawnTile(), 32);
+
+    if (!traversableCorner.has_value())
+    {
+        return false;
+    }
+
+    const float halfStepSeconds = world.getTileSize() / player.getMovementSpeed() * 0.5F;
+    player.spawn(world.getTileCenter(traversableCorner->start));
+    player.setMovementIntent(movementIntentForTiles(traversableCorner->start, traversableCorner->firstStep));
+    player.update(halfStepSeconds, world);
+
+    player.setMovementIntent(movementIntentForTiles(traversableCorner->firstStep, traversableCorner->secondStep));
+    player.update(halfStepSeconds, world);
+
+    const rpg::WorldPosition firstStepCenter = world.getTileCenter(traversableCorner->firstStep);
+    const rpg::WorldPosition secondStepCenter = world.getTileCenter(traversableCorner->secondStep);
+    const rpg::WorldPosition afterFirstStepPosition = player.getPosition();
+
+    if (!areClose(afterFirstStepPosition.x, firstStepCenter.x)
+        || !areClose(afterFirstStepPosition.y, firstStepCenter.y)
+        || player.isMoving())
+    {
+        return false;
+    }
+
+    player.update(world.getTileSize() / player.getMovementSpeed(), world);
+    const rpg::WorldPosition finalPosition = player.getPosition();
+    const rpg::TileCoordinates finalTile = world.getTileCoordinates(finalPosition);
+
+    return finalTile.x == traversableCorner->secondStep.x
+        && finalTile.y == traversableCorner->secondStep.y
+        && areClose(finalPosition.x, secondStepCenter.x)
+        && areClose(finalPosition.y, secondStepCenter.y)
+        && !player.isMoving();
+}
+
 [[nodiscard]] bool verifyPlayerWalkAnimationSequence()
 {
-    constexpr float kAnimationStepSeconds = 0.12F;
+    constexpr float kMovementUpdateSeconds = 0.03F;
 
     rpg::World world;
     rpg::Player player;
@@ -425,18 +594,36 @@ struct TraversableRun
         return false;
     }
 
-    constexpr std::array<int, 4> kExpectedMovingFrames = {2, 1, 0, 1};
+    bool sawWalkingFrame = false;
 
-    for (const int expectedFrame : kExpectedMovingFrames)
+    for (int updateIndex = 0; updateIndex < 16; ++updateIndex)
     {
-        player.update(kAnimationStepSeconds, world);
+        player.update(kMovementUpdateSeconds, world);
 
-        if (!player.isMoving() || player.getWalkFrameIndex() != expectedFrame)
+        if (player.isMoving() && player.getWalkFrameIndex() != 1)
         {
-            return false;
+            sawWalkingFrame = true;
         }
     }
 
+    if (!sawWalkingFrame)
+    {
+        return false;
+    }
+
+    player.setMovementIntent({0.0F, 0.0F});
+
+    for (int updateIndex = 0; updateIndex < 4 && player.isMoving(); ++updateIndex)
+    {
+        player.update(kMovementUpdateSeconds, world);
+    }
+
+    if (player.isMoving())
+    {
+        return false;
+    }
+
+    player.spawn(world.getTileCenter(traversableRun->start));
     player.setMovementIntent({0.0F, 0.0F});
     player.update(0.0F, world);
 
@@ -629,7 +816,17 @@ int main()
         return 1;
     }
 
+    if (!verifyPlayerCompletesReleasedStep())
+    {
+        return 1;
+    }
+
     if (!verifyPlayerMovementBeyondInitialArea())
+    {
+        return 1;
+    }
+
+    if (!verifyPlayerTurnsOnlyAtTileCenter())
     {
         return 1;
     }

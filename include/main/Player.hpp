@@ -140,7 +140,9 @@ private:
     struct State
     {
         WorldPosition position{0.0F, 0.0F};
+        WorldPosition stepDestination{0.0F, 0.0F};
         MovementIntent movementIntent{0.0F, 0.0F};
+        MovementIntent activeStepDirection{0.0F, 0.0F};
         float movementSpeed = 160.0F;
         float animationElapsedSeconds = 0.0F;
         int walkAnimationStepIndex = 0;

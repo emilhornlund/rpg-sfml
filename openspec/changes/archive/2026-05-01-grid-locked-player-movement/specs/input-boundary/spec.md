@@ -1,18 +1,4 @@
-# Input Boundary Capability
-
-## Purpose
-
-Establishes a clean input translation boundary between the SFML shell and gameplay-facing modules. Input polling stays at the shell edge, and gameplay consumes repo-native input types that can be tested independently of live SFML behavior.
-
-## Requirements
-
-### Requirement: Runtime input translation stays at the shell boundary
-The executable runtime SHALL keep backend-specific input polling and key inspection at the SFML shell boundary instead of performing that polling inside gameplay-facing overworld coordination or gameplay module code.
-
-#### Scenario: Polling input for an overworld frame
-- **WHEN** the game runtime prepares input for the current overworld frame
-- **THEN** it polls backend-specific key state from the SFML shell boundary
-- **AND** gameplay-facing runtime collaborators do not directly inspect SFML key state
+## MODIFIED Requirements
 
 ### Requirement: Overworld gameplay consumes repo-native input
 The overworld gameplay update path SHALL consume repo-native per-frame input represented through project-defined types instead of SFML input types or raw backend key codes. That input SHALL publish at most one active cardinal movement direction for the frame, and simultaneous perpendicular directional keys SHALL resolve to a single direction using the shell boundary's last-pressed-wins policy.

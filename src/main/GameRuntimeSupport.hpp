@@ -29,6 +29,7 @@
 
 #include <main/OverworldRuntime.hpp>
 
+#include <cstdint>
 #include <utility>
 
 namespace rpg::detail
@@ -54,6 +55,17 @@ struct OverworldDirectionalInput
     bool moveRight = false;
     bool moveUp = false;
     bool moveDown = false;
+    std::uint64_t horizontalPressSequence = 0;
+    std::uint64_t verticalPressSequence = 0;
+    std::uint64_t nextPressSequence = 1;
+};
+
+enum class OverworldDirectionalKey
+{
+    Left,
+    Right,
+    Up,
+    Down
 };
 
 [[nodiscard]] constexpr bool shouldCloseForEvent(const RuntimeEvent event) noexcept
@@ -61,11 +73,84 @@ struct OverworldDirectionalInput
     return event == RuntimeEvent::WindowClosed || event == RuntimeEvent::EscapePressed;
 }
 
+constexpr void applyDirectionalInputPress(
+    OverworldDirectionalInput& directionalInput,
+    const OverworldDirectionalKey directionalKey) noexcept
+{
+    switch (directionalKey)
+    {
+    case OverworldDirectionalKey::Left:
+        if (!directionalInput.moveLeft)
+        {
+            directionalInput.moveLeft = true;
+            directionalInput.horizontalPressSequence = directionalInput.nextPressSequence++;
+        }
+        break;
+    case OverworldDirectionalKey::Right:
+        if (!directionalInput.moveRight)
+        {
+            directionalInput.moveRight = true;
+            directionalInput.horizontalPressSequence = directionalInput.nextPressSequence++;
+        }
+        break;
+    case OverworldDirectionalKey::Up:
+        if (!directionalInput.moveUp)
+        {
+            directionalInput.moveUp = true;
+            directionalInput.verticalPressSequence = directionalInput.nextPressSequence++;
+        }
+        break;
+    case OverworldDirectionalKey::Down:
+        if (!directionalInput.moveDown)
+        {
+            directionalInput.moveDown = true;
+            directionalInput.verticalPressSequence = directionalInput.nextPressSequence++;
+        }
+        break;
+    }
+}
+
+constexpr void applyDirectionalInputRelease(
+    OverworldDirectionalInput& directionalInput,
+    const OverworldDirectionalKey directionalKey) noexcept
+{
+    switch (directionalKey)
+    {
+    case OverworldDirectionalKey::Left:
+        directionalInput.moveLeft = false;
+        break;
+    case OverworldDirectionalKey::Right:
+        directionalInput.moveRight = false;
+        break;
+    case OverworldDirectionalKey::Up:
+        directionalInput.moveUp = false;
+        break;
+    case OverworldDirectionalKey::Down:
+        directionalInput.moveDown = false;
+        break;
+    }
+}
+
 [[nodiscard]] constexpr MovementIntent getMovementIntent(const OverworldDirectionalInput& directionalInput) noexcept
 {
-    return {
-        static_cast<float>(static_cast<int>(directionalInput.moveRight) - static_cast<int>(directionalInput.moveLeft)),
-        static_cast<float>(static_cast<int>(directionalInput.moveDown) - static_cast<int>(directionalInput.moveUp))};
+    const float horizontalIntent = directionalInput.moveLeft == directionalInput.moveRight
+        ? 0.0F
+        : (directionalInput.moveRight ? 1.0F : -1.0F);
+    const float verticalIntent = directionalInput.moveUp == directionalInput.moveDown
+        ? 0.0F
+        : (directionalInput.moveDown ? 1.0F : -1.0F);
+
+    if (horizontalIntent != 0.0F && verticalIntent != 0.0F)
+    {
+        if (directionalInput.verticalPressSequence > directionalInput.horizontalPressSequence)
+        {
+            return {0.0F, verticalIntent};
+        }
+
+        return {horizontalIntent, 0.0F};
+    }
+
+    return {horizontalIntent, verticalIntent};
 }
 
 [[nodiscard]] constexpr OverworldInput getOverworldInput(

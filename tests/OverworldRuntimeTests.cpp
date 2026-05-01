@@ -185,6 +185,62 @@ constexpr float kFloatTolerance = 0.001F;
         && playerMarker->animationFrameIndex <= 2;
 }
 
+[[nodiscard]] bool verifyRuntimeCompletesReleasedStep()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    rpg::Player player;
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
+    const std::optional<rpg::TileCoordinates> traversableNeighbor = findAdjacentTile(world, spawnTile, true);
+
+    if (!traversableNeighbor.has_value())
+    {
+        return false;
+    }
+
+    const float halfStepSeconds = world.getTileSize() / player.getMovementSpeed() * 0.5F;
+    runtime.initialize({320.0F, 224.0F});
+    runtime.update(
+        halfStepSeconds,
+        {
+            movementIntentForTiles(spawnTile, *traversableNeighbor),
+            {320.0F, 224.0F}});
+
+    const rpg::OverworldRenderMarker* midStepMarker = findPlayerMarker(runtime.getRenderSnapshot().markers);
+    rpg::WorldPosition midStepPosition{0.0F, 0.0F};
+
+    if (midStepMarker == nullptr)
+    {
+        return false;
+    }
+
+    midStepPosition = midStepMarker->position;
+
+    runtime.update(
+        halfStepSeconds,
+        {
+            {0.0F, 0.0F},
+            {320.0F, 224.0F}});
+
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
+
+    if (playerMarker == nullptr)
+    {
+        return false;
+    }
+
+    const rpg::WorldPosition destinationCenter = world.getTileCenter(*traversableNeighbor);
+
+    return !areClose(midStepPosition.x, destinationCenter.x)
+        || !areClose(midStepPosition.y, destinationCenter.y)
+        ? areClose(playerMarker->position.x, destinationCenter.x)
+            && areClose(playerMarker->position.y, destinationCenter.y)
+            && areClose(renderSnapshot.cameraFrame.center.x, destinationCenter.x)
+            && areClose(renderSnapshot.cameraFrame.center.y, destinationCenter.y)
+        : false;
+}
+
 [[nodiscard]] bool verifyRenderSnapshotContents()
 {
     rpg::OverworldRuntime runtime;
@@ -230,6 +286,11 @@ int main()
     }
 
     if (!verifyGameplayProgression())
+    {
+        return 1;
+    }
+
+    if (!verifyRuntimeCompletesReleasedStep())
     {
         return 1;
     }
