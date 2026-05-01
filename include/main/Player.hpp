@@ -88,6 +88,13 @@ public:
     void setMovementIntent(const MovementIntent& movementIntent) noexcept;
 
     /**
+     * @brief Scale the player's base movement speed.
+     *
+     * @param movementSpeedScale Multiplier applied to the base movement speed.
+     */
+    void setMovementSpeedScale(float movementSpeedScale) noexcept;
+
+    /**
      * @brief Advance the player simulation.
      *
      * @param deltaTimeSeconds Frame delta time in seconds.
@@ -108,6 +115,13 @@ public:
      * @return Movement speed in world-space units per second.
      */
     [[nodiscard]] float getMovementSpeed() const noexcept;
+
+    /**
+     * @brief Read the active movement speed scale.
+     *
+     * @return Multiplier applied to the base movement speed.
+     */
+    [[nodiscard]] float getMovementSpeedScale() const noexcept;
 
     /**
      * @brief Read the player's current facing direction.
@@ -143,7 +157,8 @@ private:
         WorldPosition stepDestination{0.0F, 0.0F};
         MovementIntent movementIntent{0.0F, 0.0F};
         MovementIntent activeStepDirection{0.0F, 0.0F};
-        float movementSpeed = 160.0F;
+        float baseMovementSpeed = 96.0F;
+        float movementSpeedScale = 1.0F;
         float animationElapsedSeconds = 0.0F;
         int walkAnimationStepIndex = 0;
         PlayerFacingDirection facingDirection = PlayerFacingDirection::Down;

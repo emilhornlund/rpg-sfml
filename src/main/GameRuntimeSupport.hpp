@@ -29,6 +29,7 @@
 
 #include <main/OverworldRuntime.hpp>
 
+#include <array>
 #include <cstdint>
 #include <utility>
 
@@ -67,6 +68,68 @@ enum class OverworldDirectionalKey
     Up,
     Down
 };
+
+enum class OverworldDebugViewAction
+{
+    ZoomIn,
+    ZoomOut,
+    ToggleTileGrid
+};
+
+struct OverlayRectangle
+{
+    WorldSize size{0.0F, 0.0F};
+    WorldPosition position{0.0F, 0.0F};
+};
+
+constexpr int kMinDebugZoomPercent = 100;
+constexpr int kDefaultDebugZoomPercent = 300;
+constexpr int kMaxDebugZoomPercent = 400;
+constexpr int kDebugZoomStepPercent = 50;
+
+[[nodiscard]] constexpr bool isDebugViewModeEnabledForBuild() noexcept
+{
+#ifdef NDEBUG
+    return false;
+#else
+    return true;
+#endif
+}
+
+[[nodiscard]] constexpr OverworldInput::DebugViewState makeOverworldDebugViewState(const bool isEnabled) noexcept
+{
+    return {
+        isEnabled,
+        kDefaultDebugZoomPercent,
+        false};
+}
+
+constexpr void applyOverworldDebugViewAction(
+    OverworldInput::DebugViewState& debugViewState,
+    const OverworldDebugViewAction action) noexcept
+{
+    if (!debugViewState.isEnabled)
+    {
+        return;
+    }
+
+    switch (action)
+    {
+    case OverworldDebugViewAction::ZoomIn:
+        debugViewState.zoomPercent = debugViewState.zoomPercent + kDebugZoomStepPercent > kMaxDebugZoomPercent
+            ? kMaxDebugZoomPercent
+            : debugViewState.zoomPercent + kDebugZoomStepPercent;
+        break;
+    case OverworldDebugViewAction::ZoomOut:
+        debugViewState.zoomPercent = debugViewState.zoomPercent - kDebugZoomStepPercent < kMinDebugZoomPercent
+            ? kMinDebugZoomPercent
+            : debugViewState.zoomPercent - kDebugZoomStepPercent;
+        break;
+    case OverworldDebugViewAction::ToggleTileGrid:
+        debugViewState.showTileGrid = !debugViewState.showTileGrid;
+        break;
+    }
+}
 
 [[nodiscard]] constexpr bool shouldCloseForEvent(const RuntimeEvent event) noexcept
 {
@@ -155,11 +218,38 @@ constexpr void applyDirectionalInputRelease(
 
 [[nodiscard]] constexpr OverworldInput getOverworldInput(
     const OverworldDirectionalInput& directionalInput,
-    const WorldSize& viewportSize) noexcept
+    const WorldSize& viewportSize,
+    const OverworldInput::DebugViewState& debugViewState) noexcept
 {
     return {
         getMovementIntent(directionalInput),
-        viewportSize};
+        viewportSize,
+        debugViewState};
+}
+
+[[nodiscard]] constexpr bool shouldRenderTileGridOverlay(const OverworldInput::DebugViewState& debugViewState) noexcept
+{
+    return debugViewState.isEnabled && debugViewState.showTileGrid;
+}
+
+[[nodiscard]] constexpr std::array<OverlayRectangle, 4> getTileGridOverlayRectangles(
+    const OverworldRenderTile& visibleTile,
+    const float lineThickness) noexcept
+{
+    const float clampedLineThickness = lineThickness > 0.0F ? lineThickness : 1.0F;
+    const float left = visibleTile.position.x - visibleTile.origin.x;
+    const float top = visibleTile.position.y - visibleTile.origin.y;
+    const float width = visibleTile.size.width;
+    const float height = visibleTile.size.height;
+    const float bottom = top + height - clampedLineThickness;
+    const float right = left + width - clampedLineThickness;
+
+    return {{
+        {{width, clampedLineThickness}, {left, top}},
+        {{clampedLineThickness, height}, {left, top}},
+        {{width, clampedLineThickness}, {left, bottom}},
+        {{clampedLineThickness, height}, {right, top}},
+    }};
 }
 
 [[nodiscard]] constexpr PlayerSpritePlacement getPlayerSpritePlacement(

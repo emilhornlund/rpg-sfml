@@ -37,7 +37,7 @@ namespace
 {
 
 constexpr int kWalkAnimationStepCount = 4;
-constexpr float kWalkFrameDurationSeconds = 0.12F;
+constexpr float kWalkFrameDurationSeconds = 0.16F;
 constexpr int kWalkAnimationFrames[kWalkAnimationStepCount] = {1, 2, 1, 0};
 constexpr float kMovementEpsilon = 0.001F;
 
@@ -119,6 +119,11 @@ void Player::setMovementIntent(const MovementIntent& movementIntent) noexcept
     m_state.movementIntent = movementIntent;
 }
 
+void Player::setMovementSpeedScale(const float movementSpeedScale) noexcept
+{
+    m_state.movementSpeedScale = std::max(movementSpeedScale, 0.0F);
+}
+
 void Player::update(const float deltaTimeSeconds, const World& world) noexcept
 {
     if (!m_state.isSpawned)
@@ -127,7 +132,7 @@ void Player::update(const float deltaTimeSeconds, const World& world) noexcept
     }
 
     const float clampedDeltaTimeSeconds = std::max(deltaTimeSeconds, 0.0F);
-    const float movementSpeed = std::max(m_state.movementSpeed, 0.0F);
+    const float movementSpeed = std::max(getMovementSpeed(), 0.0F);
     const MovementIntent requestedDirection = getCardinalMovementIntent(m_state.movementIntent);
     float remainingDistance = movementSpeed * clampedDeltaTimeSeconds;
     float movedDistance = 0.0F;
@@ -218,7 +223,12 @@ WorldPosition Player::getPosition() const noexcept
 
 float Player::getMovementSpeed() const noexcept
 {
-    return m_state.movementSpeed;
+    return m_state.baseMovementSpeed * m_state.movementSpeedScale;
+}
+
+float Player::getMovementSpeedScale() const noexcept
+{
+    return m_state.movementSpeedScale;
 }
 
 PlayerFacingDirection Player::getFacingDirection() const noexcept

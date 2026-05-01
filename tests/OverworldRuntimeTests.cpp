@@ -137,8 +137,8 @@ constexpr float kFloatTolerance = 0.001F;
     return playerMarker != nullptr
         && areClose(renderSnapshot.cameraFrame.center.x, spawnPosition.x)
         && areClose(renderSnapshot.cameraFrame.center.y, spawnPosition.y)
-        && areClose(renderSnapshot.cameraFrame.size.width, 1280.0F)
-        && areClose(renderSnapshot.cameraFrame.size.height, 720.0F)
+        && areClose(renderSnapshot.cameraFrame.size.width, 1280.0F / 3.0F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 720.0F / 3.0F)
         && areClose(playerMarker->position.x, spawnPosition.x)
         && areClose(playerMarker->position.y, spawnPosition.y)
         && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
@@ -261,8 +261,8 @@ constexpr float kFloatTolerance = 0.001F;
 
     const rpg::OverworldRenderTile& firstVisibleTile = renderSnapshot.visibleTiles.front();
 
-    return areClose(renderSnapshot.cameraFrame.size.width, 320.0F)
-        && areClose(renderSnapshot.cameraFrame.size.height, 224.0F)
+    return areClose(renderSnapshot.cameraFrame.size.width, 320.0F / 3.0F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 224.0F / 3.0F)
         && areClose(firstVisibleTile.size.width, 16.0F)
         && areClose(firstVisibleTile.size.height, 16.0F)
         && areClose(firstVisibleTile.origin.x, 8.0F)
@@ -274,6 +274,32 @@ constexpr float kFloatTolerance = 0.001F;
         && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
         && playerMarker->animationFrameIndex == 1
         && renderSnapshot.markers.size() == 1;
+}
+
+[[nodiscard]] bool verifyDebugZoomAdjustsPublishedCameraFrame()
+{
+    rpg::OverworldRuntime runtime;
+
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1200.0F, 900.0F},
+            {true, 300, false}});
+    const rpg::ViewFrame zoomedInFrame = runtime.getRenderSnapshot().cameraFrame;
+
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1200.0F, 900.0F},
+            {true, 150, false}});
+    const rpg::ViewFrame zoomedOutFrame = runtime.getRenderSnapshot().cameraFrame;
+
+    return areClose(zoomedInFrame.size.width, 400.0F)
+        && areClose(zoomedInFrame.size.height, 300.0F)
+        && areClose(zoomedOutFrame.size.width, 800.0F)
+        && areClose(zoomedOutFrame.size.height, 600.0F);
 }
 
 } // namespace
@@ -296,6 +322,11 @@ int main()
     }
 
     if (!verifyRenderSnapshotContents())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugZoomAdjustsPublishedCameraFrame())
     {
         return 1;
     }

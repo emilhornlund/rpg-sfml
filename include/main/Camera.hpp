@@ -73,6 +73,24 @@ public:
         float viewportHeight) noexcept;
 
     /**
+     * @brief Set the active camera zoom level.
+     *
+     * The zoom level is expressed as a percentage where 100 keeps the
+     * viewport-sized frame unchanged and larger values zoom in by publishing a
+     * smaller camera frame.
+     *
+     * @param zoomPercent Zoom level percentage.
+     */
+    void setZoomPercent(int zoomPercent) noexcept;
+
+    /**
+     * @brief Read the active camera zoom level.
+     *
+     * @return Zoom level percentage.
+     */
+    [[nodiscard]] int getZoomPercent() const noexcept;
+
+    /**
      * @brief Read the current camera frame.
      *
      * @return The current frame center and size.
@@ -89,6 +107,7 @@ private:
     struct State
     {
         ViewFrame frame{{0.0F, 0.0F}, {0.0F, 0.0F}};
+        int zoomPercent = 300;
     };
 
     /**

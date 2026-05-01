@@ -34,6 +34,18 @@ namespace rpg
 namespace
 {
 
+[[nodiscard]] float getMovementSpeedScaleForDebugView(const OverworldInput::DebugViewState& debugViewState) noexcept
+{
+    constexpr float kDefaultDebugZoomPercent = 300.0F;
+
+    if (!debugViewState.isEnabled || debugViewState.zoomPercent <= 0)
+    {
+        return 1.0F;
+    }
+
+    return kDefaultDebugZoomPercent / static_cast<float>(debugViewState.zoomPercent);
+}
+
 [[nodiscard]] constexpr OverworldRenderTile makeRenderTile(
     const VisibleWorldTile& visibleTile,
     const float tileSize) noexcept
@@ -82,6 +94,7 @@ void OverworldRuntime::initialize(const WorldSize& viewportSize)
 
 void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput& input)
 {
+    applyDebugViewState(input.debugViewState);
     initialize(input.viewportSize);
     m_player.setMovementIntent(input.movementIntent);
     m_player.update(deltaTimeSeconds, m_world);
@@ -90,6 +103,12 @@ void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput
         input.viewportSize.width,
         input.viewportSize.height);
     refreshRenderSnapshot();
+}
+
+void OverworldRuntime::applyDebugViewState(const OverworldInput::DebugViewState& debugViewState) noexcept
+{
+    m_camera.setZoomPercent(debugViewState.zoomPercent);
+    m_player.setMovementSpeedScale(getMovementSpeedScaleForDebugView(debugViewState));
 }
 
 const OverworldRenderSnapshot& OverworldRuntime::getRenderSnapshot() const noexcept

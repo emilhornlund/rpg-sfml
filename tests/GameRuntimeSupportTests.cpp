@@ -116,7 +116,11 @@ bool verifyOverworldInputTranslation()
 
     const rpg::MovementIntent canceledHorizontalIntent = rpg::detail::getMovementIntent(canceledHorizontalInput);
     const rpg::MovementIntent canceledVerticalIntent = rpg::detail::getMovementIntent(canceledVerticalInput);
-    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(lastPressedInput, viewportSize);
+    const rpg::OverworldInput::DebugViewState debugViewState{
+        true,
+        250,
+        true};
+    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(lastPressedInput, viewportSize, debugViewState);
 
     return matchesMovementIntent(rightIntent, 1.0F, 0.0F)
         && matchesMovementIntent(upIntent, 0.0F, -1.0F)
@@ -126,7 +130,55 @@ bool verifyOverworldInputTranslation()
         && matchesMovementIntent(canceledVerticalIntent, 0.0F, 0.0F)
         && matchesMovementIntent(overworldInput.movementIntent, downIntent.x, downIntent.y)
         && std::fabs(overworldInput.viewportSize.width - viewportSize.width) < 0.0001F
-        && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F;
+        && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F
+        && overworldInput.debugViewState.isEnabled
+        && overworldInput.debugViewState.zoomPercent == 250
+        && overworldInput.debugViewState.showTileGrid;
+}
+
+bool verifyDebugViewStateTranslation()
+{
+    rpg::OverworldInput::DebugViewState debugViewState = rpg::detail::makeOverworldDebugViewState(true);
+
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ZoomOut);
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ZoomOut);
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ZoomIn);
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ToggleTileGrid);
+
+    if (!debugViewState.isEnabled
+        || debugViewState.zoomPercent != 250
+        || !debugViewState.showTileGrid
+        || !rpg::detail::shouldRenderTileGridOverlay(debugViewState))
+    {
+        return false;
+    }
+
+    rpg::OverworldInput::DebugViewState disabledDebugViewState = rpg::detail::makeOverworldDebugViewState(false);
+    rpg::detail::applyOverworldDebugViewAction(disabledDebugViewState, rpg::detail::OverworldDebugViewAction::ZoomIn);
+    rpg::detail::applyOverworldDebugViewAction(disabledDebugViewState, rpg::detail::OverworldDebugViewAction::ToggleTileGrid);
+
+    return !disabledDebugViewState.isEnabled
+        && disabledDebugViewState.zoomPercent == 300
+        && !disabledDebugViewState.showTileGrid
+        && !rpg::detail::shouldRenderTileGridOverlay(disabledDebugViewState);
+}
+
+bool verifyTileGridOverlayGeometry()
+{
+    const rpg::OverworldRenderTile visibleTile{
+        {3, 4},
+        rpg::TileType::Grass,
+        {16.0F, 16.0F},
+        {8.0F, 8.0F},
+        {56.0F, 72.0F}};
+    const auto overlayRectangles = rpg::detail::getTileGridOverlayRectangles(visibleTile, 1.0F);
+
+    return std::fabs(overlayRectangles[0].position.x - 48.0F) < 0.0001F
+        && std::fabs(overlayRectangles[0].position.y - 64.0F) < 0.0001F
+        && std::fabs(overlayRectangles[0].size.width - 16.0F) < 0.0001F
+        && std::fabs(overlayRectangles[1].size.height - 16.0F) < 0.0001F
+        && std::fabs(overlayRectangles[2].position.y - 79.0F) < 0.0001F
+        && std::fabs(overlayRectangles[3].position.x - 63.0F) < 0.0001F;
 }
 
 } // namespace
@@ -149,6 +201,16 @@ int main()
     }
 
     if (!verifyOverworldInputTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugViewStateTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyTileGridOverlayGeometry())
     {
         return 1;
     }

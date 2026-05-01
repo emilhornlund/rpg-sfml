@@ -14,6 +14,19 @@ The executable runtime SHALL keep backend-specific input polling and key inspect
 - **THEN** it polls backend-specific key state from the SFML shell boundary
 - **AND** gameplay-facing runtime collaborators do not directly inspect SFML key state
 
+### Requirement: Debug overworld view controls stay at the shell boundary
+The runtime SHALL keep debug-only overworld view control polling and key inspection at the SFML shell boundary instead of performing that polling inside gameplay-facing overworld coordination or gameplay module code. The translated debug controls SHALL remain repo-native when they are passed beyond the shell boundary.
+
+#### Scenario: Applying debug zoom input for an overworld frame
+- **WHEN** the game runtime receives a debug-only zoom hotkey press during development or testing
+- **THEN** the SFML shell translates that key press into repo-native debug view control state for the current overworld frame
+- **AND** gameplay-facing runtime collaborators do not directly inspect SFML key codes to determine zoom behavior
+
+#### Scenario: Toggling the tile-grid overlay for an overworld frame
+- **WHEN** the game runtime receives the debug-only tile-grid toggle hotkey during development or testing
+- **THEN** the SFML shell translates that key press into repo-native debug overlay state
+- **AND** the resulting state can be consumed without exposing SFML input types beyond the shell boundary
+
 ### Requirement: Overworld gameplay consumes repo-native input
 The overworld gameplay update path SHALL consume repo-native per-frame input represented through project-defined types instead of SFML input types or raw backend key codes. That input SHALL publish at most one active cardinal movement direction for the frame, and simultaneous perpendicular directional keys SHALL resolve to a single direction using the shell boundary's last-pressed-wins policy.
 

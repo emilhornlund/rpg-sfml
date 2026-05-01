@@ -613,7 +613,7 @@ struct TraversableCorner
 
     player.setMovementIntent({0.0F, 0.0F});
 
-    for (int updateIndex = 0; updateIndex < 4 && player.isMoving(); ++updateIndex)
+    for (int updateIndex = 0; updateIndex < 8 && player.isMoving(); ++updateIndex)
     {
         player.update(kMovementUpdateSeconds, world);
     }
@@ -630,6 +630,38 @@ struct TraversableCorner
     return !player.isMoving() && player.getWalkFrameIndex() == 1;
 }
 
+[[nodiscard]] bool verifyPlayerAnimationCadencePersistsAcrossSpeedScales()
+{
+    rpg::World world;
+    rpg::Player fastPlayer;
+    rpg::Player baselinePlayer;
+    const std::optional<TraversableRun> traversableRun = findTraversableRun(world, world.getSpawnTile(), 32, 8);
+
+    if (!traversableRun.has_value())
+    {
+        return false;
+    }
+
+    constexpr float kAnimationSampleSeconds = 0.03F;
+
+    fastPlayer.spawn(world.getTileCenter(traversableRun->start));
+    fastPlayer.setMovementSpeedScale(3.0F);
+    fastPlayer.setMovementIntent(traversableRun->movementIntent);
+    baselinePlayer.spawn(world.getTileCenter(traversableRun->start));
+    baselinePlayer.setMovementIntent(traversableRun->movementIntent);
+
+    for (int updateIndex = 0; updateIndex < 6; ++updateIndex)
+    {
+        fastPlayer.update(kAnimationSampleSeconds, world);
+        baselinePlayer.update(kAnimationSampleSeconds, world);
+    }
+
+    return fastPlayer.isMoving()
+        && baselinePlayer.isMoving()
+        && fastPlayer.getWalkFrameIndex() == baselinePlayer.getWalkFrameIndex()
+        && fastPlayer.getWalkFrameIndex() != 1;
+}
+
 [[nodiscard]] bool verifyCameraFollowsFocus()
 {
     rpg::Camera camera;
@@ -643,12 +675,59 @@ struct TraversableCorner
 
     return areClose(firstFrame.center.x, firstFocus.x)
         && areClose(firstFrame.center.y, firstFocus.y)
-        && areClose(firstFrame.size.width, 1280.0F)
-        && areClose(firstFrame.size.height, 720.0F)
+        && areClose(firstFrame.size.width, 1280.0F / 3.0F)
+        && areClose(firstFrame.size.height, 720.0F / 3.0F)
         && areClose(secondFrame.center.x, secondFocus.x)
         && areClose(secondFrame.center.y, secondFocus.y)
-        && areClose(secondFrame.size.width, 320.0F)
-        && areClose(secondFrame.size.height, 224.0F);
+        && areClose(secondFrame.size.width, 320.0F / 3.0F)
+        && areClose(secondFrame.size.height, 224.0F / 3.0F);
+}
+
+[[nodiscard]] bool verifyCameraZoomScalesFrameSize()
+{
+    rpg::Camera camera;
+    const rpg::WorldPosition focus{128.0F, 96.0F};
+
+    camera.setZoomPercent(300);
+    camera.update(focus, 1200.0F, 900.0F);
+    const rpg::ViewFrame zoomedInFrame = camera.getFrame();
+    camera.setZoomPercent(150);
+    camera.update(focus, 1200.0F, 900.0F);
+    const rpg::ViewFrame zoomedOutFrame = camera.getFrame();
+
+    return areClose(zoomedInFrame.center.x, focus.x)
+        && areClose(zoomedInFrame.center.y, focus.y)
+        && areClose(zoomedInFrame.size.width, 400.0F)
+        && areClose(zoomedInFrame.size.height, 300.0F)
+        && areClose(zoomedOutFrame.size.width, 800.0F)
+        && areClose(zoomedOutFrame.size.height, 600.0F);
+}
+
+[[nodiscard]] bool verifyPlayerMovementSpeedScaling()
+{
+    rpg::World world;
+    rpg::Player player;
+    const std::optional<TraversableRun> traversableRun = findTraversableRun(world, world.getSpawnTile(), 32, 8);
+
+    if (!traversableRun.has_value())
+    {
+        return false;
+    }
+
+    const float baseMovementSpeed = player.getMovementSpeed();
+    player.spawn(world.getTileCenter(traversableRun->start));
+    player.setMovementSpeedScale(2.0F);
+    player.setMovementIntent(traversableRun->movementIntent);
+    player.update(world.getTileSize() / baseMovementSpeed, world);
+
+    const rpg::TileCoordinates movedTile = world.getTileCoordinates(player.getPosition());
+    const rpg::TileCoordinates expectedTile{
+        traversableRun->start.x + static_cast<int>(traversableRun->movementIntent.x * 2.0F),
+        traversableRun->start.y + static_cast<int>(traversableRun->movementIntent.y * 2.0F)};
+
+    return areClose(player.getMovementSpeedScale(), 2.0F)
+        && movedTile.x == expectedTile.x
+        && movedTile.y == expectedTile.y;
 }
 
 [[nodiscard]] bool verifySignalDrivenBiomeDistribution()
@@ -836,7 +915,22 @@ int main()
         return 1;
     }
 
+    if (!verifyPlayerAnimationCadencePersistsAcrossSpeedScales())
+    {
+        return 1;
+    }
+
     if (!verifyCameraFollowsFocus())
+    {
+        return 1;
+    }
+
+    if (!verifyCameraZoomScalesFrameSize())
+    {
+        return 1;
+    }
+
+    if (!verifyPlayerMovementSpeedScaling())
     {
         return 1;
     }

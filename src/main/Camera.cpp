@@ -29,6 +29,20 @@
 namespace rpg
 {
 
+namespace
+{
+
+[[nodiscard]] constexpr int clampZoomPercent(const int zoomPercent) noexcept
+{
+    constexpr int kMinZoomPercent = 100;
+    constexpr int kMaxZoomPercent = 400;
+    return zoomPercent < kMinZoomPercent
+        ? kMinZoomPercent
+        : (zoomPercent > kMaxZoomPercent ? kMaxZoomPercent : zoomPercent);
+}
+
+} // namespace
+
 Camera::Camera() = default;
 
 Camera::~Camera() = default;
@@ -38,8 +52,19 @@ void Camera::update(
     const float viewportWidth,
     const float viewportHeight) noexcept
 {
-    m_state.frame.size = {viewportWidth, viewportHeight};
+    const float zoomScale = 100.0F / static_cast<float>(m_state.zoomPercent);
+    m_state.frame.size = {viewportWidth * zoomScale, viewportHeight * zoomScale};
     m_state.frame.center = focusPosition;
+}
+
+void Camera::setZoomPercent(const int zoomPercent) noexcept
+{
+    m_state.zoomPercent = clampZoomPercent(zoomPercent);
+}
+
+int Camera::getZoomPercent() const noexcept
+{
+    return m_state.zoomPercent;
 }
 
 ViewFrame Camera::getFrame() const noexcept

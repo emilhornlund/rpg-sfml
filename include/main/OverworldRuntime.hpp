@@ -44,8 +44,16 @@ namespace rpg
  */
 struct OverworldInput
 {
+    struct DebugViewState
+    {
+        bool isEnabled = false;
+        int zoomPercent = 300;
+        bool showTileGrid = false;
+    };
+
     MovementIntent movementIntent{0.0F, 0.0F};
     WorldSize viewportSize{0.0F, 0.0F};
+    DebugViewState debugViewState{};
 };
 
 /**
@@ -142,6 +150,14 @@ public:
     [[nodiscard]] const OverworldRenderSnapshot& getRenderSnapshot() const noexcept;
 
 private:
+    /**
+     * @brief Apply repo-native debug view state to gameplay-facing modules.
+     *
+     * @param debugViewState Debug view settings translated at the shell
+     * boundary.
+     */
+    void applyDebugViewState(const OverworldInput::DebugViewState& debugViewState) noexcept;
+
     /**
      * @brief Refresh the render snapshot from the active gameplay modules.
      */

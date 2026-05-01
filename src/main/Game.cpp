@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -55,6 +56,8 @@ constexpr int kPlayerSpritesheetCellSize = 48;
 constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
 constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 const sf::Color kBackgroundColor(24, 24, 27);
+const sf::Color kGridOverlayColor(255, 255, 255, 96);
+constexpr float kGridOverlayThickness = 1.0F;
 
 [[nodiscard]] std::optional<detail::OverworldDirectionalKey> getDirectionalKey(
     const sf::Keyboard::Key key) noexcept
@@ -73,6 +76,22 @@ const sf::Color kBackgroundColor(24, 24, 27);
     case sf::Keyboard::Key::S:
     case sf::Keyboard::Key::Down:
         return detail::OverworldDirectionalKey::Down;
+    default:
+        return std::nullopt;
+    }
+}
+
+[[nodiscard]] std::optional<detail::OverworldDebugViewAction> getDebugViewAction(
+    const sf::Keyboard::Key key) noexcept
+{
+    switch (key)
+    {
+    case sf::Keyboard::Key::Q:
+        return detail::OverworldDebugViewAction::ZoomOut;
+    case sf::Keyboard::Key::E:
+        return detail::OverworldDebugViewAction::ZoomIn;
+    case sf::Keyboard::Key::G:
+        return detail::OverworldDebugViewAction::ToggleTileGrid;
     default:
         return std::nullopt;
     }
@@ -180,6 +199,7 @@ public:
     sf::Texture playerSpritesheet;
     OverworldRuntime overworldRuntime;
     detail::OverworldDirectionalInput directionalInput;
+    OverworldInput::DebugViewState debugViewState = detail::makeOverworldDebugViewState(detail::isDebugViewModeEnabledForBuild());
 };
 
 Game::Game()
@@ -238,6 +258,12 @@ void Game::processEvents()
                 detail::applyDirectionalInputPress(m_impl->directionalInput, *directionalKey);
             }
 
+            if (const std::optional debugViewAction = getDebugViewAction(keyPressed->code);
+                debugViewAction.has_value())
+            {
+                detail::applyOverworldDebugViewAction(m_impl->debugViewState, *debugViewAction);
+            }
+
             if (keyPressed->code == sf::Keyboard::Key::Escape)
             {
                 runtimeEvent = detail::RuntimeEvent::EscapePressed;
@@ -269,7 +295,8 @@ void Game::update(float deltaTimeSeconds)
         deltaTimeSeconds,
         detail::getOverworldInput(
             m_impl->directionalInput,
-            viewportSize));
+            viewportSize,
+            m_impl->debugViewState));
 }
 
 void Game::render()
@@ -293,6 +320,24 @@ void Game::render()
         tileSprite.setOrigin({visibleTile.origin.x / scaleX, visibleTile.origin.y / scaleY});
         tileSprite.setPosition({visibleTile.position.x, visibleTile.position.y});
         m_impl->window.draw(tileSprite);
+    }
+
+    if (detail::shouldRenderTileGridOverlay(m_impl->debugViewState))
+    {
+        sf::RectangleShape gridSegment;
+        gridSegment.setFillColor(kGridOverlayColor);
+
+        for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
+        {
+            const auto overlayRectangles = detail::getTileGridOverlayRectangles(visibleTile, kGridOverlayThickness);
+
+            for (const detail::OverlayRectangle& overlayRectangle : overlayRectangles)
+            {
+                gridSegment.setSize({overlayRectangle.size.width, overlayRectangle.size.height});
+                gridSegment.setPosition({overlayRectangle.position.x, overlayRectangle.position.y});
+                m_impl->window.draw(gridSegment);
+            }
+        }
     }
 
     sf::Sprite playerSprite(m_impl->playerSpritesheet);
