@@ -180,12 +180,12 @@ constexpr float kFloatTolerance = 0.001F;
 
     return areClose(renderSnapshot.cameraFrame.size.width, 320.0F)
         && areClose(renderSnapshot.cameraFrame.size.height, 224.0F)
-        && areClose(firstVisibleTile.size.width, 32.0F)
-        && areClose(firstVisibleTile.size.height, 32.0F)
-        && areClose(firstVisibleTile.origin.x, 16.0F)
-        && areClose(firstVisibleTile.origin.y, 16.0F)
-        && areClose(playerMarker->size.width, 16.0F)
-        && areClose(playerMarker->size.height, 16.0F)
+        && areClose(firstVisibleTile.size.width, 16.0F)
+        && areClose(firstVisibleTile.size.height, 16.0F)
+        && areClose(firstVisibleTile.origin.x, 8.0F)
+        && areClose(firstVisibleTile.origin.y, 8.0F)
+        && areClose(playerMarker->size.width, 8.0F)
+        && areClose(playerMarker->size.height, 8.0F)
         && renderSnapshot.markers.size() == 1;
 }
 

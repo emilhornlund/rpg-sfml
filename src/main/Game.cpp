@@ -32,6 +32,8 @@
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
@@ -39,18 +41,18 @@
 #include <SFML/Window/VideoMode.hpp>
 #include <SFML/Window/WindowEnums.hpp>
 
+#include <filesystem>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 
 namespace rpg
 {
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
+constexpr int kTerrainTilesetCellSize = 16;
+constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
 const sf::Color kBackgroundColor(24, 24, 27);
-const sf::Color kGrassColor(74, 138, 72);
-const sf::Color kSandColor(196, 182, 112);
-const sf::Color kWaterColor(48, 102, 190);
-const sf::Color kForestColor(39, 92, 46);
 const sf::Color kPlayerColor(231, 231, 236);
 
 [[nodiscard]] detail::OverworldDirectionalInput readOverworldDirectionalInput() noexcept
@@ -66,21 +68,45 @@ const sf::Color kPlayerColor(231, 231, 236);
             || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)};
 }
 
-[[nodiscard]] sf::Color getTileColor(const TileType tileType) noexcept
+[[nodiscard]] std::filesystem::path getExecutableDirectory()
+{
+    return std::filesystem::read_symlink("/proc/self/exe").parent_path();
+}
+
+[[nodiscard]] std::filesystem::path getTerrainTilesetPath()
+{
+    return getExecutableDirectory() / "assets" / kTerrainTilesetFilename;
+}
+
+[[nodiscard]] sf::Texture loadTerrainTileset()
+{
+    sf::Texture terrainTileset;
+    const std::filesystem::path terrainTilesetPath = getTerrainTilesetPath();
+
+    if (!terrainTileset.loadFromFile(terrainTilesetPath.string()))
+    {
+        throw std::runtime_error("Failed to load overworld terrain tileset from " + terrainTilesetPath.string());
+    }
+
+    terrainTileset.setSmooth(false);
+    return terrainTileset;
+}
+
+[[nodiscard]] sf::IntRect getTerrainTilesetRect(const TileType tileType) noexcept
 {
     switch (tileType)
     {
     case TileType::Grass:
-        return kGrassColor;
+        return {{0, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
     case TileType::Sand:
-        return kSandColor;
-    case TileType::Forest:
-        return kForestColor;
+        return {{kTerrainTilesetCellSize, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
     case TileType::Water:
-        return kWaterColor;
+        return {{0, kTerrainTilesetCellSize}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
+    case TileType::Forest:
+        return {{kTerrainTilesetCellSize, kTerrainTilesetCellSize}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
     }
 
-    return kBackgroundColor;
+    return {{0, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
 }
 
 [[nodiscard]] sf::Color getMarkerColor(const OverworldRenderMarkerAppearance appearance) noexcept
@@ -99,11 +125,13 @@ class Game::Impl
 public:
     Impl()
         : window(sf::VideoMode({kWindowWidth, kWindowHeight}), "rpg-sfml", sf::State::Windowed)
+        , terrainTileset(loadTerrainTileset())
     {
         window.setFramerateLimit(60);
     }
 
     sf::RenderWindow window;
+    sf::Texture terrainTileset;
     OverworldRuntime overworldRuntime;
 };
 
@@ -193,15 +221,17 @@ void Game::render()
     view.setSize({renderSnapshot.cameraFrame.size.width, renderSnapshot.cameraFrame.size.height});
     m_impl->window.setView(view);
 
-    sf::RectangleShape tileShape;
+    sf::Sprite tileSprite(m_impl->terrainTileset);
 
     for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
     {
-        tileShape.setSize({visibleTile.size.width, visibleTile.size.height});
-        tileShape.setOrigin({visibleTile.origin.x, visibleTile.origin.y});
-        tileShape.setPosition({visibleTile.position.x, visibleTile.position.y});
-        tileShape.setFillColor(getTileColor(visibleTile.tileType));
-        m_impl->window.draw(tileShape);
+        const float scaleX = visibleTile.size.width / static_cast<float>(kTerrainTilesetCellSize);
+        const float scaleY = visibleTile.size.height / static_cast<float>(kTerrainTilesetCellSize);
+        tileSprite.setTextureRect(getTerrainTilesetRect(visibleTile.tileType));
+        tileSprite.setScale({scaleX, scaleY});
+        tileSprite.setOrigin({visibleTile.origin.x / scaleX, visibleTile.origin.y / scaleY});
+        tileSprite.setPosition({visibleTile.position.x, visibleTile.position.y});
+        m_impl->window.draw(tileSprite);
     }
 
     sf::RectangleShape markerShape;

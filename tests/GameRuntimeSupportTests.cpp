@@ -71,12 +71,12 @@ bool verifyFrameOrder()
 bool verifyPlayerMarkerPlacement()
 {
     const rpg::WorldPosition playerPosition{144.0F, 208.0F};
-    const rpg::detail::PlayerMarkerPlacement placement = rpg::detail::getPlayerMarkerPlacement(32.0F, playerPosition);
+    const rpg::detail::PlayerMarkerPlacement placement = rpg::detail::getPlayerMarkerPlacement(16.0F, playerPosition);
 
-    return std::fabs(placement.size.width - 16.0F) < 0.0001F
-        && std::fabs(placement.size.height - 16.0F) < 0.0001F
-        && std::fabs(placement.origin.x - 8.0F) < 0.0001F
-        && std::fabs(placement.origin.y - 8.0F) < 0.0001F
+    return std::fabs(placement.size.width - 8.0F) < 0.0001F
+        && std::fabs(placement.size.height - 8.0F) < 0.0001F
+        && std::fabs(placement.origin.x - 4.0F) < 0.0001F
+        && std::fabs(placement.origin.y - 4.0F) < 0.0001F
         && std::fabs(placement.position.x - playerPosition.x) < 0.0001F
         && std::fabs(placement.position.y - playerPosition.y) < 0.0001F;
 }

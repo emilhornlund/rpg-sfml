@@ -54,7 +54,7 @@ struct WorldConfig
     std::uint32_t seed = 0x00C0FFEEU;
     int widthInTiles = 64;
     int heightInTiles = 64;
-    float tileSize = 32.0F;
+    float tileSize = 16.0F;
 };
 
 /**

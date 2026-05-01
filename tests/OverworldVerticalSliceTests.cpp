@@ -207,7 +207,7 @@ constexpr float kFloatTolerance = 0.001F;
     rpg::World firstWorld;
     rpg::World secondWorld;
 
-    return areClose(firstWorld.getTileSize(), 32.0F)
+    return areClose(firstWorld.getTileSize(), 16.0F)
         && firstWorld.getSpawnTile().x == secondWorld.getSpawnTile().x
         && firstWorld.getSpawnTile().y == secondWorld.getSpawnTile().y;
 }

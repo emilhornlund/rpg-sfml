@@ -93,3 +93,9 @@ add_test(
         -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_rendering_boundary.cmake"
 )
+add_test(
+    NAME main_asset_staging_check
+    COMMAND ${CMAKE_COMMAND}
+        -DASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_main_asset_staging.cmake"
+)

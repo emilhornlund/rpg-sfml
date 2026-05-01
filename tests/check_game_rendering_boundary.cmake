@@ -25,6 +25,22 @@ if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw")
     message(FATAL_ERROR "Game.cpp does not draw overworld content")
 endif()
 
+if(NOT GAME_CPP_CONTENT MATCHES "sf::Texture")
+    message(FATAL_ERROR "Game.cpp does not own an SFML texture for terrain rendering")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "loadFromFile")
+    message(FATAL_ERROR "Game.cpp does not load the terrain tileset asset")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "sf::Sprite")
+    message(FATAL_ERROR "Game.cpp does not render terrain with sprites")
+endif()
+
+if(GAME_CPP_CONTENT MATCHES "setFillColor\\(getTileColor\\(visibleTile\\.tileType\\)\\)")
+    message(FATAL_ERROR "Game.cpp still renders terrain tiles through per-tile fill colors")
+endif()
+
 if(GAME_CPP_CONTENT MATCHES "getPlayerMarkerPlacement")
     message(FATAL_ERROR "Game.cpp should not derive player marker placement directly")
 endif()

@@ -23,6 +23,16 @@ endif()
 
 target_link_libraries(main PRIVATE SFML::Graphics)
 
+set(RPG_MAIN_ASSET_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(RPG_MAIN_ASSET_OUTPUT_DIR "$<TARGET_FILE_DIR:main>/assets")
+
+add_custom_command(TARGET main POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_ASSET_OUTPUT_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset.png"
+        "${RPG_MAIN_ASSET_OUTPUT_DIR}/overworld-terrain-tileset.png"
+)
+
 set_target_properties(main PROPERTIES
     BUILD_RPATH "${RPG_SFML_VENDOR_LIB_DIR}"
 )
