@@ -4,6 +4,7 @@ rpg_resolve_vendored_sfml(RPG_SFML_VENDOR_INCLUDE_DIR RPG_SFML_VENDOR_LIB_DIR)
 rpg_add_vendored_sfml_targets("${RPG_SFML_VENDOR_INCLUDE_DIR}" "${RPG_SFML_VENDOR_LIB_DIR}")
 
 add_executable(main
+    BiomeSampler.cpp
     Camera.cpp
     Game.cpp
     OverworldRuntime.cpp

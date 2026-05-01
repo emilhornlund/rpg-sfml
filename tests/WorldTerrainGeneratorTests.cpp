@@ -24,6 +24,7 @@
  * THE SOFTWARE.
  */
 
+#include "BiomeSampler.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <main/World.hpp>
@@ -73,19 +74,46 @@ namespace
 [[nodiscard]] bool verifyDeterministicGeneration()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
-    const rpg::detail::GeneratedWorldData firstWorld = rpg::detail::generateWorldData(config);
-    const rpg::detail::GeneratedWorldData secondWorld = rpg::detail::generateWorldData(config);
+    const rpg::detail::TerrainGenerator terrainGenerator{config};
+    const rpg::detail::GeneratedWorldData firstWorld = terrainGenerator.generateWorld();
+    const rpg::detail::GeneratedWorldData secondWorld = terrainGenerator.generateWorld();
 
     return firstWorld.spawnTile.x == secondWorld.spawnTile.x
         && firstWorld.spawnTile.y == secondWorld.spawnTile.y
         && firstWorld.tiles == secondWorld.tiles;
 }
 
+[[nodiscard]] bool verifyDeterministicBiomeSampling()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::detail::BiomeSampler firstSampler{config};
+    const rpg::detail::BiomeSampler secondSampler{config};
+    const std::array<rpg::TileCoordinates, 5> sampleCoordinates = {{
+        {-24, -12},
+        {-1, 0},
+        {0, 0},
+        {16, 8},
+        {72, 40},
+    }};
+
+    for (const rpg::TileCoordinates& coordinates : sampleCoordinates)
+    {
+        if (firstSampler.sampleTileType(coordinates.x, coordinates.y)
+            != secondSampler.sampleTileType(coordinates.x, coordinates.y))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 [[nodiscard]] bool verifyDeterministicChunkGeneration()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
-    const rpg::detail::GeneratedChunkData firstChunk = rpg::detail::generateChunkData(config, 1, -2);
-    const rpg::detail::GeneratedChunkData secondChunk = rpg::detail::generateChunkData(config, 1, -2);
+    const rpg::detail::TerrainGenerator terrainGenerator{config};
+    const rpg::detail::GeneratedChunkData firstChunk = terrainGenerator.generateChunk(1, -2);
+    const rpg::detail::GeneratedChunkData secondChunk = terrainGenerator.generateChunk(1, -2);
 
     return firstChunk.chunkX == secondChunk.chunkX
         && firstChunk.chunkY == secondChunk.chunkY
@@ -135,7 +163,8 @@ namespace
 
     for (const rpg::WorldConfig& config : configs)
     {
-        const rpg::detail::GeneratedWorldData worldData = rpg::detail::generateWorldData(config);
+        const rpg::detail::TerrainGenerator terrainGenerator{config};
+        const rpg::detail::GeneratedWorldData worldData = terrainGenerator.generateWorld();
 
         for (int y = 1; y < config.heightInTiles - 1; ++y)
         {
@@ -289,6 +318,11 @@ namespace
 int main()
 {
     if (!verifyDeterministicGeneration())
+    {
+        return 1;
+    }
+
+    if (!verifyDeterministicBiomeSampling())
     {
         return 1;
     }

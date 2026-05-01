@@ -28,7 +28,6 @@
 
 #include "WorldTerrainGenerator.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -89,8 +88,8 @@ struct VisibleTileBounds
     return bounds;
 }
 
-[[nodiscard]] std::vector<TileType>& ensureChunkGenerated(
-    const WorldConfig& config,
+[[nodiscard]] std::vector<TileType>& ensureChunkRetained(
+    const detail::TerrainGenerator& terrainGenerator,
     std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
     const int chunkX,
     const int chunkY)
@@ -103,54 +102,19 @@ struct VisibleTileBounds
         return chunkIt->second;
     }
 
-    detail::GeneratedChunkData chunkData = detail::generateChunkData(config, chunkX, chunkY);
+    detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(chunkX, chunkY);
     const auto insertedChunk = chunks.emplace(chunkKey, std::move(chunkData.tiles));
     return insertedChunk.first->second;
 }
 
-[[nodiscard]] TileType getTileTypeFromCache(
-    const WorldConfig& config,
+[[nodiscard]] TileType getTileTypeFromRetainedChunks(
+    const detail::TerrainGenerator& terrainGenerator,
     std::map<std::pair<int, int>, std::vector<TileType>>& chunks,
     const TileCoordinates& coordinates)
 {
     const std::pair<int, int> chunkKey = toChunkKey(coordinates);
-    std::vector<TileType>& chunk = ensureChunkGenerated(config, chunks, chunkKey.first, chunkKey.second);
+    std::vector<TileType>& chunk = ensureChunkRetained(terrainGenerator, chunks, chunkKey.first, chunkKey.second);
     return chunk[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
-}
-
-[[nodiscard]] TileCoordinates findSpawnTile(
-    const WorldConfig& config,
-    std::map<std::pair<int, int>, std::vector<TileType>>& chunks)
-{
-    constexpr int kSpawnSearchLimitInTiles = detail::getChunkSizeInTiles() * 8;
-    const TileCoordinates anchor{0, 0};
-
-    for (int radius = 0; radius <= kSpawnSearchLimitInTiles; ++radius)
-    {
-        for (int y = anchor.y - radius; y <= anchor.y + radius; ++y)
-        {
-            for (int x = anchor.x - radius; x <= anchor.x + radius; ++x)
-            {
-                if (radius > 0
-                    && x != anchor.x - radius
-                    && x != anchor.x + radius
-                    && y != anchor.y - radius
-                    && y != anchor.y + radius)
-                {
-                    continue;
-                }
-
-                const TileCoordinates coordinates{x, y};
-
-                if (detail::isTraversableTileType(getTileTypeFromCache(config, chunks, coordinates)))
-                {
-                    return coordinates;
-                }
-            }
-        }
-    }
-
-    return anchor;
 }
 
 } // namespace
@@ -163,7 +127,8 @@ World::World()
 World::World(const WorldConfig& config)
 {
     m_state.config = config;
-    m_state.spawnTile = findSpawnTile(m_state.config, m_state.chunks);
+    const detail::TerrainGenerator terrainGenerator{m_state.config};
+    m_state.spawnTile = terrainGenerator.generateSpawnTile();
 }
 
 World::~World() = default;
@@ -195,7 +160,8 @@ bool World::isTraversable(const WorldPosition& position) const
 
 TileType World::getTileType(const TileCoordinates& coordinates) const
 {
-    return getTileTypeFromCache(m_state.config, m_state.chunks, coordinates);
+    const detail::TerrainGenerator terrainGenerator{m_state.config};
+    return getTileTypeFromRetainedChunks(terrainGenerator, m_state.chunks, coordinates);
 }
 
 std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const
@@ -211,6 +177,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
     visibleTiles.reserve(static_cast<std::size_t>((bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1)));
 
+    const detail::TerrainGenerator terrainGenerator{m_state.config};
     const int minChunkX = detail::getChunkCoordinate(bounds.minX);
     const int maxChunkX = detail::getChunkCoordinate(bounds.maxX);
     const int minChunkY = detail::getChunkCoordinate(bounds.minY);
@@ -221,7 +188,7 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     {
         for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
         {
-            const std::vector<TileType>& chunk = ensureChunkGenerated(m_state.config, m_state.chunks, chunkX, chunkY);
+            const std::vector<TileType>& chunk = ensureChunkRetained(terrainGenerator, m_state.chunks, chunkX, chunkY);
 
             for (int localY = 0; localY < chunkSizeInTiles; ++localY)
             {

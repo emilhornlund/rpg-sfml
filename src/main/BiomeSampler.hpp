@@ -1,5 +1,5 @@
 /**
- * @file WorldTerrainGenerator.hpp
+ * @file BiomeSampler.hpp
  *
  * MIT License
  *
@@ -24,68 +24,31 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_WORLD_TERRAIN_GENERATOR_HPP
-#define RPG_MAIN_WORLD_TERRAIN_GENERATOR_HPP
+#ifndef RPG_MAIN_BIOME_SAMPLER_HPP
+#define RPG_MAIN_BIOME_SAMPLER_HPP
 
 #include <main/World.hpp>
-
-#include <cstddef>
-#include <vector>
 
 namespace rpg
 {
 namespace detail
 {
 
-struct GeneratedWorldData
-{
-    TileCoordinates spawnTile{0, 0};
-    std::vector<TileType> tiles;
-};
-
-struct GeneratedChunkData
-{
-    int chunkX = 0;
-    int chunkY = 0;
-    std::vector<TileType> tiles;
-};
-
-class TerrainGenerator
+class BiomeSampler
 {
 public:
-    explicit TerrainGenerator(const WorldConfig& config) noexcept;
+    explicit BiomeSampler(const WorldConfig& config) noexcept;
 
-    [[nodiscard]] GeneratedChunkData generateChunk(int chunkX, int chunkY) const;
-
-    [[nodiscard]] GeneratedWorldData generateWorld() const;
-
-    [[nodiscard]] TileCoordinates generateSpawnTile() const;
+    [[nodiscard]] TileType sampleTileType(int x, int y) const noexcept;
 
 private:
+    [[nodiscard]] float evaluateElevation(int x, int y) const noexcept;
+    [[nodiscard]] float evaluateMoisture(int x, int y) const noexcept;
+
     WorldConfig m_config;
 };
-
-[[nodiscard]] constexpr int getChunkSizeInTiles() noexcept
-{
-    return 16;
-}
-
-[[nodiscard]] int getChunkCoordinate(int tileCoordinate) noexcept;
-
-[[nodiscard]] int getChunkLocalCoordinate(int tileCoordinate) noexcept;
-
-[[nodiscard]] TileCoordinates getWorldTileCoordinates(
-    int chunkX,
-    int chunkY,
-    const TileCoordinates& localCoordinates) noexcept;
-
-[[nodiscard]] std::size_t getGeneratedChunkCount() noexcept;
-
-void resetGeneratedChunkCount() noexcept;
-
-[[nodiscard]] bool isTraversableTileType(TileType tileType) noexcept;
 
 } // namespace detail
 } // namespace rpg
 
-#endif // RPG_MAIN_WORLD_TERRAIN_GENERATOR_HPP
+#endif // RPG_MAIN_BIOME_SAMPLER_HPP
