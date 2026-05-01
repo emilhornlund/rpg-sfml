@@ -36,6 +36,7 @@ static_assert(std::is_constructible_v<rpg::World, rpg::WorldConfig>);
 static_assert(std::is_default_constructible_v<rpg::Player>);
 static_assert(std::is_default_constructible_v<rpg::Camera>);
 static_assert(std::is_default_constructible_v<rpg::OverworldRuntime>);
+static_assert(std::is_aggregate_v<rpg::OverworldInput>);
 
 int main()
 {
@@ -43,12 +44,14 @@ int main()
     rpg::World configuredWorld(rpg::WorldConfig{});
     rpg::Player player;
     rpg::Camera camera;
+    rpg::OverworldInput overworldInput;
     rpg::OverworldRuntime overworldRuntime;
 
     (void)world;
     (void)configuredWorld;
     (void)player;
     (void)camera;
+    (void)overworldInput;
     (void)overworldRuntime;
 
     return 0;

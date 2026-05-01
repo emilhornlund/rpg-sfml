@@ -53,35 +53,17 @@ const sf::Color kWaterColor(48, 102, 190);
 const sf::Color kForestColor(39, 92, 46);
 const sf::Color kPlayerColor(231, 231, 236);
 
-[[nodiscard]] MovementIntent readMovementIntent() noexcept
+[[nodiscard]] detail::OverworldDirectionalInput readOverworldDirectionalInput() noexcept
 {
-    MovementIntent movementIntent{0.0F, 0.0F};
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)
-        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
-    {
-        movementIntent.x -= 1.0F;
-    }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)
-        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
-    {
-        movementIntent.x += 1.0F;
-    }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)
-        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
-    {
-        movementIntent.y -= 1.0F;
-    }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)
-        || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
-    {
-        movementIntent.y += 1.0F;
-    }
-
-    return movementIntent;
+    return {
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)
+            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left),
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)
+            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right),
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)
+            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up),
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)
+            || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)};
 }
 
 [[nodiscard]] sf::Color getTileColor(const TileType tileType) noexcept
@@ -179,13 +161,15 @@ void Game::processEvents()
 
 void Game::update(float deltaTimeSeconds)
 {
+    const WorldSize viewportSize{
+        static_cast<float>(kWindowWidth),
+        static_cast<float>(kWindowHeight)};
+
     m_impl->overworldRuntime.update(
         deltaTimeSeconds,
-        {
-            readMovementIntent(),
-            {
-                static_cast<float>(kWindowWidth),
-                static_cast<float>(kWindowHeight)}}); 
+        detail::getOverworldInput(
+            readOverworldDirectionalInput(),
+            viewportSize));
 }
 
 void Game::render()

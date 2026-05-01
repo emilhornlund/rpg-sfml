@@ -27,7 +27,7 @@
 #ifndef RPG_MAIN_GAME_RUNTIME_SUPPORT_HPP
 #define RPG_MAIN_GAME_RUNTIME_SUPPORT_HPP
 
-#include <main/OverworldTypes.hpp>
+#include <main/OverworldRuntime.hpp>
 
 #include <utility>
 
@@ -48,9 +48,33 @@ struct PlayerMarkerPlacement
     WorldPosition position{0.0F, 0.0F};
 };
 
+struct OverworldDirectionalInput
+{
+    bool moveLeft = false;
+    bool moveRight = false;
+    bool moveUp = false;
+    bool moveDown = false;
+};
+
 [[nodiscard]] constexpr bool shouldCloseForEvent(const RuntimeEvent event) noexcept
 {
     return event == RuntimeEvent::WindowClosed || event == RuntimeEvent::EscapePressed;
+}
+
+[[nodiscard]] constexpr MovementIntent getMovementIntent(const OverworldDirectionalInput& directionalInput) noexcept
+{
+    return {
+        static_cast<float>(static_cast<int>(directionalInput.moveRight) - static_cast<int>(directionalInput.moveLeft)),
+        static_cast<float>(static_cast<int>(directionalInput.moveDown) - static_cast<int>(directionalInput.moveUp))};
+}
+
+[[nodiscard]] constexpr OverworldInput getOverworldInput(
+    const OverworldDirectionalInput& directionalInput,
+    const WorldSize& viewportSize) noexcept
+{
+    return {
+        getMovementIntent(directionalInput),
+        viewportSize};
 }
 
 [[nodiscard]] constexpr PlayerMarkerPlacement getPlayerMarkerPlacement(

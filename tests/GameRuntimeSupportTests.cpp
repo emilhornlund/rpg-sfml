@@ -81,6 +81,41 @@ bool verifyPlayerMarkerPlacement()
         && std::fabs(placement.position.y - playerPosition.y) < 0.0001F;
 }
 
+bool verifyOverworldInputTranslation()
+{
+    const rpg::WorldSize viewportSize{320.0F, 224.0F};
+    const rpg::detail::OverworldDirectionalInput diagonalInput{
+        .moveLeft = false,
+        .moveRight = true,
+        .moveUp = true,
+        .moveDown = false};
+    const rpg::detail::OverworldDirectionalInput canceledHorizontalInput{
+        .moveLeft = true,
+        .moveRight = true,
+        .moveUp = false,
+        .moveDown = false};
+    const rpg::detail::OverworldDirectionalInput canceledVerticalInput{
+        .moveLeft = false,
+        .moveRight = false,
+        .moveUp = true,
+        .moveDown = true};
+    const rpg::MovementIntent diagonalIntent = rpg::detail::getMovementIntent(diagonalInput);
+    const rpg::MovementIntent canceledHorizontalIntent = rpg::detail::getMovementIntent(canceledHorizontalInput);
+    const rpg::MovementIntent canceledVerticalIntent = rpg::detail::getMovementIntent(canceledVerticalInput);
+    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(diagonalInput, viewportSize);
+
+    return std::fabs(diagonalIntent.x - 1.0F) < 0.0001F
+        && std::fabs(diagonalIntent.y + 1.0F) < 0.0001F
+        && std::fabs(canceledHorizontalIntent.x) < 0.0001F
+        && std::fabs(canceledHorizontalIntent.y) < 0.0001F
+        && std::fabs(canceledVerticalIntent.x) < 0.0001F
+        && std::fabs(canceledVerticalIntent.y) < 0.0001F
+        && std::fabs(overworldInput.movementIntent.x - diagonalIntent.x) < 0.0001F
+        && std::fabs(overworldInput.movementIntent.y - diagonalIntent.y) < 0.0001F
+        && std::fabs(overworldInput.viewportSize.width - viewportSize.width) < 0.0001F
+        && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F;
+}
+
 } // namespace
 
 int main()
@@ -96,6 +131,11 @@ int main()
     }
 
     if (!verifyPlayerMarkerPlacement())
+    {
+        return 1;
+    }
+
+    if (!verifyOverworldInputTranslation())
     {
         return 1;
     }
