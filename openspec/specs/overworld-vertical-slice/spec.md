@@ -37,6 +37,19 @@ The runtime SHALL generate the overworld from explicit world configuration input
 - **THEN** the world module uses the built-in default configuration
 - **AND** the generated overworld remains deterministic across repeated launches of the same build
 
+### Requirement: Dedicated overworld runtime coordination
+The runtime SHALL coordinate overworld session initialization, player input application, player/world/camera update sequencing, and render-facing frame assembly through a dedicated overworld runtime collaborator outside the SFML shell.
+
+#### Scenario: Starting a new overworld session
+- **WHEN** a new overworld session begins
+- **THEN** the dedicated overworld runtime initializes the player's spawn state from the world-owned spawn data
+- **AND** it establishes the camera framing from the active gameplay state
+
+#### Scenario: Advancing the overworld from gameplay input
+- **WHEN** the runtime receives the current frame's overworld input
+- **THEN** the dedicated overworld runtime applies that input to the overworld gameplay state during update processing
+- **AND** it advances player and camera state without requiring `Game.cpp` to sequence those gameplay modules directly
+
 ### Requirement: Player movement within the overworld slice
 The runtime SHALL place the player in the generated overworld and update the player's position in response to configured movement input while keeping the player inside valid traversable space provided by the streaming terrain system.
 
@@ -79,3 +92,11 @@ The runtime SHALL render the generated overworld and the player marker each fram
 #### Scenario: Rendering the player in the world view
 - **WHEN** the runtime renders a frame after the player has been placed in the overworld
 - **THEN** it draws a visible player marker at the player's current world position using the active camera framing
+
+### Requirement: Render-facing overworld frame state
+The runtime SHALL expose render-facing overworld frame state through the dedicated overworld runtime boundary so the SFML shell can render the current frame without deriving visible terrain traversal and player marker placement directly from gameplay modules.
+
+#### Scenario: Rendering from overworld frame state
+- **WHEN** the SFML shell renders the active overworld frame
+- **THEN** it consumes camera framing, visible terrain data, and player marker state supplied by the dedicated overworld runtime
+- **AND** `Game.cpp` does not assemble those values directly from `World`, `Player`, and `Camera`

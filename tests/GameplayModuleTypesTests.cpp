@@ -25,6 +25,7 @@
  */
 
 #include <main/Camera.hpp>
+#include <main/OverworldRuntime.hpp>
 #include <main/Player.hpp>
 #include <main/World.hpp>
 
@@ -34,6 +35,7 @@ static_assert(std::is_default_constructible_v<rpg::World>);
 static_assert(std::is_constructible_v<rpg::World, rpg::WorldConfig>);
 static_assert(std::is_default_constructible_v<rpg::Player>);
 static_assert(std::is_default_constructible_v<rpg::Camera>);
+static_assert(std::is_default_constructible_v<rpg::OverworldRuntime>);
 
 int main()
 {
@@ -41,11 +43,13 @@ int main()
     rpg::World configuredWorld(rpg::WorldConfig{});
     rpg::Player player;
     rpg::Camera camera;
+    rpg::OverworldRuntime overworldRuntime;
 
     (void)world;
     (void)configuredWorld;
     (void)player;
     (void)camera;
+    (void)overworldRuntime;
 
     return 0;
 }

@@ -6,6 +6,7 @@ rpg_add_vendored_sfml_targets("${RPG_SFML_VENDOR_INCLUDE_DIR}" "${RPG_SFML_VENDO
 add_executable(main
     Camera.cpp
     Game.cpp
+    OverworldRuntime.cpp
     Player.cpp
     World.cpp
     WorldTerrainGenerator.cpp

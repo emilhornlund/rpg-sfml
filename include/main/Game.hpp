@@ -139,11 +139,6 @@ private:
     void render();
 
     /**
-     * @brief Initialize the deterministic overworld slice.
-     */
-    void initializeOverworldSlice();
-
-    /**
      * @brief Opaque pointer to the concrete runtime implementation.
      */
     std::unique_ptr<Impl> m_impl;

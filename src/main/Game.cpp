@@ -25,9 +25,7 @@
  */
 
 #include <main/Game.hpp>
-#include <main/Camera.hpp>
-#include <main/Player.hpp>
-#include <main/World.hpp>
+#include <main/OverworldRuntime.hpp>
 
 #include "GameRuntimeSupport.hpp"
 
@@ -113,10 +111,7 @@ public:
     }
 
     sf::RenderWindow window;
-    World world;
-    Player player;
-    Camera camera;
-    bool isOverworldInitialized = false;
+    OverworldRuntime overworldRuntime;
 };
 
 Game::Game()
@@ -184,68 +179,51 @@ void Game::processEvents()
 
 void Game::update(float deltaTimeSeconds)
 {
-    if (!m_impl->isOverworldInitialized)
-    {
-        initializeOverworldSlice();
-    }
-
-    m_impl->player.setMovementIntent(readMovementIntent());
-    m_impl->player.update(deltaTimeSeconds, m_impl->world);
-    m_impl->camera.update(
-        m_impl->player.getPosition(),
-        static_cast<float>(kWindowWidth),
-        static_cast<float>(kWindowHeight));
+    m_impl->overworldRuntime.update(
+        deltaTimeSeconds,
+        {
+            readMovementIntent(),
+            {
+                static_cast<float>(kWindowWidth),
+                static_cast<float>(kWindowHeight)}}); 
 }
 
 void Game::render()
 {
     m_impl->window.clear(kBackgroundColor);
 
-    const ViewFrame frame = m_impl->camera.getFrame();
+    const OverworldFrameState& frameState = m_impl->overworldRuntime.getFrameState();
     sf::View view;
-    view.setCenter({frame.center.x, frame.center.y});
-    view.setSize({frame.size.width, frame.size.height});
+    view.setCenter({frameState.frame.center.x, frameState.frame.center.y});
+    view.setSize({frameState.frame.size.width, frameState.frame.size.height});
     m_impl->window.setView(view);
 
     sf::RectangleShape tileShape;
-    tileShape.setSize({m_impl->world.getTileSize(), m_impl->world.getTileSize()});
+    tileShape.setSize({frameState.tileSize, frameState.tileSize});
 
-    for (const VisibleWorldTile& visibleTile : m_impl->world.getVisibleTiles(frame))
+    for (const VisibleWorldTile& visibleTile : frameState.visibleTiles)
     {
         tileShape.setPosition({
-            visibleTile.center.x - (m_impl->world.getTileSize() * 0.5F),
-            visibleTile.center.y - (m_impl->world.getTileSize() * 0.5F)});
+            visibleTile.center.x - (frameState.tileSize * 0.5F),
+            visibleTile.center.y - (frameState.tileSize * 0.5F)});
         tileShape.setFillColor(getTileColor(visibleTile.tileType));
         m_impl->window.draw(tileShape);
     }
 
     sf::RectangleShape playerMarker;
-    const detail::PlayerMarkerPlacement playerMarkerPlacement = detail::getPlayerMarkerPlacement(
-        m_impl->world.getTileSize(),
-        m_impl->player.getPosition());
     playerMarker.setSize({
-        playerMarkerPlacement.size.width,
-        playerMarkerPlacement.size.height});
+        frameState.playerMarker.size.width,
+        frameState.playerMarker.size.height});
     playerMarker.setOrigin({
-        playerMarkerPlacement.origin.x,
-        playerMarkerPlacement.origin.y});
+        frameState.playerMarker.origin.x,
+        frameState.playerMarker.origin.y});
     playerMarker.setPosition({
-        playerMarkerPlacement.position.x,
-        playerMarkerPlacement.position.y});
+        frameState.playerMarker.position.x,
+        frameState.playerMarker.position.y});
     playerMarker.setFillColor(kPlayerColor);
     m_impl->window.draw(playerMarker);
 
     m_impl->window.display();
-}
-
-void Game::initializeOverworldSlice()
-{
-    m_impl->player.spawn(m_impl->world.getSpawnPosition());
-    m_impl->camera.update(
-        m_impl->player.getPosition(),
-        static_cast<float>(kWindowWidth),
-        static_cast<float>(kWindowHeight));
-    m_impl->isOverworldInitialized = true;
 }
 
 } // namespace rpg
