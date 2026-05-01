@@ -49,24 +49,44 @@ struct OverworldInput
 };
 
 /**
- * @brief Render-facing state for the player marker in the overworld view.
+ * @brief Presentation identifiers for renderable overworld markers.
  */
-struct OverworldPlayerMarker
+enum class OverworldRenderMarkerAppearance
 {
+    Player
+};
+
+/**
+ * @brief Render-ready tile entry for the overworld view.
+ */
+struct OverworldRenderTile
+{
+    TileCoordinates coordinates{0, 0};
+    TileType tileType = TileType::Water;
     WorldSize size{0.0F, 0.0F};
     WorldPosition origin{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
 };
 
 /**
- * @brief Render-facing state for the current overworld frame.
+ * @brief Render-ready marker entry for gameplay entities in the overworld view.
  */
-struct OverworldFrameState
+struct OverworldRenderMarker
 {
-    float tileSize = 0.0F;
-    ViewFrame frame{{0.0F, 0.0F}, {0.0F, 0.0F}};
-    std::vector<VisibleWorldTile> visibleTiles;
-    OverworldPlayerMarker playerMarker;
+    WorldSize size{0.0F, 0.0F};
+    WorldPosition origin{0.0F, 0.0F};
+    WorldPosition position{0.0F, 0.0F};
+    OverworldRenderMarkerAppearance appearance = OverworldRenderMarkerAppearance::Player;
+};
+
+/**
+ * @brief Gameplay-owned render snapshot for the current overworld frame.
+ */
+struct OverworldRenderSnapshot
+{
+    ViewFrame cameraFrame{{0.0F, 0.0F}, {0.0F, 0.0F}};
+    std::vector<OverworldRenderTile> visibleTiles;
+    std::vector<OverworldRenderMarker> markers;
 };
 
 /**
@@ -94,8 +114,8 @@ public:
      * @brief Initialize the active overworld session for a viewport.
      *
      * Initializes the player at the world-provided spawn position, updates the
-     * camera framing for the provided viewport, and prepares the initial frame
-     * state. Repeated calls refresh the frame state for the current viewport.
+     * camera framing for the provided viewport, and prepares the initial render
+     * snapshot. Repeated calls refresh the snapshot for the current viewport.
      *
      * @param viewportSize Active viewport size in world-space units.
      */
@@ -105,7 +125,7 @@ public:
      * @brief Advance the overworld simulation for one frame.
      *
      * Applies the current frame's input, advances gameplay modules, and refreshes
-     * the render-facing frame state.
+     * the render snapshot for the current frame.
      *
      * @param deltaTimeSeconds Elapsed frame time in seconds.
      * @param input Overworld input and viewport data for the frame.
@@ -113,22 +133,22 @@ public:
     void update(float deltaTimeSeconds, const OverworldInput& input);
 
     /**
-     * @brief Read the render-facing state for the active overworld frame.
+     * @brief Read the render snapshot for the active overworld frame.
      *
-     * @return Current frame state.
+     * @return Current render snapshot.
      */
-    [[nodiscard]] const OverworldFrameState& getFrameState() const noexcept;
+    [[nodiscard]] const OverworldRenderSnapshot& getRenderSnapshot() const noexcept;
 
 private:
     /**
-     * @brief Refresh render-facing state from the active gameplay modules.
+     * @brief Refresh the render snapshot from the active gameplay modules.
      */
-    void refreshFrameState();
+    void refreshRenderSnapshot();
 
     World m_world;
     Player m_player;
     Camera m_camera;
-    OverworldFrameState m_frameState;
+    OverworldRenderSnapshot m_renderSnapshot;
     bool m_isInitialized = false;
 };
 

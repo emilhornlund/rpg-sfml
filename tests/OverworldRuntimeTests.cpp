@@ -75,10 +75,10 @@ constexpr float kFloatTolerance = 0.001F;
 }
 
 [[nodiscard]] bool containsVisibleTile(
-    const std::vector<rpg::VisibleWorldTile>& visibleTiles,
+    const std::vector<rpg::OverworldRenderTile>& visibleTiles,
     const rpg::TileCoordinates& coordinates) noexcept
 {
-    for (const rpg::VisibleWorldTile& visibleTile : visibleTiles)
+    for (const rpg::OverworldRenderTile& visibleTile : visibleTiles)
     {
         if (visibleTile.coordinates.x == coordinates.x && visibleTile.coordinates.y == coordinates.y)
         {
@@ -89,22 +89,37 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
+[[nodiscard]] const rpg::OverworldRenderMarker* findPlayerMarker(
+    const std::vector<rpg::OverworldRenderMarker>& markers) noexcept
+{
+    for (const rpg::OverworldRenderMarker& marker : markers)
+    {
+        if (marker.appearance == rpg::OverworldRenderMarkerAppearance::Player)
+        {
+            return &marker;
+        }
+    }
+
+    return nullptr;
+}
+
 [[nodiscard]] bool verifySessionInitialization()
 {
     rpg::OverworldRuntime runtime;
     rpg::World world;
     runtime.initialize({1280.0F, 720.0F});
-    const rpg::OverworldFrameState& frameState = runtime.getFrameState();
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
     const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
 
-    return areClose(frameState.tileSize, world.getTileSize())
-        && areClose(frameState.frame.center.x, spawnPosition.x)
-        && areClose(frameState.frame.center.y, spawnPosition.y)
-        && areClose(frameState.frame.size.width, 1280.0F)
-        && areClose(frameState.frame.size.height, 720.0F)
-        && areClose(frameState.playerMarker.position.x, spawnPosition.x)
-        && areClose(frameState.playerMarker.position.y, spawnPosition.y)
-        && containsVisibleTile(frameState.visibleTiles, world.getSpawnTile());
+    return playerMarker != nullptr
+        && areClose(renderSnapshot.cameraFrame.center.x, spawnPosition.x)
+        && areClose(renderSnapshot.cameraFrame.center.y, spawnPosition.y)
+        && areClose(renderSnapshot.cameraFrame.size.width, 1280.0F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 720.0F)
+        && areClose(playerMarker->position.x, spawnPosition.x)
+        && areClose(playerMarker->position.y, spawnPosition.y)
+        && containsVisibleTile(renderSnapshot.visibleTiles, world.getSpawnTile());
 }
 
 [[nodiscard]] bool verifyGameplayProgression()
@@ -127,16 +142,23 @@ constexpr float kFloatTolerance = 0.001F;
             movementIntentForTiles(spawnTile, *traversableNeighbor),
             {320.0F, 224.0F}});
 
-    const rpg::OverworldFrameState& frameState = runtime.getFrameState();
-    const rpg::TileCoordinates movedTile = world.getTileCoordinates(frameState.playerMarker.position);
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
+
+    if (playerMarker == nullptr)
+    {
+        return false;
+    }
+
+    const rpg::TileCoordinates movedTile = world.getTileCoordinates(playerMarker->position);
 
     return movedTile.x == traversableNeighbor->x
         && movedTile.y == traversableNeighbor->y
-        && areClose(frameState.frame.center.x, frameState.playerMarker.position.x)
-        && areClose(frameState.frame.center.y, frameState.playerMarker.position.y);
+        && areClose(renderSnapshot.cameraFrame.center.x, playerMarker->position.x)
+        && areClose(renderSnapshot.cameraFrame.center.y, playerMarker->position.y);
 }
 
-[[nodiscard]] bool verifyRenderFacingFrameState()
+[[nodiscard]] bool verifyRenderSnapshotContents()
 {
     rpg::OverworldRuntime runtime;
     runtime.initialize({1280.0F, 720.0F});
@@ -146,13 +168,25 @@ constexpr float kFloatTolerance = 0.001F;
             {0.0F, 0.0F},
             {320.0F, 224.0F}});
 
-    const rpg::OverworldFrameState& frameState = runtime.getFrameState();
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
 
-    return areClose(frameState.frame.size.width, 320.0F)
-        && areClose(frameState.frame.size.height, 224.0F)
-        && areClose(frameState.playerMarker.size.width, frameState.tileSize * 0.5F)
-        && areClose(frameState.playerMarker.size.height, frameState.tileSize * 0.5F)
-        && !frameState.visibleTiles.empty();
+    if (playerMarker == nullptr || renderSnapshot.visibleTiles.empty())
+    {
+        return false;
+    }
+
+    const rpg::OverworldRenderTile& firstVisibleTile = renderSnapshot.visibleTiles.front();
+
+    return areClose(renderSnapshot.cameraFrame.size.width, 320.0F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 224.0F)
+        && areClose(firstVisibleTile.size.width, 32.0F)
+        && areClose(firstVisibleTile.size.height, 32.0F)
+        && areClose(firstVisibleTile.origin.x, 16.0F)
+        && areClose(firstVisibleTile.origin.y, 16.0F)
+        && areClose(playerMarker->size.width, 16.0F)
+        && areClose(playerMarker->size.height, 16.0F)
+        && renderSnapshot.markers.size() == 1;
 }
 
 } // namespace
@@ -169,7 +203,7 @@ int main()
         return 1;
     }
 
-    if (!verifyRenderFacingFrameState())
+    if (!verifyRenderSnapshotContents())
     {
         return 1;
     }

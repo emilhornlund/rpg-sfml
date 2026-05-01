@@ -9,8 +9,8 @@ if(NOT GAME_CPP_CONTENT MATCHES "m_impl->overworldRuntime\\.update")
     message(FATAL_ERROR "Game.cpp does not advance the overworld runtime")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "m_impl->overworldRuntime\\.getFrameState\\(\\)")
-    message(FATAL_ERROR "Game.cpp does not read render state from the overworld runtime")
+if(NOT GAME_CPP_CONTENT MATCHES "m_impl->overworldRuntime\\.getRenderSnapshot\\(\\)")
+    message(FATAL_ERROR "Game.cpp does not read a render snapshot from the overworld runtime")
 endif()
 
 if(GAME_CPP_CONTENT MATCHES "m_impl->world\\.")
@@ -29,15 +29,15 @@ if(GAME_CPP_CONTENT MATCHES "getPlayerMarkerPlacement")
     message(FATAL_ERROR "Game.cpp should not derive player marker placement directly")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "playerMarker\\.setPosition\\(\\{"
-    OR NOT GAME_CPP_CONTENT MATCHES "frameState\\.playerMarker\\.position\\.x"
-    OR NOT GAME_CPP_CONTENT MATCHES "frameState\\.playerMarker\\.position\\.y")
-    message(FATAL_ERROR "Game.cpp does not position the player marker from overworld frame state")
+if(NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.x"
+    OR NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.y"
+    OR NOT GAME_CPP_CONTENT MATCHES "renderSnapshot\\.markers")
+    message(FATAL_ERROR "Game.cpp does not position render markers from the overworld render snapshot")
 endif()
 
 string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.setView(view);" VIEW_INDEX)
-string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.draw(playerMarker);" PLAYER_MARKER_DRAW_INDEX)
+string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.draw(markerShape);" MARKER_DRAW_INDEX)
 
-if(VIEW_INDEX EQUAL -1 OR PLAYER_MARKER_DRAW_INDEX EQUAL -1 OR VIEW_INDEX GREATER PLAYER_MARKER_DRAW_INDEX)
-    message(FATAL_ERROR "Game.cpp does not apply camera framing before drawing the player marker")
+if(VIEW_INDEX EQUAL -1 OR MARKER_DRAW_INDEX EQUAL -1 OR VIEW_INDEX GREATER MARKER_DRAW_INDEX)
+    message(FATAL_ERROR "Game.cpp does not apply camera framing before drawing snapshot markers")
 endif()

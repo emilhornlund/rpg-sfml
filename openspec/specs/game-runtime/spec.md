@@ -69,7 +69,12 @@ The game runtime SHALL keep `Game` as a thin executable shell around a dedicated
 - **THEN** `Game` delegates overworld session initialization and per-frame overworld progression to a dedicated collaborator defined outside `Game.cpp`
 - **AND** `Game` does not directly own the `World`, `Player`, and `Camera` collaboration rules for that session
 
+#### Scenario: Rendering from gameplay snapshots
+- **WHEN** the active game loop renders an overworld frame
+- **THEN** `Game` consumes a render snapshot supplied by the dedicated overworld runtime boundary
+- **AND** `Game` does not assemble overworld presentation state ad hoc from gameplay internals during drawing
+
 #### Scenario: Preserving SFML shell responsibilities
 - **WHEN** the active game loop processes a frame
 - **THEN** `Game` remains responsible for SFML-facing concerns such as window lifecycle, event polling, and backend drawing
-- **AND** gameplay-facing overworld orchestration remains behind the dedicated overworld runtime boundary
+- **AND** gameplay-facing overworld orchestration and snapshot assembly remain behind the dedicated overworld runtime boundary

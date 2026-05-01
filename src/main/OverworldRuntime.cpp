@@ -31,6 +31,33 @@
 namespace rpg
 {
 
+namespace
+{
+
+[[nodiscard]] constexpr OverworldRenderTile makeRenderTile(
+    const VisibleWorldTile& visibleTile,
+    const float tileSize) noexcept
+{
+    return {
+        visibleTile.coordinates,
+        visibleTile.tileType,
+        {tileSize, tileSize},
+        {tileSize * 0.5F, tileSize * 0.5F},
+        visibleTile.center};
+}
+
+[[nodiscard]] constexpr OverworldRenderMarker makePlayerRenderMarker(
+    const detail::PlayerMarkerPlacement& placement) noexcept
+{
+    return {
+        placement.size,
+        placement.origin,
+        placement.position,
+        OverworldRenderMarkerAppearance::Player};
+}
+
+} // namespace
+
 OverworldRuntime::OverworldRuntime() = default;
 
 OverworldRuntime::~OverworldRuntime() = default;
@@ -47,7 +74,7 @@ void OverworldRuntime::initialize(const WorldSize& viewportSize)
         m_player.getPosition(),
         viewportSize.width,
         viewportSize.height);
-    refreshFrameState();
+    refreshRenderSnapshot();
 }
 
 void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput& input)
@@ -59,27 +86,34 @@ void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput
         m_player.getPosition(),
         input.viewportSize.width,
         input.viewportSize.height);
-    refreshFrameState();
+    refreshRenderSnapshot();
 }
 
-const OverworldFrameState& OverworldRuntime::getFrameState() const noexcept
+const OverworldRenderSnapshot& OverworldRuntime::getRenderSnapshot() const noexcept
 {
-    return m_frameState;
+    return m_renderSnapshot;
 }
 
-void OverworldRuntime::refreshFrameState()
+void OverworldRuntime::refreshRenderSnapshot()
 {
-    m_frameState.tileSize = m_world.getTileSize();
-    m_frameState.frame = m_camera.getFrame();
-    m_frameState.visibleTiles = m_world.getVisibleTiles(m_frameState.frame);
+    const float tileSize = m_world.getTileSize();
+    m_renderSnapshot.cameraFrame = m_camera.getFrame();
+
+    const std::vector<VisibleWorldTile> visibleTiles = m_world.getVisibleTiles(m_renderSnapshot.cameraFrame);
+    m_renderSnapshot.visibleTiles.clear();
+    m_renderSnapshot.visibleTiles.reserve(visibleTiles.size());
+
+    for (const VisibleWorldTile& visibleTile : visibleTiles)
+    {
+        m_renderSnapshot.visibleTiles.push_back(makeRenderTile(visibleTile, tileSize));
+    }
 
     const detail::PlayerMarkerPlacement placement = detail::getPlayerMarkerPlacement(
-        m_frameState.tileSize,
+        tileSize,
         m_player.getPosition());
-    m_frameState.playerMarker = {
-        placement.size,
-        placement.origin,
-        placement.position};
+
+    m_renderSnapshot.markers.clear();
+    m_renderSnapshot.markers.push_back(makePlayerRenderMarker(placement));
 }
 
 } // namespace rpg

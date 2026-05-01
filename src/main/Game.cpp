@@ -83,6 +83,17 @@ const sf::Color kPlayerColor(231, 231, 236);
     return kBackgroundColor;
 }
 
+[[nodiscard]] sf::Color getMarkerColor(const OverworldRenderMarkerAppearance appearance) noexcept
+{
+    switch (appearance)
+    {
+    case OverworldRenderMarkerAppearance::Player:
+        return kPlayerColor;
+    }
+
+    return kPlayerColor;
+}
+
 class Game::Impl
 {
 public:
@@ -176,36 +187,39 @@ void Game::render()
 {
     m_impl->window.clear(kBackgroundColor);
 
-    const OverworldFrameState& frameState = m_impl->overworldRuntime.getFrameState();
+    const OverworldRenderSnapshot& renderSnapshot = m_impl->overworldRuntime.getRenderSnapshot();
     sf::View view;
-    view.setCenter({frameState.frame.center.x, frameState.frame.center.y});
-    view.setSize({frameState.frame.size.width, frameState.frame.size.height});
+    view.setCenter({renderSnapshot.cameraFrame.center.x, renderSnapshot.cameraFrame.center.y});
+    view.setSize({renderSnapshot.cameraFrame.size.width, renderSnapshot.cameraFrame.size.height});
     m_impl->window.setView(view);
 
     sf::RectangleShape tileShape;
-    tileShape.setSize({frameState.tileSize, frameState.tileSize});
 
-    for (const VisibleWorldTile& visibleTile : frameState.visibleTiles)
+    for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
     {
-        tileShape.setPosition({
-            visibleTile.center.x - (frameState.tileSize * 0.5F),
-            visibleTile.center.y - (frameState.tileSize * 0.5F)});
+        tileShape.setSize({visibleTile.size.width, visibleTile.size.height});
+        tileShape.setOrigin({visibleTile.origin.x, visibleTile.origin.y});
+        tileShape.setPosition({visibleTile.position.x, visibleTile.position.y});
         tileShape.setFillColor(getTileColor(visibleTile.tileType));
         m_impl->window.draw(tileShape);
     }
 
-    sf::RectangleShape playerMarker;
-    playerMarker.setSize({
-        frameState.playerMarker.size.width,
-        frameState.playerMarker.size.height});
-    playerMarker.setOrigin({
-        frameState.playerMarker.origin.x,
-        frameState.playerMarker.origin.y});
-    playerMarker.setPosition({
-        frameState.playerMarker.position.x,
-        frameState.playerMarker.position.y});
-    playerMarker.setFillColor(kPlayerColor);
-    m_impl->window.draw(playerMarker);
+    sf::RectangleShape markerShape;
+
+    for (const OverworldRenderMarker& renderMarker : renderSnapshot.markers)
+    {
+        markerShape.setSize({
+            renderMarker.size.width,
+            renderMarker.size.height});
+        markerShape.setOrigin({
+            renderMarker.origin.x,
+            renderMarker.origin.y});
+        markerShape.setPosition({
+            renderMarker.position.x,
+            renderMarker.position.y});
+        markerShape.setFillColor(getMarkerColor(renderMarker.appearance));
+        m_impl->window.draw(markerShape);
+    }
 
     m_impl->window.display();
 }
