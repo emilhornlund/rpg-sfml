@@ -1,8 +1,36 @@
+<img src="https://github.com/emilhornlund/rpg-sfml/blob/main/.github/banner.png" alt="rpg-sfml banner" align="center" />
+
 # rpg-sfml
 
-Starter SFML 3 project for a 2D RPG, currently scoped to a single executable with a `Game`-centered runtime that opens a window and owns the main loop.
+## Overview
 
-## Layout
+`rpg-sfml` is a small C++20/SFML project for a 2D RPG prototype. It currently builds a single executable with a `Game`-centered runtime that opens a window, runs the main loop, and coordinates gameplay-facing modules.
+
+Key features:
+
+- Single-executable desktop runtime built with CMake
+- SFML-backed rendering and window loop
+- Dedicated gameplay modules for `World`, `Player`, and `Camera`
+- Deterministic overworld generation and chunk retention
+- CTest-based coverage for runtime boundaries and gameplay helpers
+
+## Tech Stack
+
+- C++20
+- CMake 3.24+
+- SFML 3 (vendored headers and shared libraries)
+- CTest
+
+## Getting Started
+
+### Prerequisites
+
+- CMake 3.24 or newer
+- A C++20-capable compiler
+- Linux with GCC on x86_64 for the built-in vendored SFML configuration
+- The required runtime assets available in `assets/`
+
+The project does not use `find_package(SFML)` or packaged SFML CMake metadata. It links directly against vendored SFML shared libraries and expects the following layout under `extlib/`:
 
 ```text
 extlib/
@@ -17,55 +45,78 @@ extlib/
       libsfml-window.so*
 ```
 
-The project links those shared objects explicitly in CMake. It does not use SFML's packaged CMake metadata and does not keep static `*.a` libraries.
+### Installation
 
-## Build
+Clone the repository:
+
+```bash
+git clone git@github.com:emilhornlund/rpg-sfml.git
+cd rpg-sfml
+```
+
+The `assets/` directory is not bundled in this repository. It is configured as a Git submodule that points to a private repository:
+
+```bash
+git submodule update --init --recursive
+```
+
+If you do not have access to that private repository, the runtime assets will not be available after checkout. In that case, supply the required files in `assets/` before building or running the project.
+
+If you want to use a different vendored SFML package, configure CMake with explicit include and library paths:
+
+```bash
+cmake -S . -B build -DRPG_SFML_LIB_DIR=/custom/path -DRPG_SFML_INCLUDE_DIR=/custom/include/path
+```
+
+### Build
 
 ```bash
 cmake -S . -B build
 cmake --build build
 ```
 
-## Run
+### Run
 
 ```bash
 ./build/src/main/main
 ```
 
-The executable is configured with a build RPATH that points at the detected vendored SFML library directory, so it should find the shared libraries without extra environment variables. The build stages runtime assets from the repository-root `assets/` directory to `build/src/main/assets/`, including the initial overworld terrain tileset used by the main executable.
+The executable is configured with a build RPATH that points to the resolved vendored SFML library directory, so no extra environment variables are required for the default setup.
 
-## Test
+### Test
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-## Structure
+## Project Structure
 
-- Root `CMakeLists.txt`: only project-wide setup and subdirectories
-- `src/main/CMakeLists.txt`: executable definition
-- `include/main/Game.hpp`: public runtime interface for the `rpg::Game` entry object
-- `src/main/Game.cpp`: SFML-backed runtime implementation and game loop phases
-- `assets/`: repository-source runtime assets staged into the executable-local build output
-- `src/main/GameRuntimeSupport.hpp`: small runtime helpers shared by the implementation and tests
-- `src/main/main.cpp`: minimal startup that constructs `rpg::Game` and calls `run()`
-- `tests/`: CTest-based checks for runtime handoff and loop helper behavior
-- `cmake/VendoredSFML.cmake`: vendored SFML detection and imported targets
+- `CMakeLists.txt` - project-wide CMake setup and subdirectory wiring
+- `src/main/` - executable sources and runtime implementation
+- `include/main/` - public headers for the main runtime modules
+- `tests/` - CTest executables and boundary checks
+- `cmake/VendoredSFML.cmake` - vendored SFML detection and imported target setup
+- `assets/` - runtime asset directory expected by the build; sourced from a private submodule when available
+- `extlib/` - vendored SFML headers and shared libraries
 
-## Vendored SFML selection
+## Development Notes
 
-The helper uses plain CMake `if()` checks.
+- `Game` is the top-level runtime coordinator and public entry point.
+- `World`, `Player`, and `Camera` hold gameplay-facing responsibilities and should remain separate from the top-level SFML runtime wiring.
+- `include/main/Game.hpp` intentionally hides SFML-heavy runtime details behind a private implementation boundary.
+- Runtime assets are staged from the repository-root `assets/` directory to `build/src/main/assets/` during the build.
+- Built-in vendored SFML auto-detection currently supports only `Linux + GNU + x86_64`. Other platform, compiler, or architecture combinations fail with a clear CMake error until an explicit case is added in `cmake/VendoredSFML.cmake`.
 
-Right now the only built-in case is:
+## Assets / Licensing
 
-- Linux + GCC + x86_64 -> `extlib/libs-linux-gcc/x64`
+- The code in this repository is released under the MIT License. See [`LICENSE`](LICENSE).
+- Runtime assets are not bundled in this repository.
+- The `assets/` directory is wired as a Git submodule that points to a private repository.
+- Those assets are copied into the executable output as part of the build when they are available locally.
+- If you change or redistribute asset content, review the asset repository separately and confirm its terms before publishing.
 
-Both vendored-path resolution and imported-target creation use explicit `if()` cases. Every other platform/compiler/architecture combination fails immediately with a clear CMake error instead of guessing and trying to load the wrong library type.
+## Future Improvements
 
-If you want to point at another vendored package explicitly, configure CMake with:
-
-```bash
-cmake -S . -B build -DRPG_SFML_LIB_DIR=/custom/path -DRPG_SFML_INCLUDE_DIR=/custom/include/path
-```
-
-To extend support later, add another explicit `if()` case in `cmake/VendoredSFML.cmake` for the new platform/compiler/architecture and point it at the matching `extlib/libs-.../...` directory.
+- Add explicit vendored SFML support for additional platforms and compilers
+- Expand gameplay systems beyond the current overworld runtime slice
+- Broaden test coverage as runtime and content pipelines grow
