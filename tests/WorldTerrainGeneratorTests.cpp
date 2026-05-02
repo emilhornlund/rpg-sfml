@@ -30,6 +30,7 @@
 #include <main/World.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <vector>
@@ -37,9 +38,16 @@
 namespace
 {
 
+constexpr float kFloatTolerance = 0.001F;
+
 [[nodiscard]] std::size_t toIndex(const rpg::TileCoordinates& coordinates, const int widthInTiles) noexcept
 {
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
+}
+
+[[nodiscard]] bool areClose(const float lhs, const float rhs) noexcept
+{
+    return std::fabs(lhs - rhs) < kFloatTolerance;
 }
 
 [[nodiscard]] bool areEqual(const rpg::ChunkMetadata& lhs, const rpg::ChunkMetadata& rhs) noexcept
@@ -60,17 +68,20 @@ namespace
     return true;
 }
 
-[[nodiscard]] bool areEqual(const rpg::WorldContentRecord& lhs, const rpg::WorldContentRecord& rhs) noexcept
+[[nodiscard]] bool areEqual(const rpg::ContentInstance& lhs, const rpg::ContentInstance& rhs) noexcept
 {
     return lhs.id == rhs.id
-        && lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
-        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
-        && lhs.type == rhs.type;
+        && lhs.type == rhs.type
+        && areClose(lhs.position.x, rhs.position.x)
+        && areClose(lhs.position.y, rhs.position.y)
+        && areClose(lhs.footprint.size.width, rhs.footprint.size.width)
+        && areClose(lhs.footprint.size.height, rhs.footprint.size.height)
+        && lhs.appearanceId.value == rhs.appearanceId.value;
 }
 
 [[nodiscard]] bool areEqual(
-    const std::vector<rpg::WorldContentRecord>& lhs,
-    const std::vector<rpg::WorldContentRecord>& rhs) noexcept
+    const std::vector<rpg::ContentInstance>& lhs,
+    const std::vector<rpg::ContentInstance>& rhs) noexcept
 {
     if (lhs.size() != rhs.size())
     {
@@ -86,6 +97,13 @@ namespace
     }
 
     return true;
+}
+
+[[nodiscard]] bool areEqual(const rpg::ChunkContent& lhs, const rpg::ChunkContent& rhs) noexcept
+{
+    return lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
+        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
+        && areEqual(lhs.instances, rhs.instances);
 }
 
 [[nodiscard]] bool isInBounds(const rpg::TileCoordinates& coordinates, const rpg::WorldConfig& config) noexcept
@@ -400,7 +418,7 @@ struct CardinalNeighborMask
     rpg::World world(config);
     const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
 
-    const std::vector<rpg::WorldContentRecord> firstContent = world.getChunkContent(farChunk);
+    const rpg::ChunkContent firstContent = world.getChunkContent(farChunk);
     const std::size_t generatedAfterContentQuery = rpg::detail::getGeneratedChunkCount();
 
     if (generatedAfterContentQuery <= generatedAfterConstruction)
@@ -409,7 +427,7 @@ struct CardinalNeighborMask
     }
 
     (void)world.getTileType(tileInFarChunk);
-    const std::vector<rpg::WorldContentRecord> secondContent = world.getChunkContent(tileInFarChunk);
+    const rpg::ChunkContent secondContent = world.getChunkContent(tileInFarChunk);
 
     return rpg::detail::getGeneratedChunkCount() == generatedAfterContentQuery
         && areEqual(firstContent, secondContent);
@@ -419,8 +437,8 @@ struct CardinalNeighborMask
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
     const rpg::World world(config);
-    std::optional<std::pair<rpg::ChunkCoordinates, std::vector<rpg::WorldContentRecord>>> supportedChunk;
-    std::optional<std::vector<rpg::WorldContentRecord>> blockedChunk;
+    std::optional<rpg::ChunkContent> supportedChunk;
+    std::optional<rpg::ChunkContent> blockedChunk;
 
     for (int chunkY = -12; chunkY <= 12; ++chunkY)
     {
@@ -428,12 +446,12 @@ struct CardinalNeighborMask
         {
             const rpg::ChunkCoordinates chunkCoordinates{chunkX, chunkY};
             const rpg::ChunkMetadata metadata = world.getChunkMetadata(rpg::ChunkCoordinates{chunkX, chunkY});
-            const std::vector<rpg::WorldContentRecord> content = world.getChunkContent(chunkCoordinates);
+            const rpg::ChunkContent content = world.getChunkContent(chunkCoordinates);
 
             if (!supportedChunk.has_value()
                 && metadata.traversabilitySummary.traversableTileCount > metadata.traversabilitySummary.blockedTileCount)
             {
-                supportedChunk = std::make_pair(chunkCoordinates, content);
+                supportedChunk = content;
             }
 
             if (!blockedChunk.has_value() && metadata.traversabilitySummary.traversableTileCount == 0)
@@ -453,16 +471,30 @@ struct CardinalNeighborMask
         }
     }
 
-    if (!supportedChunk.has_value() || !blockedChunk.has_value() || supportedChunk->second.empty() || !blockedChunk->empty())
+    if (!supportedChunk.has_value()
+        || !blockedChunk.has_value()
+        || supportedChunk->instances.empty()
+        || !blockedChunk->instances.empty())
     {
         return false;
     }
 
-    for (const rpg::WorldContentRecord& record : supportedChunk->second)
+    if (supportedChunk->chunkCoordinates.x != world.getChunkCoordinates(world.getTileCoordinates(supportedChunk->instances.front().position)).x
+        || supportedChunk->chunkCoordinates.y != world.getChunkCoordinates(world.getTileCoordinates(supportedChunk->instances.front().position)).y)
     {
-        if (record.id == 0
-            || record.chunkCoordinates.x != supportedChunk->first.x
-            || record.chunkCoordinates.y != supportedChunk->first.y)
+        return false;
+    }
+
+    for (const rpg::ContentInstance& instance : supportedChunk->instances)
+    {
+        const rpg::ChunkCoordinates owningChunk = world.getChunkCoordinates(world.getTileCoordinates(instance.position));
+
+        if (instance.id == 0
+            || owningChunk.x != supportedChunk->chunkCoordinates.x
+            || owningChunk.y != supportedChunk->chunkCoordinates.y
+            || instance.footprint.size.width <= 0.0F
+            || instance.footprint.size.height <= 0.0F
+            || instance.appearanceId.value == 0)
         {
             return false;
         }

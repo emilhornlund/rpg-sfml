@@ -43,17 +43,20 @@ constexpr float kFloatTolerance = 0.001F;
     return std::fabs(lhs - rhs) < kFloatTolerance;
 }
 
-[[nodiscard]] bool areEqual(const rpg::WorldContentRecord& lhs, const rpg::WorldContentRecord& rhs) noexcept
+[[nodiscard]] bool areEqual(const rpg::ContentInstance& lhs, const rpg::ContentInstance& rhs) noexcept
 {
     return lhs.id == rhs.id
-        && lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
-        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
-        && lhs.type == rhs.type;
+        && lhs.type == rhs.type
+        && areClose(lhs.position.x, rhs.position.x)
+        && areClose(lhs.position.y, rhs.position.y)
+        && areClose(lhs.footprint.size.width, rhs.footprint.size.width)
+        && areClose(lhs.footprint.size.height, rhs.footprint.size.height)
+        && lhs.appearanceId.value == rhs.appearanceId.value;
 }
 
 [[nodiscard]] bool areEqual(
-    const std::vector<rpg::WorldContentRecord>& lhs,
-    const std::vector<rpg::WorldContentRecord>& rhs) noexcept
+    const std::vector<rpg::ContentInstance>& lhs,
+    const std::vector<rpg::ContentInstance>& rhs) noexcept
 {
     if (lhs.size() != rhs.size())
     {
@@ -69,6 +72,13 @@ constexpr float kFloatTolerance = 0.001F;
     }
 
     return true;
+}
+
+[[nodiscard]] bool areEqual(const rpg::ChunkContent& lhs, const rpg::ChunkContent& rhs) noexcept
+{
+    return lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
+        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
+        && areEqual(lhs.instances, rhs.instances);
 }
 
 [[nodiscard]] std::optional<rpg::TileCoordinates> findAdjacentTile(
@@ -437,20 +447,30 @@ struct TraversableCorner
     rpg::World secondWorld(config);
     const rpg::TileCoordinates sampleTile{36, -19};
     const rpg::ChunkCoordinates sampleChunk = firstWorld.getChunkCoordinates(sampleTile);
-    const std::vector<rpg::WorldContentRecord> firstContent = firstWorld.getChunkContent(sampleChunk);
-    const std::vector<rpg::WorldContentRecord> repeatedContent = firstWorld.getChunkContent(sampleTile);
-    const std::vector<rpg::WorldContentRecord> secondContent = secondWorld.getChunkContent(sampleChunk);
+    const rpg::ChunkContent firstContent = firstWorld.getChunkContent(sampleChunk);
+    const rpg::ChunkContent repeatedContent = firstWorld.getChunkContent(sampleTile);
+    const rpg::ChunkContent secondContent = secondWorld.getChunkContent(sampleChunk);
 
     if (!areEqual(firstContent, repeatedContent) || !areEqual(firstContent, secondContent))
     {
         return false;
     }
 
-    for (const rpg::WorldContentRecord& record : firstContent)
+    if (firstContent.chunkCoordinates.x != sampleChunk.x || firstContent.chunkCoordinates.y != sampleChunk.y)
     {
-        if (record.id == 0
-            || record.chunkCoordinates.x != sampleChunk.x
-            || record.chunkCoordinates.y != sampleChunk.y)
+        return false;
+    }
+
+    for (const rpg::ContentInstance& instance : firstContent.instances)
+    {
+        const rpg::ChunkCoordinates owningChunk = firstWorld.getChunkCoordinates(firstWorld.getTileCoordinates(instance.position));
+
+        if (instance.id == 0
+            || owningChunk.x != sampleChunk.x
+            || owningChunk.y != sampleChunk.y
+            || instance.footprint.size.width <= 0.0F
+            || instance.footprint.size.height <= 0.0F
+            || instance.appearanceId.value == 0)
         {
             return false;
         }

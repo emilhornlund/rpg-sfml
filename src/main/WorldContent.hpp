@@ -40,14 +40,15 @@ namespace detail
 class WorldContent
 {
 public:
-    explicit WorldContent(std::uint32_t worldSeed) noexcept;
+    explicit WorldContent(const WorldConfig& config) noexcept;
 
-    [[nodiscard]] std::vector<WorldContentRecord> generateChunkContent(
+    [[nodiscard]] ChunkContent generateChunkContent(
         const ChunkCoordinates& chunkCoordinates,
         const ChunkMetadata& metadata) const;
 
 private:
     std::uint32_t m_worldSeed;
+    float m_tileSize;
 };
 
 } // namespace detail

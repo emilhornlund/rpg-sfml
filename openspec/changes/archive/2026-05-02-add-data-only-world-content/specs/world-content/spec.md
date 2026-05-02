@@ -1,8 +1,4 @@
-## Purpose
-
-Define deterministic, data-only chunk content instances and world-facing content queries for the world-owned content system.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: World content remains data-only in the first pass
 The world-owned content system SHALL expose retained chunk content as data-only structures. Returned content SHALL NOT include interaction behavior, trigger logic, inventory payloads, dialogue state, scripts, or other action-oriented gameplay logic in this change.
@@ -11,6 +7,8 @@ The world-owned content system SHALL expose retained chunk content as data-only 
 - **WHEN** a gameplay system reads retained chunk content from the world-facing query boundary
 - **THEN** the returned content contains only deterministic identity, semantic type, spatial placement, footprint, and appearance data
 - **AND** it does not require callers to interpret placeholder interaction fields
+
+## MODIFIED Requirements
 
 ### Requirement: World derives deterministic content records per retained chunk
 The world-owned content system SHALL derive deterministic chunk content from the world generation seed, the owning chunk coordinates, and the retained chunk metadata for that chunk. Repeated resolution of the same chunk with the same generation inputs SHALL produce the same chunk content structure, including the same content instances, semantic types, world positions, footprints, and appearance identifiers.
@@ -36,4 +34,4 @@ The `World` module SHALL expose chunk content through world-facing queries so fu
 #### Scenario: Chunks without supported content can return no instances
 - **WHEN** a retained chunk's metadata does not support any deterministic content instances
 - **THEN** the world-facing content query returns an empty instance collection for that chunk
-- **AND** the query does not invent unstable placeholder records
+- **AND** the query does not invent unstable placeholder content

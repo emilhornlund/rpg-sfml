@@ -151,12 +151,12 @@ ChunkMetadata World::getChunkMetadata(const TileCoordinates& coordinates) const
     return getChunkMetadata(getChunkCoordinates(coordinates));
 }
 
-std::vector<WorldContentRecord> World::getChunkContent(const ChunkCoordinates& coordinates) const
+ChunkContent World::getChunkContent(const ChunkCoordinates& coordinates) const
 {
     return ensureChunkRetained(coordinates).content;
 }
 
-std::vector<WorldContentRecord> World::getChunkContent(const TileCoordinates& coordinates) const
+ChunkContent World::getChunkContent(const TileCoordinates& coordinates) const
 {
     return getChunkContent(getChunkCoordinates(coordinates));
 }
@@ -227,7 +227,7 @@ World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinat
 
     const detail::TerrainGenerator terrainGenerator{m_state.config};
     detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(coordinates.x, coordinates.y);
-    const detail::WorldContent worldContent{m_state.config.seed};
+    const detail::WorldContent worldContent{m_state.config};
     State::RetainedChunkData retainedChunk;
     retainedChunk.tiles = std::move(chunkData.tiles);
     retainedChunk.content = worldContent.generateChunkContent(coordinates, chunkData.metadata);

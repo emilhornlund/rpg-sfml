@@ -121,20 +121,47 @@ struct ChunkMetadata
 /**
  * @brief Deterministic chunk-scoped content categories.
  */
-enum class WorldContentType
+enum class ContentType
 {
     SpawnSite,
     PointOfInterest
 };
 
 /**
- * @brief Deterministic content record retained for a generated chunk.
+ * @brief Opaque appearance selector for deterministic chunk content.
  */
-struct WorldContentRecord
+struct ContentAppearanceId
+{
+    std::uint32_t value = 0;
+};
+
+/**
+ * @brief World-space footprint for deterministic chunk content.
+ */
+struct ContentFootprint
+{
+    WorldSize size{0.0F, 0.0F};
+};
+
+/**
+ * @brief Deterministic data-only content instance retained for a chunk.
+ */
+struct ContentInstance
 {
     std::uint64_t id = 0;
+    ContentType type = ContentType::SpawnSite;
+    WorldPosition position{0.0F, 0.0F};
+    ContentFootprint footprint{};
+    ContentAppearanceId appearanceId{};
+};
+
+/**
+ * @brief Deterministic chunk-owned content retained for a generated chunk.
+ */
+struct ChunkContent
+{
     ChunkCoordinates chunkCoordinates{0, 0};
-    WorldContentType type = WorldContentType::SpawnSite;
+    std::vector<ContentInstance> instances;
 };
 
 /**
@@ -249,23 +276,23 @@ public:
     [[nodiscard]] ChunkMetadata getChunkMetadata(const TileCoordinates& coordinates) const;
 
     /**
-     * @brief Read retained content records for a generated chunk.
+     * @brief Read retained content for a generated chunk.
      *
      * Missing chunks are generated on demand and retained before the content is
      * returned.
      *
      * @param coordinates Chunk coordinates to inspect.
-     * @return Deterministic retained content records for the chunk.
+     * @return Deterministic retained content for the chunk.
      */
-    [[nodiscard]] std::vector<WorldContentRecord> getChunkContent(const ChunkCoordinates& coordinates) const;
+    [[nodiscard]] ChunkContent getChunkContent(const ChunkCoordinates& coordinates) const;
 
     /**
-     * @brief Read retained content records for the chunk that owns a tile.
+     * @brief Read retained content for the chunk that owns a tile.
      *
      * @param coordinates Tile coordinates used to resolve the owning chunk.
-     * @return Deterministic retained content records for the owning chunk.
+     * @return Deterministic retained content for the owning chunk.
      */
-    [[nodiscard]] std::vector<WorldContentRecord> getChunkContent(const TileCoordinates& coordinates) const;
+    [[nodiscard]] ChunkContent getChunkContent(const TileCoordinates& coordinates) const;
 
     /**
      * @brief Enumerate the visible world tiles for a camera frame.
@@ -308,7 +335,7 @@ private:
         {
             std::vector<TileType> tiles;
             ChunkMetadata metadata;
-            std::vector<WorldContentRecord> content;
+            ChunkContent content;
         };
 
         WorldConfig config;
