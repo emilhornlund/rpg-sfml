@@ -102,6 +102,11 @@ float World::getTileSize() const noexcept
     return m_state.config.tileSize;
 }
 
+std::uint32_t World::getGenerationSeed() const noexcept
+{
+    return m_state.config.seed;
+}
+
 TileCoordinates World::getSpawnTile() const noexcept
 {
     return m_state.spawnTile;

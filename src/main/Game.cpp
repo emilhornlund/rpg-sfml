@@ -353,6 +353,7 @@ void Game::render()
 
     sf::Sprite tileSprite(m_impl->terrainTileset);
     const VisibleTileTypeMap visibleTileTypes = buildVisibleTileTypeMap(renderSnapshot);
+    const std::uint32_t worldGenerationSeed = m_impl->overworldRuntime.getWorldGenerationSeed();
 
     for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
     {
@@ -362,7 +363,8 @@ void Game::render()
             m_impl->terrainTilesetMetadata,
             visibleTile,
             getNeighborTileTypes(visibleTileTypes, visibleTile),
-            m_impl->terrainAnimationElapsedSeconds)));
+            m_impl->terrainAnimationElapsedSeconds,
+            worldGenerationSeed)));
         tileSprite.setScale({scaleX, scaleY});
         tileSprite.setOrigin({visibleTile.origin.x / scaleX, visibleTile.origin.y / scaleY});
         tileSprite.setPosition({visibleTile.position.x, visibleTile.position.y});

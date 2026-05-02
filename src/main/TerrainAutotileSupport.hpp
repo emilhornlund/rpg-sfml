@@ -31,6 +31,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -72,6 +73,8 @@ public:
 
     [[nodiscard]] std::size_t getBaseVariantCount(TileType tileType) const noexcept;
     [[nodiscard]] const TerrainAtlasCell& getBaseVariant(TileType tileType, std::size_t variantIndex) const;
+    [[nodiscard]] std::size_t getDecorVariantCount(TileType tileType) const noexcept;
+    [[nodiscard]] const TerrainAtlasCell& getDecorVariant(TileType tileType, std::size_t variantIndex) const;
     [[nodiscard]] const TerrainAtlasCell& getTransitionCell(
         TileType sourceTileType,
         TileType transitionTarget,
@@ -90,7 +93,14 @@ private:
     };
 
     std::map<TileType, std::vector<TerrainAtlasCell>> m_baseVariants;
+    std::map<TileType, std::vector<TerrainAtlasCell>> m_decorVariants;
     std::map<TransitionKey, std::map<TerrainAutotileRole, std::map<int, TerrainAtlasCell>>> m_transitionCells;
+};
+
+struct TerrainAppearanceSelection
+{
+    bool useDecor = false;
+    std::size_t variantIndex = 0U;
 };
 
 [[nodiscard]] constexpr bool supportsAutotileTransition(
@@ -142,9 +152,18 @@ private:
     const std::array<TileType, 8>& neighborTileTypes) noexcept;
 
 [[nodiscard]] std::size_t selectTerrainVariantIndex(
+    std::uint32_t seed,
     const TileCoordinates& coordinates,
     TileType tileType,
-    std::size_t variantCount) noexcept;
+    std::size_t variantCount,
+    std::uint32_t salt = 0U) noexcept;
+
+[[nodiscard]] TerrainAppearanceSelection selectTerrainAppearanceSelection(
+    std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    TileType tileType,
+    std::size_t baseVariantCount,
+    std::size_t decorVariantCount) noexcept;
 
 [[nodiscard]] int selectWaterAnimationFrame(float elapsedSeconds, int frameCount) noexcept;
 
@@ -152,7 +171,8 @@ private:
     const TerrainTilesetMetadata& metadata,
     const OverworldRenderTile& tile,
     const std::array<TileType, 8>& neighborTileTypes,
-    float animationElapsedSeconds);
+    float animationElapsedSeconds,
+    std::uint32_t seed);
 
 } // namespace detail
 } // namespace rpg

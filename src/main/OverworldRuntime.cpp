@@ -116,6 +116,11 @@ const OverworldRenderSnapshot& OverworldRuntime::getRenderSnapshot() const noexc
     return m_renderSnapshot;
 }
 
+std::uint32_t OverworldRuntime::getWorldGenerationSeed() const noexcept
+{
+    return m_world.getGenerationSeed();
+}
+
 void OverworldRuntime::refreshRenderSnapshot()
 {
     const float tileSize = m_world.getTileSize();

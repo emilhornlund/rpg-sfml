@@ -46,6 +46,11 @@ namespace
 {
 
 constexpr int kWaterAnimationFrameDurationMilliseconds = 200;
+constexpr std::uint32_t kBaseVariantHashSalt = 0x68E31DA4U;
+constexpr std::uint32_t kDecorRollHashSalt = 0x1F2A5C7DU;
+constexpr std::uint32_t kDecorVariantHashSalt = 0x9B3C41E2U;
+constexpr std::uint32_t kDecorWeightNumerator = 1U;
+constexpr std::uint32_t kDecorWeightDenominator = 32U;
 
 [[nodiscard]] std::string readFileContents(const std::filesystem::path& path)
 {
@@ -412,6 +417,40 @@ struct TransitionSourceScore
     return role;
 }
 
+[[nodiscard]] std::uint32_t hashTerrainSelection(
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType tileType,
+    const std::uint32_t salt) noexcept
+{
+    std::uint32_t value = seed ^ salt;
+    value ^= static_cast<std::uint32_t>(coordinates.x) * 73856093U;
+    value ^= static_cast<std::uint32_t>(coordinates.y) * 19349663U;
+    value ^= static_cast<std::uint32_t>(getTerrainPriority(tileType)) * 83492791U;
+    value ^= value >> 13U;
+    value *= 1274126177U;
+    value ^= value >> 16U;
+    return value;
+}
+
+[[nodiscard]] TerrainAtlasCell selectDefaultTerrainAtlasCell(
+    const TerrainTilesetMetadata& metadata,
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType tileType)
+{
+    const TerrainAppearanceSelection selection = selectTerrainAppearanceSelection(
+        seed,
+        coordinates,
+        tileType,
+        metadata.getBaseVariantCount(tileType),
+        metadata.getDecorVariantCount(tileType));
+
+    return selection.useDecor
+        ? metadata.getDecorVariant(tileType, selection.variantIndex)
+        : metadata.getBaseVariant(tileType, selection.variantIndex);
+}
+
 } // namespace
 
 bool TerrainTilesetMetadata::TransitionKey::operator<(const TransitionKey& other) const noexcept
@@ -447,6 +486,19 @@ TerrainTilesetMetadata TerrainTilesetMetadata::loadFromFile(const std::filesyste
             }
 
             metadata.m_baseVariants[parseTileType(*terrainValue)].push_back(cell);
+            continue;
+        }
+
+        if (*category == "decor")
+        {
+            const std::optional<std::string> terrainValue = matchStringField(objectText, "terrain");
+
+            if (!terrainValue.has_value())
+            {
+                throw std::runtime_error("Decor terrain entry is missing terrain value");
+            }
+
+            metadata.m_decorVariants[parseTileType(*terrainValue)].push_back(cell);
             continue;
         }
 
@@ -495,6 +547,26 @@ const TerrainAtlasCell& TerrainTilesetMetadata::getBaseVariant(
     }
 
     return baseVariantsIt->second[variantIndex % baseVariantsIt->second.size()];
+}
+
+std::size_t TerrainTilesetMetadata::getDecorVariantCount(const TileType tileType) const noexcept
+{
+    const auto decorVariantsIt = m_decorVariants.find(tileType);
+    return decorVariantsIt == m_decorVariants.end() ? 0U : decorVariantsIt->second.size();
+}
+
+const TerrainAtlasCell& TerrainTilesetMetadata::getDecorVariant(
+    const TileType tileType,
+    const std::size_t variantIndex) const
+{
+    const auto decorVariantsIt = m_decorVariants.find(tileType);
+
+    if (decorVariantsIt == m_decorVariants.end() || decorVariantsIt->second.empty())
+    {
+        throw std::runtime_error("Missing terrain decor variants for requested tile type");
+    }
+
+    return decorVariantsIt->second[variantIndex % decorVariantsIt->second.size()];
 }
 
 const TerrainAtlasCell& TerrainTilesetMetadata::getTransitionCell(
@@ -702,21 +774,44 @@ std::optional<TerrainAutotileRole> resolveAutotileRole(
 }
 
 std::size_t selectTerrainVariantIndex(
+    const std::uint32_t seed,
     const TileCoordinates& coordinates,
     const TileType tileType,
-    const std::size_t variantCount) noexcept
+    const std::size_t variantCount,
+    const std::uint32_t salt) noexcept
 {
     if (variantCount == 0)
     {
         return 0;
     }
 
-    std::uint32_t value = static_cast<std::uint32_t>((coordinates.x * 73856093) ^ (coordinates.y * 19349663));
-    value ^= static_cast<std::uint32_t>(getTerrainPriority(tileType) * 83492791);
-    value ^= value >> 13U;
-    value *= 1274126177U;
-    value ^= value >> 16U;
-    return static_cast<std::size_t>(value % variantCount);
+    return static_cast<std::size_t>(hashTerrainSelection(seed, coordinates, tileType, salt) % variantCount);
+}
+
+TerrainAppearanceSelection selectTerrainAppearanceSelection(
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType tileType,
+    const std::size_t baseVariantCount,
+    const std::size_t decorVariantCount) noexcept
+{
+    TerrainAppearanceSelection selection;
+
+    if (baseVariantCount == 0)
+    {
+        return selection;
+    }
+
+    const bool useDecor = decorVariantCount > 0
+        && (hashTerrainSelection(seed, coordinates, tileType, kDecorRollHashSalt) % kDecorWeightDenominator) < kDecorWeightNumerator;
+    selection.useDecor = useDecor;
+    selection.variantIndex = selectTerrainVariantIndex(
+        seed,
+        coordinates,
+        tileType,
+        useDecor ? decorVariantCount : baseVariantCount,
+        useDecor ? kDecorVariantHashSalt : kBaseVariantHashSalt);
+    return selection;
 }
 
 int selectWaterAnimationFrame(const float elapsedSeconds, const int frameCount) noexcept
@@ -735,7 +830,8 @@ TerrainAtlasCell selectTerrainAtlasCell(
     const TerrainTilesetMetadata& metadata,
     const OverworldRenderTile& tile,
     const std::array<TileType, 8>& neighborTileTypes,
-    const float animationElapsedSeconds)
+    const float animationElapsedSeconds,
+    const std::uint32_t seed)
 {
     const std::optional<TileType> transitionSource = selectAutotileTransitionTarget(tile.tileType, neighborTileTypes);
 
@@ -767,12 +863,7 @@ TerrainAtlasCell selectTerrainAtlasCell(
 
     if (!transitionSource.has_value())
     {
-        return metadata.getBaseVariant(
-            tile.tileType,
-            selectTerrainVariantIndex(
-                tile.coordinates,
-                tile.tileType,
-                metadata.getBaseVariantCount(tile.tileType)));
+        return selectDefaultTerrainAtlasCell(metadata, seed, tile.coordinates, tile.tileType);
     }
 
     const std::optional<TerrainAutotileRole> role =
@@ -780,12 +871,7 @@ TerrainAtlasCell selectTerrainAtlasCell(
 
     if (!role.has_value())
     {
-        return metadata.getBaseVariant(
-            tile.tileType,
-            selectTerrainVariantIndex(
-                tile.coordinates,
-                tile.tileType,
-                metadata.getBaseVariantCount(tile.tileType)));
+        return selectDefaultTerrainAtlasCell(metadata, seed, tile.coordinates, tile.tileType);
     }
 
     return metadata.getTransitionCell(

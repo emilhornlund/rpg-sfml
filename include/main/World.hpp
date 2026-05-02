@@ -177,6 +177,13 @@ public:
     [[nodiscard]] float getTileSize() const noexcept;
 
     /**
+     * @brief Get the deterministic world-generation seed.
+     *
+     * @return Seed used for world generation and seed-backed render selection.
+     */
+    [[nodiscard]] std::uint32_t getGenerationSeed() const noexcept;
+
+    /**
      * @brief Get the deterministic player spawn tile.
      *
      * @return Traversable spawn coordinates inside the world grid.

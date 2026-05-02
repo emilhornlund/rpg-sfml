@@ -149,6 +149,13 @@ public:
      */
     [[nodiscard]] const OverworldRenderSnapshot& getRenderSnapshot() const noexcept;
 
+    /**
+     * @brief Read the deterministic world-generation seed.
+     *
+     * @return Seed used for world generation and seed-backed render selection.
+     */
+    [[nodiscard]] std::uint32_t getWorldGenerationSeed() const noexcept;
+
 private:
     /**
      * @brief Apply repo-native debug view state to gameplay-facing modules.

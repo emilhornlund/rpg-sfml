@@ -27,6 +27,7 @@
 #include "TerrainAutotileSupport.hpp"
 
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 
@@ -51,15 +52,23 @@ namespace
         rpg::TileType::Water,
         rpg::detail::TerrainAutotileRole::Center,
         1);
+    const rpg::detail::TerrainAtlasCell grassDecor = metadata.getDecorVariant(
+        rpg::TileType::Grass,
+        0);
 
     return metadata.getBaseVariantCount(rpg::TileType::Grass) == 5
         && metadata.getBaseVariantCount(rpg::TileType::Sand) == 6
         && metadata.getBaseVariantCount(rpg::TileType::Forest) == 6
+        && metadata.getDecorVariantCount(rpg::TileType::Grass) == 38
+        && metadata.getDecorVariantCount(rpg::TileType::Forest) == 13
+        && metadata.getDecorVariantCount(rpg::TileType::Sand) == 20
         && metadata.getWaterAnimationFrameCount() == 3
         && grassTop.tileX == 1
         && grassTop.tileY == 5
         && forestCorner.tileX == 3
         && forestCorner.tileY == 3
+        && grassDecor.tileX == 0
+        && grassDecor.tileY == 1
         && waterFrameOne.tileX == 10
         && waterFrameOne.tileY == 6;
 }
@@ -212,17 +221,34 @@ namespace
 
 [[nodiscard]] bool verifyVariantAndAnimationSelection(const std::filesystem::path& classificationPath)
 {
+    constexpr std::uint32_t kWorldSeed = 0x12345678U;
     const rpg::detail::TerrainTilesetMetadata metadata =
         rpg::detail::TerrainTilesetMetadata::loadFromFile(classificationPath);
     const rpg::TileCoordinates coordinates{12, -7};
     const std::size_t firstVariantIndex = rpg::detail::selectTerrainVariantIndex(
+        kWorldSeed,
         coordinates,
         rpg::TileType::Forest,
         metadata.getBaseVariantCount(rpg::TileType::Forest));
     const std::size_t repeatedVariantIndex = rpg::detail::selectTerrainVariantIndex(
+        kWorldSeed,
         coordinates,
         rpg::TileType::Forest,
         metadata.getBaseVariantCount(rpg::TileType::Forest));
+    const rpg::detail::TerrainAppearanceSelection firstAppearanceSelection =
+        rpg::detail::selectTerrainAppearanceSelection(
+            kWorldSeed,
+            coordinates,
+            rpg::TileType::Forest,
+            metadata.getBaseVariantCount(rpg::TileType::Forest),
+            metadata.getDecorVariantCount(rpg::TileType::Forest));
+    const rpg::detail::TerrainAppearanceSelection repeatedAppearanceSelection =
+        rpg::detail::selectTerrainAppearanceSelection(
+            kWorldSeed,
+            coordinates,
+            rpg::TileType::Forest,
+            metadata.getBaseVariantCount(rpg::TileType::Forest),
+            metadata.getDecorVariantCount(rpg::TileType::Forest));
     const int secondAnimationFrame = rpg::detail::selectWaterAnimationFrame(0.25F, metadata.getWaterAnimationFrameCount());
     const rpg::OverworldRenderTile isolatedSandTile{
         {8, 5},
@@ -248,7 +274,8 @@ namespace
             rpg::TileType::Water,
             rpg::TileType::Water,
             rpg::TileType::Water},
-        0.45F);
+        0.45F,
+        kWorldSeed);
     const rpg::detail::TerrainAtlasCell isolatedSandCell = rpg::detail::selectTerrainAtlasCell(
         metadata,
         isolatedSandTile,
@@ -261,7 +288,8 @@ namespace
             rpg::TileType::Grass,
             rpg::TileType::Grass,
             rpg::TileType::Grass},
-        0.45F);
+        0.45F,
+        kWorldSeed);
     const rpg::detail::TerrainAtlasCell isolatedGrassCell = rpg::detail::selectTerrainAtlasCell(
         metadata,
         {
@@ -279,23 +307,75 @@ namespace
             rpg::TileType::Sand,
             rpg::TileType::Sand,
             rpg::TileType::Sand},
-        0.45F);
-    const rpg::detail::TerrainAtlasCell expectedGrassBaseCell = metadata.getBaseVariant(
+        0.45F,
+        kWorldSeed);
+    const rpg::detail::TerrainAppearanceSelection expectedGrassSelection = rpg::detail::selectTerrainAppearanceSelection(
+        kWorldSeed,
+        {11, 6},
         rpg::TileType::Grass,
-        rpg::detail::selectTerrainVariantIndex(
-            {11, 6},
-            rpg::TileType::Grass,
-            metadata.getBaseVariantCount(rpg::TileType::Grass)));
+        metadata.getBaseVariantCount(rpg::TileType::Grass),
+        metadata.getDecorVariantCount(rpg::TileType::Grass));
+    const rpg::detail::TerrainAtlasCell expectedGrassCell = expectedGrassSelection.useDecor
+        ? metadata.getDecorVariant(rpg::TileType::Grass, expectedGrassSelection.variantIndex)
+        : metadata.getBaseVariant(rpg::TileType::Grass, expectedGrassSelection.variantIndex);
+    bool foundDecorSelection = false;
+    rpg::detail::TerrainAtlasCell decoratedGrassCell{};
+
+    for (int y = -16; y <= 16 && !foundDecorSelection; ++y)
+    {
+        for (int x = -16; x <= 16 && !foundDecorSelection; ++x)
+        {
+            const rpg::TileCoordinates decorCoordinates{x, y};
+            const rpg::detail::TerrainAppearanceSelection decorSelection = rpg::detail::selectTerrainAppearanceSelection(
+                kWorldSeed,
+                decorCoordinates,
+                rpg::TileType::Grass,
+                metadata.getBaseVariantCount(rpg::TileType::Grass),
+                metadata.getDecorVariantCount(rpg::TileType::Grass));
+
+            if (!decorSelection.useDecor)
+            {
+                continue;
+            }
+
+            decoratedGrassCell = rpg::detail::selectTerrainAtlasCell(
+                metadata,
+                {
+                    decorCoordinates,
+                    rpg::TileType::Grass,
+                    {16.0F, 16.0F},
+                    {8.0F, 8.0F},
+                    {0.0F, 0.0F}},
+                {
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass,
+                    rpg::TileType::Grass},
+                0.45F,
+                kWorldSeed);
+            const rpg::detail::TerrainAtlasCell expectedDecorCell =
+                metadata.getDecorVariant(rpg::TileType::Grass, decorSelection.variantIndex);
+            foundDecorSelection = decoratedGrassCell.tileX == expectedDecorCell.tileX
+                && decoratedGrassCell.tileY == expectedDecorCell.tileY;
+        }
+    }
 
     return firstVariantIndex == repeatedVariantIndex
         && firstVariantIndex < metadata.getBaseVariantCount(rpg::TileType::Forest)
+        && firstAppearanceSelection.useDecor == repeatedAppearanceSelection.useDecor
+        && firstAppearanceSelection.variantIndex == repeatedAppearanceSelection.variantIndex
         && secondAnimationFrame == 1
         && isolatedSandCell.tileX == 2
         && isolatedSandCell.tileY == 3
-        && isolatedGrassCell.tileX == expectedGrassBaseCell.tileX
-        && isolatedGrassCell.tileY == expectedGrassBaseCell.tileY
+        && isolatedGrassCell.tileX == expectedGrassCell.tileX
+        && isolatedGrassCell.tileY == expectedGrassCell.tileY
         && openWaterCell.tileX == 13
-        && openWaterCell.tileY == 6;
+        && openWaterCell.tileY == 6
+        && foundDecorSelection;
 }
 
 } // namespace
