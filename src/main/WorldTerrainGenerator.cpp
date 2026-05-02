@@ -133,19 +133,6 @@ void incrementBiomeTileCount(ChunkBiomeSummary& summary, const TileType tileType
     return dominantTileType;
 }
 
-[[nodiscard]] bool isPointOfInterestTileType(const TileType tileType) noexcept
-{
-    return tileType == TileType::Sand || tileType == TileType::Forest;
-}
-
-[[nodiscard]] int distanceToChunkCenterSquared(const TileCoordinates& localCoordinates) noexcept
-{
-    const int centerCoordinate = getChunkSizeInTiles() / 2;
-    const int deltaX = localCoordinates.x - centerCoordinate;
-    const int deltaY = localCoordinates.y - centerCoordinate;
-    return (deltaX * deltaX) + (deltaY * deltaY);
-}
-
 [[nodiscard]] int getTerrainCleanupPriority(const TileType tileType) noexcept
 {
     switch (tileType)
@@ -470,13 +457,6 @@ void cleanupUnsupportedTerrainShapes(
     }
 }
 
-void appendChunkCandidates(
-    ChunkMetadata& metadata,
-    bool hasSpawnCandidate,
-    const TileCoordinates& spawnCandidate,
-    bool hasPointOfInterestCandidate,
-    const TileCoordinates& pointOfInterestCandidate);
-
 [[nodiscard]] std::vector<TileType> generateCleanedChunkRegion(
     const BiomeSampler& biomeSampler,
     const int minChunkX,
@@ -518,12 +498,6 @@ void appendChunkCandidates(
     chunkData.chunkY = chunkY;
     chunkData.tiles.resize(static_cast<std::size_t>(getChunkSizeInTiles() * getChunkSizeInTiles()));
     chunkData.metadata.chunkCoordinates = {chunkX, chunkY};
-    bool hasSpawnCandidate = false;
-    TileCoordinates spawnCandidate{0, 0};
-    int spawnCandidateDistanceSquared = std::numeric_limits<int>::max();
-    bool hasPointOfInterestCandidate = false;
-    TileCoordinates pointOfInterestCandidate{0, 0};
-    int pointOfInterestCandidateDistanceSquared = std::numeric_limits<int>::max();
     const int chunkRegionOffsetX = (chunkX - minChunkX) * getChunkSizeInTiles();
     const int chunkRegionOffsetY = (chunkY - minChunkY) * getChunkSizeInTiles();
 
@@ -532,7 +506,6 @@ void appendChunkCandidates(
         for (int localX = 0; localX < getChunkSizeInTiles(); ++localX)
         {
             const TileCoordinates localCoordinates{localX, localY};
-            const TileCoordinates worldCoordinates = getWorldTileCoordinates(chunkX, chunkY, localCoordinates);
             const TileType tileType = cleanedChunkRegion[toIndex(
                 {
                     chunkRegionOffsetX + localCoordinates.x + kTerrainCleanupPaddingInTiles,
@@ -549,52 +522,11 @@ void appendChunkCandidates(
             }
 
             ++chunkData.metadata.traversabilitySummary.traversableTileCount;
-
-            const int centerDistanceSquared = distanceToChunkCenterSquared(localCoordinates);
-
-            if (centerDistanceSquared < spawnCandidateDistanceSquared)
-            {
-                hasSpawnCandidate = true;
-                spawnCandidate = worldCoordinates;
-                spawnCandidateDistanceSquared = centerDistanceSquared;
-            }
-
-            if (isPointOfInterestTileType(tileType)
-                && centerDistanceSquared < pointOfInterestCandidateDistanceSquared)
-            {
-                hasPointOfInterestCandidate = true;
-                pointOfInterestCandidate = worldCoordinates;
-                pointOfInterestCandidateDistanceSquared = centerDistanceSquared;
-            }
         }
     }
 
     chunkData.metadata.biomeSummary.dominantTileType = determineDominantTileType(chunkData.metadata.biomeSummary);
-    appendChunkCandidates(
-        chunkData.metadata,
-        hasSpawnCandidate,
-        spawnCandidate,
-        hasPointOfInterestCandidate,
-        pointOfInterestCandidate);
     return chunkData;
-}
-
-void appendChunkCandidates(
-    ChunkMetadata& metadata,
-    const bool hasSpawnCandidate,
-    const TileCoordinates& spawnCandidate,
-    const bool hasPointOfInterestCandidate,
-    const TileCoordinates& pointOfInterestCandidate)
-{
-    if (hasSpawnCandidate)
-    {
-        metadata.candidates.push_back({spawnCandidate, ChunkCandidateType::Spawn});
-    }
-
-    if (hasPointOfInterestCandidate)
-    {
-        metadata.candidates.push_back({pointOfInterestCandidate, ChunkCandidateType::PointOfInterest});
-    }
 }
 
 [[nodiscard]] TileCoordinates findSpawnTile(

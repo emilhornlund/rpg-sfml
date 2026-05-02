@@ -11,6 +11,7 @@ add_executable(main
     Player.cpp
     TerrainAutotileSupport.cpp
     World.cpp
+    WorldContent.cpp
     WorldTerrainGenerator.cpp
     main.cpp
 )

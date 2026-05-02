@@ -109,24 +109,6 @@ struct ChunkTraversabilitySummary
 };
 
 /**
- * @brief Deterministic chunk candidate categories for future gameplay systems.
- */
-enum class ChunkCandidateType
-{
-    Spawn,
-    PointOfInterest
-};
-
-/**
- * @brief Deterministic candidate location retained for a chunk.
- */
-struct ChunkCandidate
-{
-    TileCoordinates coordinates{0, 0};
-    ChunkCandidateType type = ChunkCandidateType::Spawn;
-};
-
-/**
  * @brief Chunk-scale metadata retained alongside generated terrain tiles.
  */
 struct ChunkMetadata
@@ -134,7 +116,25 @@ struct ChunkMetadata
     ChunkCoordinates chunkCoordinates{0, 0};
     ChunkBiomeSummary biomeSummary;
     ChunkTraversabilitySummary traversabilitySummary;
-    std::vector<ChunkCandidate> candidates;
+};
+
+/**
+ * @brief Deterministic chunk-scoped content categories.
+ */
+enum class WorldContentType
+{
+    SpawnSite,
+    PointOfInterest
+};
+
+/**
+ * @brief Deterministic content record retained for a generated chunk.
+ */
+struct WorldContentRecord
+{
+    std::uint64_t id = 0;
+    ChunkCoordinates chunkCoordinates{0, 0};
+    WorldContentType type = WorldContentType::SpawnSite;
 };
 
 /**
@@ -249,6 +249,25 @@ public:
     [[nodiscard]] ChunkMetadata getChunkMetadata(const TileCoordinates& coordinates) const;
 
     /**
+     * @brief Read retained content records for a generated chunk.
+     *
+     * Missing chunks are generated on demand and retained before the content is
+     * returned.
+     *
+     * @param coordinates Chunk coordinates to inspect.
+     * @return Deterministic retained content records for the chunk.
+     */
+    [[nodiscard]] std::vector<WorldContentRecord> getChunkContent(const ChunkCoordinates& coordinates) const;
+
+    /**
+     * @brief Read retained content records for the chunk that owns a tile.
+     *
+     * @param coordinates Tile coordinates used to resolve the owning chunk.
+     * @return Deterministic retained content records for the owning chunk.
+     */
+    [[nodiscard]] std::vector<WorldContentRecord> getChunkContent(const TileCoordinates& coordinates) const;
+
+    /**
      * @brief Enumerate the visible world tiles for a camera frame.
      *
      * The query derives visible tile and chunk bounds from the frame, applies a
@@ -289,6 +308,7 @@ private:
         {
             std::vector<TileType> tiles;
             ChunkMetadata metadata;
+            std::vector<WorldContentRecord> content;
         };
 
         WorldConfig config;

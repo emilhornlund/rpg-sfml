@@ -26,6 +26,7 @@
 
 #include <main/World.hpp>
 
+#include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <cmath>
@@ -150,6 +151,16 @@ ChunkMetadata World::getChunkMetadata(const TileCoordinates& coordinates) const
     return getChunkMetadata(getChunkCoordinates(coordinates));
 }
 
+std::vector<WorldContentRecord> World::getChunkContent(const ChunkCoordinates& coordinates) const
+{
+    return ensureChunkRetained(coordinates).content;
+}
+
+std::vector<WorldContentRecord> World::getChunkContent(const TileCoordinates& coordinates) const
+{
+    return getChunkContent(getChunkCoordinates(coordinates));
+}
+
 std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const
 {
     std::vector<VisibleWorldTile> visibleTiles;
@@ -216,8 +227,10 @@ World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinat
 
     const detail::TerrainGenerator terrainGenerator{m_state.config};
     detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(coordinates.x, coordinates.y);
+    const detail::WorldContent worldContent{m_state.config.seed};
     State::RetainedChunkData retainedChunk;
     retainedChunk.tiles = std::move(chunkData.tiles);
+    retainedChunk.content = worldContent.generateChunkContent(coordinates, chunkData.metadata);
     retainedChunk.metadata = std::move(chunkData.metadata);
     const auto insertedChunk = m_state.chunks.emplace(chunkKey, std::move(retainedChunk));
     return insertedChunk.first->second;

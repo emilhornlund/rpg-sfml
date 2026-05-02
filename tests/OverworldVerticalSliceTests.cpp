@@ -43,6 +43,34 @@ constexpr float kFloatTolerance = 0.001F;
     return std::fabs(lhs - rhs) < kFloatTolerance;
 }
 
+[[nodiscard]] bool areEqual(const rpg::WorldContentRecord& lhs, const rpg::WorldContentRecord& rhs) noexcept
+{
+    return lhs.id == rhs.id
+        && lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
+        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
+        && lhs.type == rhs.type;
+}
+
+[[nodiscard]] bool areEqual(
+    const std::vector<rpg::WorldContentRecord>& lhs,
+    const std::vector<rpg::WorldContentRecord>& rhs) noexcept
+{
+    if (lhs.size() != rhs.size())
+    {
+        return false;
+    }
+
+    for (std::size_t index = 0; index < lhs.size(); ++index)
+    {
+        if (!areEqual(lhs[index], rhs[index]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 [[nodiscard]] std::optional<rpg::TileCoordinates> findAdjacentTile(
     const rpg::World& world,
     const rpg::TileCoordinates& origin,
@@ -391,9 +419,7 @@ struct TraversableCorner
     if (firstMetadata.biomeSummary.dominantTileType != repeatedMetadata.biomeSummary.dominantTileType
         || firstMetadata.biomeSummary.dominantTileType != secondMetadata.biomeSummary.dominantTileType
         || firstMetadata.traversabilitySummary.traversableTileCount != repeatedMetadata.traversabilitySummary.traversableTileCount
-        || firstMetadata.traversabilitySummary.traversableTileCount != secondMetadata.traversabilitySummary.traversableTileCount
-        || firstMetadata.candidates.size() != repeatedMetadata.candidates.size()
-        || firstMetadata.candidates.size() != secondMetadata.candidates.size())
+        || firstMetadata.traversabilitySummary.traversableTileCount != secondMetadata.traversabilitySummary.traversableTileCount)
     {
         return false;
     }
@@ -402,6 +428,35 @@ struct TraversableCorner
         && firstMetadata.biomeSummary.waterTileCount == secondMetadata.biomeSummary.waterTileCount
         && firstMetadata.traversabilitySummary.blockedTileCount == repeatedMetadata.traversabilitySummary.blockedTileCount
         && firstMetadata.traversabilitySummary.blockedTileCount == secondMetadata.traversabilitySummary.blockedTileCount;
+}
+
+[[nodiscard]] bool verifyChunkContentQueries()
+{
+    const rpg::WorldConfig config{.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F};
+    rpg::World firstWorld(config);
+    rpg::World secondWorld(config);
+    const rpg::TileCoordinates sampleTile{36, -19};
+    const rpg::ChunkCoordinates sampleChunk = firstWorld.getChunkCoordinates(sampleTile);
+    const std::vector<rpg::WorldContentRecord> firstContent = firstWorld.getChunkContent(sampleChunk);
+    const std::vector<rpg::WorldContentRecord> repeatedContent = firstWorld.getChunkContent(sampleTile);
+    const std::vector<rpg::WorldContentRecord> secondContent = secondWorld.getChunkContent(sampleChunk);
+
+    if (!areEqual(firstContent, repeatedContent) || !areEqual(firstContent, secondContent))
+    {
+        return false;
+    }
+
+    for (const rpg::WorldContentRecord& record : firstContent)
+    {
+        if (record.id == 0
+            || record.chunkCoordinates.x != sampleChunk.x
+            || record.chunkCoordinates.y != sampleChunk.y)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 [[nodiscard]] bool verifyPlayerMovement()
@@ -886,6 +941,11 @@ int main()
     }
 
     if (!verifyChunkMetadataQueries())
+    {
+        return 1;
+    }
+
+    if (!verifyChunkContentQueries())
     {
         return 1;
     }

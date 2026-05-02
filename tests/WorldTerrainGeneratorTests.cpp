@@ -42,13 +42,6 @@ namespace
     return static_cast<std::size_t>(coordinates.y * widthInTiles + coordinates.x);
 }
 
-[[nodiscard]] bool areEqual(const rpg::ChunkCandidate& lhs, const rpg::ChunkCandidate& rhs) noexcept
-{
-    return lhs.coordinates.x == rhs.coordinates.x
-        && lhs.coordinates.y == rhs.coordinates.y
-        && lhs.type == rhs.type;
-}
-
 [[nodiscard]] bool areEqual(const rpg::ChunkMetadata& lhs, const rpg::ChunkMetadata& rhs) noexcept
 {
     if (lhs.chunkCoordinates.x != rhs.chunkCoordinates.x
@@ -59,15 +52,34 @@ namespace
         || lhs.biomeSummary.grassTileCount != rhs.biomeSummary.grassTileCount
         || lhs.biomeSummary.forestTileCount != rhs.biomeSummary.forestTileCount
         || lhs.traversabilitySummary.traversableTileCount != rhs.traversabilitySummary.traversableTileCount
-        || lhs.traversabilitySummary.blockedTileCount != rhs.traversabilitySummary.blockedTileCount
-        || lhs.candidates.size() != rhs.candidates.size())
+        || lhs.traversabilitySummary.blockedTileCount != rhs.traversabilitySummary.blockedTileCount)
     {
         return false;
     }
 
-    for (std::size_t index = 0; index < lhs.candidates.size(); ++index)
+    return true;
+}
+
+[[nodiscard]] bool areEqual(const rpg::WorldContentRecord& lhs, const rpg::WorldContentRecord& rhs) noexcept
+{
+    return lhs.id == rhs.id
+        && lhs.chunkCoordinates.x == rhs.chunkCoordinates.x
+        && lhs.chunkCoordinates.y == rhs.chunkCoordinates.y
+        && lhs.type == rhs.type;
+}
+
+[[nodiscard]] bool areEqual(
+    const std::vector<rpg::WorldContentRecord>& lhs,
+    const std::vector<rpg::WorldContentRecord>& rhs) noexcept
+{
+    if (lhs.size() != rhs.size())
     {
-        if (!areEqual(lhs.candidates[index], rhs.candidates[index]))
+        return false;
+    }
+
+    for (std::size_t index = 0; index < lhs.size(); ++index)
+    {
+        if (!areEqual(lhs[index], rhs[index]))
         {
             return false;
         }
@@ -377,59 +389,80 @@ struct CardinalNeighborMask
         && areEqual(firstMetadata, secondMetadata);
 }
 
-[[nodiscard]] bool verifyChunkMetadataCandidates()
+[[nodiscard]] bool verifyContentQueriesGenerateAndReuseWorldCache()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::ChunkCoordinates farChunk{9, -7};
+    const rpg::TileCoordinates tileInFarChunk{
+        farChunk.x * rpg::detail::getChunkSizeInTiles() + 3,
+        farChunk.y * rpg::detail::getChunkSizeInTiles() + 5};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+
+    const std::vector<rpg::WorldContentRecord> firstContent = world.getChunkContent(farChunk);
+    const std::size_t generatedAfterContentQuery = rpg::detail::getGeneratedChunkCount();
+
+    if (generatedAfterContentQuery <= generatedAfterConstruction)
+    {
+        return false;
+    }
+
+    (void)world.getTileType(tileInFarChunk);
+    const std::vector<rpg::WorldContentRecord> secondContent = world.getChunkContent(tileInFarChunk);
+
+    return rpg::detail::getGeneratedChunkCount() == generatedAfterContentQuery
+        && areEqual(firstContent, secondContent);
+}
+
+[[nodiscard]] bool verifyChunkContentRecords()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
     const rpg::World world(config);
-    std::optional<rpg::ChunkMetadata> traversableChunk;
-    std::optional<rpg::ChunkMetadata> blockedChunk;
+    std::optional<std::pair<rpg::ChunkCoordinates, std::vector<rpg::WorldContentRecord>>> supportedChunk;
+    std::optional<std::vector<rpg::WorldContentRecord>> blockedChunk;
 
     for (int chunkY = -12; chunkY <= 12; ++chunkY)
     {
         for (int chunkX = -12; chunkX <= 12; ++chunkX)
         {
+            const rpg::ChunkCoordinates chunkCoordinates{chunkX, chunkY};
             const rpg::ChunkMetadata metadata = world.getChunkMetadata(rpg::ChunkCoordinates{chunkX, chunkY});
+            const std::vector<rpg::WorldContentRecord> content = world.getChunkContent(chunkCoordinates);
 
-            if (!traversableChunk.has_value() && metadata.traversabilitySummary.traversableTileCount > 0)
+            if (!supportedChunk.has_value()
+                && metadata.traversabilitySummary.traversableTileCount > metadata.traversabilitySummary.blockedTileCount)
             {
-                traversableChunk = metadata;
+                supportedChunk = std::make_pair(chunkCoordinates, content);
             }
 
             if (!blockedChunk.has_value() && metadata.traversabilitySummary.traversableTileCount == 0)
             {
-                blockedChunk = metadata;
+                blockedChunk = content;
             }
 
-            if (traversableChunk.has_value() && blockedChunk.has_value())
+            if (supportedChunk.has_value() && blockedChunk.has_value())
             {
                 break;
             }
         }
 
-        if (traversableChunk.has_value() && blockedChunk.has_value())
+        if (supportedChunk.has_value() && blockedChunk.has_value())
         {
             break;
         }
     }
 
-    if (!traversableChunk.has_value() || !blockedChunk.has_value())
+    if (!supportedChunk.has_value() || !blockedChunk.has_value() || supportedChunk->second.empty() || !blockedChunk->empty())
     {
         return false;
     }
 
-    if (!blockedChunk->candidates.empty())
+    for (const rpg::WorldContentRecord& record : supportedChunk->second)
     {
-        return false;
-    }
-
-    if (traversableChunk->candidates.empty())
-    {
-        return false;
-    }
-
-    for (const rpg::ChunkCandidate& candidate : traversableChunk->candidates)
-    {
-        if (!world.isTraversable(candidate.coordinates))
+        if (record.id == 0
+            || record.chunkCoordinates.x != supportedChunk->first.x
+            || record.chunkCoordinates.y != supportedChunk->first.y)
         {
             return false;
         }
@@ -561,7 +594,12 @@ int main()
         return 1;
     }
 
-    if (!verifyChunkMetadataCandidates())
+    if (!verifyContentQueriesGenerateAndReuseWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyChunkContentRecords())
     {
         return 1;
     }

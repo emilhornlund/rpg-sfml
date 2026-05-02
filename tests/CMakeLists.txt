@@ -9,6 +9,7 @@ add_executable(gameplay_module_types_tests
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
 )
 add_executable(overworld_runtime_tests
@@ -18,6 +19,7 @@ add_executable(overworld_runtime_tests
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
 )
 add_executable(overworld_vertical_slice_tests
@@ -26,12 +28,14 @@ add_executable(overworld_vertical_slice_tests
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
 )
 add_executable(world_terrain_generator_tests
     WorldTerrainGeneratorTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
 )
 add_executable(terrain_autotile_support_tests
