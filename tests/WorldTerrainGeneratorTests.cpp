@@ -106,6 +106,21 @@ constexpr float kFloatTolerance = 0.001F;
         && areEqual(lhs.instances, rhs.instances);
 }
 
+[[nodiscard]] bool containsVisibleContent(
+    const std::vector<rpg::VisibleWorldContent>& visibleContent,
+    const rpg::ContentInstance& instance) noexcept
+{
+    for (const rpg::VisibleWorldContent& visibleInstance : visibleContent)
+    {
+        if (areEqual(visibleInstance.instance, instance))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [[nodiscard]] bool isInBounds(const rpg::TileCoordinates& coordinates, const rpg::WorldConfig& config) noexcept
 {
     return coordinates.x >= 0
@@ -503,6 +518,53 @@ struct CardinalNeighborMask
     return true;
 }
 
+[[nodiscard]] bool verifyVisibleContentQueries()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    std::optional<rpg::ContentInstance> sampleInstance;
+
+    for (int chunkY = -12; chunkY <= 12 && !sampleInstance.has_value(); ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            if (!content.instances.empty())
+            {
+                sampleInstance = content.instances.front();
+                break;
+            }
+        }
+    }
+
+    if (!sampleInstance.has_value())
+    {
+        return false;
+    }
+
+    const float frameSize = world.getTileSize() * 0.5F;
+    const float overlap = world.getTileSize() * 0.25F;
+    const rpg::ViewFrame intersectingFrame{
+        {
+            sampleInstance->position.x + (sampleInstance->footprint.size.width * 0.5F) + (frameSize * 0.5F) - overlap,
+            sampleInstance->position.y,
+        },
+        {frameSize, frameSize}};
+    const rpg::ViewFrame nonIntersectingFrame{
+        {
+            sampleInstance->position.x + sampleInstance->footprint.size.width + frameSize,
+            sampleInstance->position.y,
+        },
+        {frameSize, frameSize}};
+
+    const std::vector<rpg::VisibleWorldContent> intersectingContent = world.getVisibleContent(intersectingFrame);
+    const std::vector<rpg::VisibleWorldContent> nonIntersectingContent = world.getVisibleContent(nonIntersectingFrame);
+
+    return containsVisibleContent(intersectingContent, *sampleInstance)
+        && !containsVisibleContent(nonIntersectingContent, *sampleInstance);
+}
+
 [[nodiscard]] bool verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent()
 {
     const rpg::WorldConfig smallerWorldConfig{
@@ -632,6 +694,11 @@ int main()
     }
 
     if (!verifyChunkContentRecords())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleContentQueries())
     {
         return 1;
     }

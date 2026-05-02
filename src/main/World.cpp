@@ -58,6 +58,33 @@ struct VisibleTileBounds
     int maxY = -1;
 };
 
+struct VisibleChunkBounds
+{
+    int minX = 0;
+    int maxX = -1;
+    int minY = 0;
+    int maxY = -1;
+};
+
+struct WorldBounds
+{
+    float left = 0.0F;
+    float right = 0.0F;
+    float top = 0.0F;
+    float bottom = 0.0F;
+};
+
+[[nodiscard]] WorldBounds getWorldBounds(const ViewFrame& frame) noexcept
+{
+    const float halfWidth = frame.size.width * 0.5F;
+    const float halfHeight = frame.size.height * 0.5F;
+    return {
+        frame.center.x - halfWidth,
+        frame.center.x + halfWidth,
+        frame.center.y - halfHeight,
+        frame.center.y + halfHeight};
+}
+
 [[nodiscard]] VisibleTileBounds getVisibleTileBounds(const float tileSize, const ViewFrame& frame) noexcept
 {
     constexpr int kVisibleOverscanInTiles = 1;
@@ -80,6 +107,35 @@ struct VisibleTileBounds
     bounds.minY = static_cast<int>(std::floor(top / tileSize)) - kVisibleOverscanInTiles;
     bounds.maxY = static_cast<int>(std::ceil(bottom / tileSize)) - 1 + kVisibleOverscanInTiles;
     return bounds;
+}
+
+[[nodiscard]] VisibleChunkBounds getVisibleChunkBounds(const VisibleTileBounds& bounds) noexcept
+{
+    return {
+        detail::getChunkCoordinate(bounds.minX),
+        detail::getChunkCoordinate(bounds.maxX),
+        detail::getChunkCoordinate(bounds.minY),
+        detail::getChunkCoordinate(bounds.maxY)};
+}
+
+[[nodiscard]] bool intersectsWorldBounds(const WorldBounds& bounds, const ContentInstance& instance) noexcept
+{
+    if (instance.footprint.size.width <= 0.0F || instance.footprint.size.height <= 0.0F)
+    {
+        return false;
+    }
+
+    const float halfWidth = instance.footprint.size.width * 0.5F;
+    const float halfHeight = instance.footprint.size.height * 0.5F;
+    const float left = instance.position.x - halfWidth;
+    const float right = instance.position.x + halfWidth;
+    const float top = instance.position.y - halfHeight;
+    const float bottom = instance.position.y + halfHeight;
+
+    return left <= bounds.right
+        && right >= bounds.left
+        && top <= bounds.bottom
+        && bottom >= bounds.top;
 }
 
 } // namespace
@@ -174,15 +230,12 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
     visibleTiles.reserve(static_cast<std::size_t>((bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1)));
 
-    const int minChunkX = detail::getChunkCoordinate(bounds.minX);
-    const int maxChunkX = detail::getChunkCoordinate(bounds.maxX);
-    const int minChunkY = detail::getChunkCoordinate(bounds.minY);
-    const int maxChunkY = detail::getChunkCoordinate(bounds.maxY);
+    const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
     const int chunkSizeInTiles = detail::getChunkSizeInTiles();
 
-    for (int chunkY = minChunkY; chunkY <= maxChunkY; ++chunkY)
+    for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
     {
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; ++chunkX)
+        for (int chunkX = chunkBounds.minX; chunkX <= chunkBounds.maxX; ++chunkX)
         {
             const State::RetainedChunkData& chunk = ensureChunkRetained({chunkX, chunkY});
 
@@ -213,6 +266,39 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     }
 
     return visibleTiles;
+}
+
+std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame) const
+{
+    std::vector<VisibleWorldContent> visibleContent;
+
+    const VisibleTileBounds bounds = getVisibleTileBounds(m_state.config.tileSize, frame);
+
+    if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
+    {
+        return visibleContent;
+    }
+
+    const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
+    const WorldBounds worldBounds = getWorldBounds(frame);
+
+    for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
+    {
+        for (int chunkX = chunkBounds.minX; chunkX <= chunkBounds.maxX; ++chunkX)
+        {
+            const State::RetainedChunkData& chunk = ensureChunkRetained({chunkX, chunkY});
+
+            for (const ContentInstance& instance : chunk.content.instances)
+            {
+                if (intersectsWorldBounds(worldBounds, instance))
+                {
+                    visibleContent.push_back({instance});
+                }
+            }
+        }
+    }
+
+    return visibleContent;
 }
 
 World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinates& coordinates) const

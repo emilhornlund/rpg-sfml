@@ -71,6 +71,20 @@ namespace
         player.getWalkFrameIndex()};
 }
 
+[[nodiscard]] constexpr OverworldRenderContent makeRenderContent(const VisibleWorldContent& visibleContent) noexcept
+{
+    return {
+        visibleContent.instance.id,
+        visibleContent.instance.type,
+        visibleContent.instance.footprint.size,
+        {
+            visibleContent.instance.footprint.size.width * 0.5F,
+            visibleContent.instance.footprint.size.height * 0.5F,
+        },
+        visibleContent.instance.position,
+        visibleContent.instance.appearanceId};
+}
+
 } // namespace
 
 OverworldRuntime::OverworldRuntime() = default;
@@ -133,6 +147,15 @@ void OverworldRuntime::refreshRenderSnapshot()
     for (const VisibleWorldTile& visibleTile : visibleTiles)
     {
         m_renderSnapshot.visibleTiles.push_back(makeRenderTile(visibleTile, tileSize));
+    }
+
+    const std::vector<VisibleWorldContent> visibleContent = m_world.getVisibleContent(m_renderSnapshot.cameraFrame);
+    m_renderSnapshot.generatedContent.clear();
+    m_renderSnapshot.generatedContent.reserve(visibleContent.size());
+
+    for (const VisibleWorldContent& content : visibleContent)
+    {
+        m_renderSnapshot.generatedContent.push_back(makeRenderContent(content));
     }
 
     const detail::PlayerSpritePlacement placement = detail::getPlayerSpritePlacement(

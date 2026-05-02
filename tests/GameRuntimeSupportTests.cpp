@@ -77,6 +77,58 @@ bool verifyFrameOrder()
         && std::fabs(observedDeltaTime - 0.25F) < 0.0001F;
 }
 
+bool verifyOverworldRenderPassOrder()
+{
+    std::vector<std::string> phases;
+
+    rpg::detail::executeOverworldRenderPasses(
+        [&phases]()
+        {
+            phases.emplace_back("terrain");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("generated-content");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("tile-grid");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("player");
+        },
+        true);
+
+    return phases == std::vector<std::string>{"terrain", "generated-content", "tile-grid", "player"};
+}
+
+bool verifyOverworldRenderPassOrderWithoutTileGrid()
+{
+    std::vector<std::string> phases;
+
+    rpg::detail::executeOverworldRenderPasses(
+        [&phases]()
+        {
+            phases.emplace_back("terrain");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("generated-content");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("tile-grid");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("player");
+        },
+        false);
+
+    return phases == std::vector<std::string>{"terrain", "generated-content", "player"};
+}
+
 bool verifyPlayerSpritePlacement()
 {
     const rpg::WorldPosition playerPosition{144.0F, 208.0F};
@@ -191,6 +243,16 @@ int main()
     }
 
     if (!verifyFrameOrder())
+    {
+        return 1;
+    }
+
+    if (!verifyOverworldRenderPassOrder())
+    {
+        return 1;
+    }
+
+    if (!verifyOverworldRenderPassOrderWithoutTileGrid())
     {
         return 1;
     }

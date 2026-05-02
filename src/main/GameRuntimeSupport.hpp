@@ -275,6 +275,25 @@ void executeFrame(
     std::forward<RenderFn>(render)();
 }
 
+template <typename RenderTerrainFn, typename RenderGeneratedContentFn, typename RenderTileGridFn, typename RenderPlayerFn>
+void executeOverworldRenderPasses(
+    RenderTerrainFn&& renderTerrain,
+    RenderGeneratedContentFn&& renderGeneratedContent,
+    RenderTileGridFn&& renderTileGrid,
+    RenderPlayerFn&& renderPlayer,
+    const bool shouldRenderTileGrid)
+{
+    std::forward<RenderTerrainFn>(renderTerrain)();
+    std::forward<RenderGeneratedContentFn>(renderGeneratedContent)();
+
+    if (shouldRenderTileGrid)
+    {
+        std::forward<RenderTileGridFn>(renderTileGrid)();
+    }
+
+    std::forward<RenderPlayerFn>(renderPlayer)();
+}
+
 } // namespace rpg::detail
 
 #endif // RPG_MAIN_GAME_RUNTIME_SUPPORT_HPP

@@ -103,6 +103,21 @@ constexpr float kFloatTolerance = 0.001F;
     return nullptr;
 }
 
+[[nodiscard]] const rpg::OverworldRenderContent* findGeneratedContent(
+    const std::vector<rpg::OverworldRenderContent>& generatedContent,
+    const std::uint64_t id) noexcept
+{
+    for (const rpg::OverworldRenderContent& renderContent : generatedContent)
+    {
+        if (renderContent.id == id)
+        {
+            return &renderContent;
+        }
+    }
+
+    return nullptr;
+}
+
 [[nodiscard]] rpg::PlayerFacingDirection getFacingDirectionForNeighbor(
     const rpg::TileCoordinates& origin,
     const rpg::TileCoordinates& neighbor) noexcept
@@ -302,6 +317,43 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(zoomedOutFrame.size.height, 600.0F);
 }
 
+[[nodiscard]] bool verifyRenderSnapshotPublishesGeneratedContent()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    runtime.initialize({8192.0F, 8192.0F});
+
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(renderSnapshot.cameraFrame);
+
+    if (visibleContent.empty() || renderSnapshot.generatedContent.size() != visibleContent.size())
+    {
+        return false;
+    }
+
+    for (const rpg::VisibleWorldContent& content : visibleContent)
+    {
+        const rpg::OverworldRenderContent* renderContent = findGeneratedContent(
+            renderSnapshot.generatedContent,
+            content.instance.id);
+
+        if (renderContent == nullptr
+            || renderContent->type != content.instance.type
+            || renderContent->appearanceId.value != content.instance.appearanceId.value
+            || !areClose(renderContent->position.x, content.instance.position.x)
+            || !areClose(renderContent->position.y, content.instance.position.y)
+            || !areClose(renderContent->size.width, content.instance.footprint.size.width)
+            || !areClose(renderContent->size.height, content.instance.footprint.size.height)
+            || !areClose(renderContent->origin.x, content.instance.footprint.size.width * 0.5F)
+            || !areClose(renderContent->origin.y, content.instance.footprint.size.height * 0.5F))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -327,6 +379,11 @@ int main()
     }
 
     if (!verifyDebugZoomAdjustsPublishedCameraFrame())
+    {
+        return 1;
+    }
+
+    if (!verifyRenderSnapshotPublishesGeneratedContent())
     {
         return 1;
     }

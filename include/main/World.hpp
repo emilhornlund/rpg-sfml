@@ -165,6 +165,14 @@ struct ChunkContent
 };
 
 /**
+ * @brief Visible generated content instance for an active camera frame.
+ */
+struct VisibleWorldContent
+{
+    ContentInstance instance;
+};
+
+/**
  * @brief Owns world-specific runtime state.
  *
  * The World class provides the dedicated boundary for world-facing gameplay
@@ -305,6 +313,18 @@ public:
      * @return Render-facing data for the visible world tiles.
      */
     [[nodiscard]] std::vector<VisibleWorldTile> getVisibleTiles(const ViewFrame& frame) const;
+
+    /**
+     * @brief Enumerate visible generated content for a camera frame.
+     *
+     * The query derives visible chunk bounds from the frame, ensures the
+     * intersecting chunks exist, and returns retained content instances whose
+     * world-space footprints intersect the active camera frame.
+     *
+     * @param frame Camera frame used to determine visible generated content.
+     * @return Visible generated content instances for the frame.
+     */
+    [[nodiscard]] std::vector<VisibleWorldContent> getVisibleContent(const ViewFrame& frame) const;
 
     /**
      * @brief Convert a tile coordinate to the center of that tile in world space.

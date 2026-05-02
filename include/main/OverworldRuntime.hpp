@@ -90,12 +90,26 @@ struct OverworldRenderMarker
 };
 
 /**
+ * @brief Render-ready generated content entry for the overworld view.
+ */
+struct OverworldRenderContent
+{
+    std::uint64_t id = 0;
+    ContentType type = ContentType::SpawnSite;
+    WorldSize size{0.0F, 0.0F};
+    WorldPosition origin{0.0F, 0.0F};
+    WorldPosition position{0.0F, 0.0F};
+    ContentAppearanceId appearanceId{};
+};
+
+/**
  * @brief Gameplay-owned render snapshot for the current overworld frame.
  */
 struct OverworldRenderSnapshot
 {
     ViewFrame cameraFrame{{0.0F, 0.0F}, {0.0F, 0.0F}};
     std::vector<OverworldRenderTile> visibleTiles;
+    std::vector<OverworldRenderContent> generatedContent;
     std::vector<OverworldRenderMarker> markers;
 };
 
