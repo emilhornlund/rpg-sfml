@@ -28,6 +28,7 @@
 #include <main/OverworldRuntime.hpp>
 
 #include "GameRuntimeSupport.hpp"
+#include "TerrainAutotileSupport.hpp"
 
 #include <algorithm>
 #include <SFML/Graphics/Color.hpp>
@@ -43,6 +44,7 @@
 #include <SFML/Window/WindowEnums.hpp>
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -54,6 +56,7 @@ constexpr unsigned int kWindowHeight = 720;
 constexpr int kTerrainTilesetCellSize = 16;
 constexpr int kPlayerSpritesheetCellSize = 48;
 constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
+constexpr char kTerrainTilesetClassificationFilename[] = "overworld-terrain-tileset-classification.json";
 constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 const sf::Color kBackgroundColor(24, 24, 27);
 const sf::Color kGridOverlayColor(255, 255, 255, 96);
@@ -107,6 +110,11 @@ constexpr float kGridOverlayThickness = 1.0F;
     return getExecutableDirectory() / "assets" / kTerrainTilesetFilename;
 }
 
+[[nodiscard]] std::filesystem::path getTerrainTilesetClassificationPath()
+{
+    return getExecutableDirectory() / "assets" / kTerrainTilesetClassificationFilename;
+}
+
 [[nodiscard]] std::filesystem::path getPlayerSpritesheetPath()
 {
     return getExecutableDirectory() / "assets" / kPlayerSpritesheetFilename;
@@ -126,6 +134,11 @@ constexpr float kGridOverlayThickness = 1.0F;
     return terrainTileset;
 }
 
+[[nodiscard]] detail::TerrainTilesetMetadata loadTerrainTilesetMetadata()
+{
+    return detail::TerrainTilesetMetadata::loadFromFile(getTerrainTilesetClassificationPath());
+}
+
 [[nodiscard]] sf::Texture loadPlayerSpritesheet()
 {
     sf::Texture playerSpritesheet;
@@ -140,21 +153,46 @@ constexpr float kGridOverlayThickness = 1.0F;
     return playerSpritesheet;
 }
 
-[[nodiscard]] sf::IntRect getTerrainTilesetRect(const TileType tileType) noexcept
+[[nodiscard]] sf::IntRect getTerrainTilesetRect(const detail::TerrainAtlasCell& cell) noexcept
 {
-    switch (tileType)
+    return {
+        {cell.tileX * kTerrainTilesetCellSize, cell.tileY * kTerrainTilesetCellSize},
+        {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
+}
+
+using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
+
+[[nodiscard]] VisibleTileTypeMap buildVisibleTileTypeMap(const OverworldRenderSnapshot& renderSnapshot)
+{
+    VisibleTileTypeMap visibleTileTypes;
+
+    for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
     {
-    case TileType::Grass:
-        return {{0, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
-    case TileType::Sand:
-        return {{kTerrainTilesetCellSize, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
-    case TileType::Water:
-        return {{0, kTerrainTilesetCellSize}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
-    case TileType::Forest:
-        return {{kTerrainTilesetCellSize, kTerrainTilesetCellSize}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
+        visibleTileTypes[{visibleTile.coordinates.x, visibleTile.coordinates.y}] = visibleTile.tileType;
     }
 
-    return {{0, 0}, {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
+    return visibleTileTypes;
+}
+
+[[nodiscard]] std::array<TileType, 8> getNeighborTileTypes(
+    const VisibleTileTypeMap& visibleTileTypes,
+    const OverworldRenderTile& visibleTile) noexcept
+{
+    const auto getTileTypeOrCurrent = [&visibleTileTypes, &visibleTile](const int x, const int y) noexcept
+    {
+        const auto tileIt = visibleTileTypes.find({x, y});
+        return tileIt == visibleTileTypes.end() ? visibleTile.tileType : tileIt->second;
+    };
+
+    return {
+        getTileTypeOrCurrent(visibleTile.coordinates.x, visibleTile.coordinates.y - 1),
+        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y - 1),
+        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y),
+        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y + 1),
+        getTileTypeOrCurrent(visibleTile.coordinates.x, visibleTile.coordinates.y + 1),
+        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y + 1),
+        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y),
+        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y - 1)};
 }
 
 [[nodiscard]] int getPlayerSpritesheetRow(const PlayerFacingDirection facingDirection) noexcept
@@ -189,6 +227,7 @@ public:
     Impl()
         : window(sf::VideoMode({kWindowWidth, kWindowHeight}), "rpg-sfml", sf::State::Windowed)
         , terrainTileset(loadTerrainTileset())
+        , terrainTilesetMetadata(loadTerrainTilesetMetadata())
         , playerSpritesheet(loadPlayerSpritesheet())
     {
         window.setFramerateLimit(60);
@@ -196,10 +235,12 @@ public:
 
     sf::RenderWindow window;
     sf::Texture terrainTileset;
+    detail::TerrainTilesetMetadata terrainTilesetMetadata;
     sf::Texture playerSpritesheet;
     OverworldRuntime overworldRuntime;
     detail::OverworldDirectionalInput directionalInput;
     OverworldInput::DebugViewState debugViewState = detail::makeOverworldDebugViewState(detail::isDebugViewModeEnabledForBuild());
+    float terrainAnimationElapsedSeconds = 0.0F;
 };
 
 Game::Game()
@@ -290,6 +331,7 @@ void Game::update(float deltaTimeSeconds)
     const WorldSize viewportSize{
         static_cast<float>(kWindowWidth),
         static_cast<float>(kWindowHeight)};
+    m_impl->terrainAnimationElapsedSeconds += deltaTimeSeconds;
 
     m_impl->overworldRuntime.update(
         deltaTimeSeconds,
@@ -310,12 +352,17 @@ void Game::render()
     m_impl->window.setView(view);
 
     sf::Sprite tileSprite(m_impl->terrainTileset);
+    const VisibleTileTypeMap visibleTileTypes = buildVisibleTileTypeMap(renderSnapshot);
 
     for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
     {
         const float scaleX = visibleTile.size.width / static_cast<float>(kTerrainTilesetCellSize);
         const float scaleY = visibleTile.size.height / static_cast<float>(kTerrainTilesetCellSize);
-        tileSprite.setTextureRect(getTerrainTilesetRect(visibleTile.tileType));
+        tileSprite.setTextureRect(getTerrainTilesetRect(detail::selectTerrainAtlasCell(
+            m_impl->terrainTilesetMetadata,
+            visibleTile,
+            getNeighborTileTypes(visibleTileTypes, visibleTile),
+            m_impl->terrainAnimationElapsedSeconds)));
         tileSprite.setScale({scaleX, scaleY});
         tileSprite.setOrigin({visibleTile.origin.x / scaleX, visibleTile.origin.y / scaleY});
         tileSprite.setPosition({visibleTile.position.x, visibleTile.position.y});

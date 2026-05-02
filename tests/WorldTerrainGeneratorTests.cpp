@@ -106,6 +106,39 @@ namespace
     return false;
 }
 
+struct CardinalNeighborMask
+{
+    bool north = false;
+    bool east = false;
+    bool south = false;
+    bool west = false;
+};
+
+[[nodiscard]] CardinalNeighborMask getMatchingCardinalNeighborMask(
+    const rpg::World& world,
+    const rpg::TileCoordinates& coordinates)
+{
+    const rpg::TileType tileType = world.getTileType(coordinates);
+
+    return {
+        world.getTileType({coordinates.x, coordinates.y - 1}) == tileType,
+        world.getTileType({coordinates.x + 1, coordinates.y}) == tileType,
+        world.getTileType({coordinates.x, coordinates.y + 1}) == tileType,
+        world.getTileType({coordinates.x - 1, coordinates.y}) == tileType,
+    };
+}
+
+[[nodiscard]] bool hasUnsupportedTerrainShape(
+    const rpg::World& world,
+    const rpg::TileCoordinates& coordinates)
+{
+    const CardinalNeighborMask mask = getMatchingCardinalNeighborMask(world, coordinates);
+    const int cardinalNeighborCount =
+        static_cast<int>(mask.north) + static_cast<int>(mask.east) + static_cast<int>(mask.south) + static_cast<int>(mask.west);
+
+    return cardinalNeighborCount <= 1;
+}
+
 [[nodiscard]] bool verifyDeterministicGeneration()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
@@ -438,6 +471,42 @@ namespace
     return true;
 }
 
+[[nodiscard]] bool verifyUnsupportedTerrainShapesAreRemoved()
+{
+    const std::array<rpg::WorldConfig, 3> configs = {{
+        {.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F},
+        {.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F},
+        {.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F},
+    }};
+    const std::array<rpg::TileCoordinates, 3> windowAnchors = {{
+        {0, 0},
+        {rpg::detail::getChunkSizeInTiles() * 7, -rpg::detail::getChunkSizeInTiles() * 5},
+        {-rpg::detail::getChunkSizeInTiles() * 6, rpg::detail::getChunkSizeInTiles() * 4},
+    }};
+    constexpr int kHalfWindowSizeInTiles = rpg::detail::getChunkSizeInTiles();
+
+    for (const rpg::WorldConfig& config : configs)
+    {
+        const rpg::World world(config);
+
+        for (const rpg::TileCoordinates& anchor : windowAnchors)
+        {
+            for (int y = anchor.y - kHalfWindowSizeInTiles; y <= anchor.y + kHalfWindowSizeInTiles; ++y)
+            {
+                for (int x = anchor.x - kHalfWindowSizeInTiles; x <= anchor.x + kHalfWindowSizeInTiles; ++x)
+                {
+                    if (hasUnsupportedTerrainShape(world, {x, y}))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -498,6 +567,11 @@ int main()
     }
 
     if (!verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent())
+    {
+        return 1;
+    }
+
+    if (!verifyUnsupportedTerrainShapesAreRemoved())
     {
         return 1;
     }

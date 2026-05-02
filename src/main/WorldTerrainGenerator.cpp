@@ -29,9 +29,10 @@
 #include "BiomeSampler.hpp"
 
 #include <algorithm>
-#include <limits>
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <map>
 #include <utility>
 #include <vector>
@@ -45,6 +46,9 @@ namespace
 {
 
 std::size_t g_generatedChunkCount = 0;
+constexpr int kTerrainCleanupPaddingInTiles = getChunkSizeInTiles();
+constexpr std::array<TileCoordinates, 4> kCardinalNeighborOffsets = {{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}};
+constexpr std::array<TileCoordinates, 8> kAllNeighborOffsets = {{{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
 
 [[nodiscard]] std::size_t toIndex(const TileCoordinates& coordinates, const int widthInTiles) noexcept
 {
@@ -140,6 +144,439 @@ void incrementBiomeTileCount(ChunkBiomeSummary& summary, const TileType tileType
     const int deltaX = localCoordinates.x - centerCoordinate;
     const int deltaY = localCoordinates.y - centerCoordinate;
     return (deltaX * deltaX) + (deltaY * deltaY);
+}
+
+[[nodiscard]] int getTerrainCleanupPriority(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Water:
+        return 4;
+    case TileType::Sand:
+        return 3;
+    case TileType::Forest:
+        return 2;
+    case TileType::Grass:
+        return 1;
+    }
+
+    return 0;
+}
+
+struct CardinalNeighborMask
+{
+    bool north = false;
+    bool east = false;
+    bool south = false;
+    bool west = false;
+};
+
+[[nodiscard]] CardinalNeighborMask getMatchingCardinalNeighborMask(
+    const std::vector<TileType>& tiles,
+    const TileCoordinates& coordinates,
+    const int widthInTiles,
+    const TileType tileType) noexcept
+{
+    return {
+        tiles[toIndex({coordinates.x, coordinates.y - 1}, widthInTiles)] == tileType,
+        tiles[toIndex({coordinates.x + 1, coordinates.y}, widthInTiles)] == tileType,
+        tiles[toIndex({coordinates.x, coordinates.y + 1}, widthInTiles)] == tileType,
+        tiles[toIndex({coordinates.x - 1, coordinates.y}, widthInTiles)] == tileType,
+    };
+}
+
+[[nodiscard]] bool isUnsupportedTerrainShape(
+    const std::vector<TileType>& tiles,
+    const TileCoordinates& coordinates,
+    const int widthInTiles,
+    const TileType tileType) noexcept
+{
+    const CardinalNeighborMask mask = getMatchingCardinalNeighborMask(tiles, coordinates, widthInTiles, tileType);
+    const int cardinalNeighborCount =
+        static_cast<int>(mask.north) + static_cast<int>(mask.east) + static_cast<int>(mask.south) + static_cast<int>(mask.west);
+
+    return cardinalNeighborCount <= 1;
+}
+
+[[nodiscard]] TileType selectReplacementTileType(
+    const std::vector<TileType>& tiles,
+    const TileCoordinates& coordinates,
+    const int widthInTiles,
+    const TileType currentTileType) noexcept
+{
+    int waterCount = 0;
+    int sandCount = 0;
+    int grassCount = 0;
+    int forestCount = 0;
+
+    for (const TileCoordinates& offset : kAllNeighborOffsets)
+    {
+        const TileType neighborTileType = tiles[toIndex({coordinates.x + offset.x, coordinates.y + offset.y}, widthInTiles)];
+
+        if (neighborTileType == currentTileType)
+        {
+            continue;
+        }
+
+        switch (neighborTileType)
+        {
+        case TileType::Water:
+            ++waterCount;
+            break;
+        case TileType::Sand:
+            ++sandCount;
+            break;
+        case TileType::Grass:
+            ++grassCount;
+            break;
+        case TileType::Forest:
+            ++forestCount;
+            break;
+        }
+    }
+
+    TileType selectedTileType = currentTileType;
+    int bestCount = -1;
+    int bestPriority = std::numeric_limits<int>::min();
+
+    for (const auto& [candidateTileType, candidateCount] : std::array<std::pair<TileType, int>, 4>{{
+             {TileType::Water, waterCount},
+             {TileType::Sand, sandCount},
+             {TileType::Grass, grassCount},
+             {TileType::Forest, forestCount},
+         }})
+    {
+        const int candidatePriority = getTerrainCleanupPriority(candidateTileType);
+
+        if (candidateCount > bestCount || (candidateCount == bestCount && candidatePriority > bestPriority))
+        {
+            bestCount = candidateCount;
+            bestPriority = candidatePriority;
+            selectedTileType = candidateTileType;
+        }
+    }
+
+    return selectedTileType;
+}
+
+[[nodiscard]] TileType selectReplacementTileTypeExcludingRemoved(
+    const std::vector<TileType>& tiles,
+    const std::vector<bool>& removedMask,
+    const TileCoordinates& coordinates,
+    const int widthInTiles,
+    const TileType currentTileType) noexcept
+{
+    int waterCount = 0;
+    int sandCount = 0;
+    int grassCount = 0;
+    int forestCount = 0;
+
+    for (const TileCoordinates& offset : kAllNeighborOffsets)
+    {
+        const TileCoordinates neighbor{coordinates.x + offset.x, coordinates.y + offset.y};
+        const std::size_t neighborIndex = toIndex(neighbor, widthInTiles);
+
+        if (removedMask[neighborIndex])
+        {
+            continue;
+        }
+
+        const TileType neighborTileType = tiles[neighborIndex];
+
+        if (neighborTileType == currentTileType)
+        {
+            continue;
+        }
+
+        switch (neighborTileType)
+        {
+        case TileType::Water:
+            ++waterCount;
+            break;
+        case TileType::Sand:
+            ++sandCount;
+            break;
+        case TileType::Grass:
+            ++grassCount;
+            break;
+        case TileType::Forest:
+            ++forestCount;
+            break;
+        }
+    }
+
+    if (waterCount == 0 && sandCount == 0 && grassCount == 0 && forestCount == 0)
+    {
+        return selectReplacementTileType(tiles, coordinates, widthInTiles, currentTileType);
+    }
+
+    TileType selectedTileType = currentTileType;
+    int bestCount = -1;
+    int bestPriority = std::numeric_limits<int>::min();
+
+    for (const auto& [candidateTileType, candidateCount] : std::array<std::pair<TileType, int>, 4>{{
+             {TileType::Water, waterCount},
+             {TileType::Sand, sandCount},
+             {TileType::Grass, grassCount},
+             {TileType::Forest, forestCount},
+         }})
+    {
+        const int candidatePriority = getTerrainCleanupPriority(candidateTileType);
+
+        if (candidateCount > bestCount || (candidateCount == bestCount && candidatePriority > bestPriority))
+        {
+            bestCount = candidateCount;
+            bestPriority = candidatePriority;
+            selectedTileType = candidateTileType;
+        }
+    }
+
+    return selectedTileType;
+}
+
+[[nodiscard]] bool applyUnsupportedShapeCleanupPass(
+    std::vector<TileType>& tiles,
+    const int widthInTiles,
+    const int heightInTiles)
+{
+    std::vector<TileType> nextTiles = tiles;
+    bool changed = false;
+
+    for (int y = 1; y < heightInTiles - 1; ++y)
+    {
+        for (int x = 1; x < widthInTiles - 1; ++x)
+        {
+            const TileCoordinates coordinates{x, y};
+            const std::size_t index = toIndex(coordinates, widthInTiles);
+            const TileType tileType = tiles[index];
+
+            if (!isUnsupportedTerrainShape(tiles, coordinates, widthInTiles, tileType))
+            {
+                continue;
+            }
+
+            const TileType replacementTileType = selectReplacementTileType(tiles, coordinates, widthInTiles, tileType);
+
+            if (replacementTileType == tileType)
+            {
+                continue;
+            }
+
+            nextTiles[index] = replacementTileType;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        tiles = std::move(nextTiles);
+    }
+
+    return changed;
+}
+
+void cleanupUnsupportedChunkOutput(
+    std::vector<TileType>& tiles,
+    const int widthInTiles,
+    const int chunkRegionOffsetX,
+    const int chunkRegionOffsetY)
+{
+    constexpr int kMaxChunkCleanupPasses = getChunkSizeInTiles();
+    constexpr int kChunkCleanupHaloInTiles = 2;
+
+    for (int pass = 0; pass < kMaxChunkCleanupPasses; ++pass)
+    {
+        std::vector<bool> removedMask(tiles.size(), false);
+        bool hasUnsupportedTile = false;
+
+        for (int localY = -kChunkCleanupHaloInTiles; localY < getChunkSizeInTiles() + kChunkCleanupHaloInTiles; ++localY)
+        {
+            for (int localX = -kChunkCleanupHaloInTiles; localX < getChunkSizeInTiles() + kChunkCleanupHaloInTiles; ++localX)
+            {
+                const TileCoordinates regionCoordinates{
+                    chunkRegionOffsetX + localX + kTerrainCleanupPaddingInTiles,
+                    chunkRegionOffsetY + localY + kTerrainCleanupPaddingInTiles};
+                const std::size_t index = toIndex(regionCoordinates, widthInTiles);
+                const TileType tileType = tiles[index];
+
+                if (!isUnsupportedTerrainShape(tiles, regionCoordinates, widthInTiles, tileType))
+                {
+                    continue;
+                }
+
+                removedMask[index] = true;
+                hasUnsupportedTile = true;
+            }
+        }
+
+        if (!hasUnsupportedTile)
+        {
+            break;
+        }
+
+        std::vector<TileType> nextTiles = tiles;
+        bool changed = false;
+
+        for (int localY = -kChunkCleanupHaloInTiles; localY < getChunkSizeInTiles() + kChunkCleanupHaloInTiles; ++localY)
+        {
+            for (int localX = -kChunkCleanupHaloInTiles; localX < getChunkSizeInTiles() + kChunkCleanupHaloInTiles; ++localX)
+            {
+                const TileCoordinates regionCoordinates{
+                    chunkRegionOffsetX + localX + kTerrainCleanupPaddingInTiles,
+                    chunkRegionOffsetY + localY + kTerrainCleanupPaddingInTiles};
+                const std::size_t index = toIndex(regionCoordinates, widthInTiles);
+
+                if (!removedMask[index])
+                {
+                    continue;
+                }
+
+                const TileType tileType = tiles[index];
+                const TileType replacementTileType =
+                    selectReplacementTileTypeExcludingRemoved(tiles, removedMask, regionCoordinates, widthInTiles, tileType);
+
+                if (replacementTileType == tileType)
+                {
+                    continue;
+                }
+
+                nextTiles[index] = replacementTileType;
+                changed = true;
+            }
+        }
+
+        if (!changed)
+        {
+            break;
+        }
+
+        tiles = std::move(nextTiles);
+    }
+}
+
+void cleanupUnsupportedTerrainShapes(
+    std::vector<TileType>& tiles,
+    const int widthInTiles,
+    const int heightInTiles)
+{
+    const int maxPasses = widthInTiles + heightInTiles;
+
+    for (int pass = 0; pass < maxPasses; ++pass)
+    {
+        if (!applyUnsupportedShapeCleanupPass(tiles, widthInTiles, heightInTiles))
+        {
+            break;
+        }
+    }
+}
+
+void appendChunkCandidates(
+    ChunkMetadata& metadata,
+    bool hasSpawnCandidate,
+    const TileCoordinates& spawnCandidate,
+    bool hasPointOfInterestCandidate,
+    const TileCoordinates& pointOfInterestCandidate);
+
+[[nodiscard]] std::vector<TileType> generateCleanedChunkRegion(
+    const BiomeSampler& biomeSampler,
+    const int minChunkX,
+    const int maxChunkX,
+    const int minChunkY,
+    const int maxChunkY)
+{
+    const int chunkCountX = maxChunkX - minChunkX + 1;
+    const int chunkCountY = maxChunkY - minChunkY + 1;
+    const int regionWidthInTiles = (chunkCountX * getChunkSizeInTiles()) + (kTerrainCleanupPaddingInTiles * 2);
+    const int regionHeightInTiles = (chunkCountY * getChunkSizeInTiles()) + (kTerrainCleanupPaddingInTiles * 2);
+    std::vector<TileType> tiles(static_cast<std::size_t>(regionWidthInTiles * regionHeightInTiles));
+    const int startWorldX = (minChunkX * getChunkSizeInTiles()) - kTerrainCleanupPaddingInTiles;
+    const int startWorldY = (minChunkY * getChunkSizeInTiles()) - kTerrainCleanupPaddingInTiles;
+
+    for (int localY = 0; localY < regionHeightInTiles; ++localY)
+    {
+        for (int localX = 0; localX < regionWidthInTiles; ++localX)
+        {
+            tiles[toIndex({localX, localY}, regionWidthInTiles)] =
+                biomeSampler.sampleTileType(startWorldX + localX, startWorldY + localY);
+        }
+    }
+
+    cleanupUnsupportedTerrainShapes(tiles, regionWidthInTiles, regionHeightInTiles);
+    return tiles;
+}
+
+[[nodiscard]] GeneratedChunkData buildGeneratedChunkData(
+    const int chunkX,
+    const int chunkY,
+    const int minChunkX,
+    const int minChunkY,
+    const std::vector<TileType>& cleanedChunkRegion,
+    const int cleanedRegionWidthInTiles)
+{
+    GeneratedChunkData chunkData;
+    chunkData.chunkX = chunkX;
+    chunkData.chunkY = chunkY;
+    chunkData.tiles.resize(static_cast<std::size_t>(getChunkSizeInTiles() * getChunkSizeInTiles()));
+    chunkData.metadata.chunkCoordinates = {chunkX, chunkY};
+    bool hasSpawnCandidate = false;
+    TileCoordinates spawnCandidate{0, 0};
+    int spawnCandidateDistanceSquared = std::numeric_limits<int>::max();
+    bool hasPointOfInterestCandidate = false;
+    TileCoordinates pointOfInterestCandidate{0, 0};
+    int pointOfInterestCandidateDistanceSquared = std::numeric_limits<int>::max();
+    const int chunkRegionOffsetX = (chunkX - minChunkX) * getChunkSizeInTiles();
+    const int chunkRegionOffsetY = (chunkY - minChunkY) * getChunkSizeInTiles();
+
+    for (int localY = 0; localY < getChunkSizeInTiles(); ++localY)
+    {
+        for (int localX = 0; localX < getChunkSizeInTiles(); ++localX)
+        {
+            const TileCoordinates localCoordinates{localX, localY};
+            const TileCoordinates worldCoordinates = getWorldTileCoordinates(chunkX, chunkY, localCoordinates);
+            const TileType tileType = cleanedChunkRegion[toIndex(
+                {
+                    chunkRegionOffsetX + localCoordinates.x + kTerrainCleanupPaddingInTiles,
+                    chunkRegionOffsetY + localCoordinates.y + kTerrainCleanupPaddingInTiles,
+                },
+                cleanedRegionWidthInTiles)];
+            chunkData.tiles[toIndex(localCoordinates, getChunkSizeInTiles())] = tileType;
+            incrementBiomeTileCount(chunkData.metadata.biomeSummary, tileType);
+
+            if (!isTraversableTileType(tileType))
+            {
+                ++chunkData.metadata.traversabilitySummary.blockedTileCount;
+                continue;
+            }
+
+            ++chunkData.metadata.traversabilitySummary.traversableTileCount;
+
+            const int centerDistanceSquared = distanceToChunkCenterSquared(localCoordinates);
+
+            if (centerDistanceSquared < spawnCandidateDistanceSquared)
+            {
+                hasSpawnCandidate = true;
+                spawnCandidate = worldCoordinates;
+                spawnCandidateDistanceSquared = centerDistanceSquared;
+            }
+
+            if (isPointOfInterestTileType(tileType)
+                && centerDistanceSquared < pointOfInterestCandidateDistanceSquared)
+            {
+                hasPointOfInterestCandidate = true;
+                pointOfInterestCandidate = worldCoordinates;
+                pointOfInterestCandidateDistanceSquared = centerDistanceSquared;
+            }
+        }
+    }
+
+    chunkData.metadata.biomeSummary.dominantTileType = determineDominantTileType(chunkData.metadata.biomeSummary);
+    appendChunkCandidates(
+        chunkData.metadata,
+        hasSpawnCandidate,
+        spawnCandidate,
+        hasPointOfInterestCandidate,
+        pointOfInterestCandidate);
+    return chunkData;
 }
 
 void appendChunkCandidates(
@@ -255,64 +692,11 @@ TileCoordinates getWorldTileCoordinates(
 
 GeneratedChunkData TerrainGenerator::generateChunk(const int chunkX, const int chunkY) const
 {
-    GeneratedChunkData chunkData;
-    chunkData.chunkX = chunkX;
-    chunkData.chunkY = chunkY;
-    chunkData.tiles.resize(static_cast<std::size_t>(getChunkSizeInTiles() * getChunkSizeInTiles()));
-    chunkData.metadata.chunkCoordinates = {chunkX, chunkY};
     const BiomeSampler biomeSampler{m_config};
-    bool hasSpawnCandidate = false;
-    TileCoordinates spawnCandidate{0, 0};
-    int spawnCandidateDistanceSquared = std::numeric_limits<int>::max();
-    bool hasPointOfInterestCandidate = false;
-    TileCoordinates pointOfInterestCandidate{0, 0};
-    int pointOfInterestCandidateDistanceSquared = std::numeric_limits<int>::max();
-
-    for (int localY = 0; localY < getChunkSizeInTiles(); ++localY)
-    {
-        for (int localX = 0; localX < getChunkSizeInTiles(); ++localX)
-        {
-            const TileCoordinates localCoordinates{localX, localY};
-            const TileCoordinates worldCoordinates = getWorldTileCoordinates(chunkX, chunkY, localCoordinates);
-            const TileType tileType = biomeSampler.sampleTileType(worldCoordinates.x, worldCoordinates.y);
-            chunkData.tiles[toIndex(localCoordinates, getChunkSizeInTiles())] = tileType;
-            incrementBiomeTileCount(chunkData.metadata.biomeSummary, tileType);
-
-            if (!isTraversableTileType(tileType))
-            {
-                ++chunkData.metadata.traversabilitySummary.blockedTileCount;
-                continue;
-            }
-
-            ++chunkData.metadata.traversabilitySummary.traversableTileCount;
-
-            const int centerDistanceSquared = distanceToChunkCenterSquared(localCoordinates);
-
-            if (centerDistanceSquared < spawnCandidateDistanceSquared)
-            {
-                hasSpawnCandidate = true;
-                spawnCandidate = worldCoordinates;
-                spawnCandidateDistanceSquared = centerDistanceSquared;
-            }
-
-            if (isPointOfInterestTileType(tileType)
-                && centerDistanceSquared < pointOfInterestCandidateDistanceSquared)
-            {
-                hasPointOfInterestCandidate = true;
-                pointOfInterestCandidate = worldCoordinates;
-                pointOfInterestCandidateDistanceSquared = centerDistanceSquared;
-            }
-        }
-    }
-
-    chunkData.metadata.biomeSummary.dominantTileType = determineDominantTileType(chunkData.metadata.biomeSummary);
-    appendChunkCandidates(
-        chunkData.metadata,
-        hasSpawnCandidate,
-        spawnCandidate,
-        hasPointOfInterestCandidate,
-        pointOfInterestCandidate);
-
+    std::vector<TileType> cleanedChunkRegion = generateCleanedChunkRegion(biomeSampler, chunkX, chunkX, chunkY, chunkY);
+    cleanupUnsupportedChunkOutput(cleanedChunkRegion, getChunkSizeInTiles() + (kTerrainCleanupPaddingInTiles * 2), 0, 0);
+    GeneratedChunkData chunkData =
+        buildGeneratedChunkData(chunkX, chunkY, chunkX, chunkY, cleanedChunkRegion, getChunkSizeInTiles() + (kTerrainCleanupPaddingInTiles * 2));
     ++g_generatedChunkCount;
     return chunkData;
 }

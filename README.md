@@ -32,7 +32,7 @@ cmake --build build
 ./build/src/main/main
 ```
 
-The executable is configured with a build RPATH that points at the detected vendored SFML library directory, so it should find the shared libraries without extra environment variables. The build also stages runtime assets to `build/src/main/assets/`, including the initial overworld terrain tileset used by the main executable.
+The executable is configured with a build RPATH that points at the detected vendored SFML library directory, so it should find the shared libraries without extra environment variables. The build stages runtime assets from the repository-root `assets/` directory to `build/src/main/assets/`, including the initial overworld terrain tileset used by the main executable.
 
 ## Test
 
@@ -46,7 +46,7 @@ ctest --test-dir build --output-on-failure
 - `src/main/CMakeLists.txt`: executable definition
 - `include/main/Game.hpp`: public runtime interface for the `rpg::Game` entry object
 - `src/main/Game.cpp`: SFML-backed runtime implementation and game loop phases
-- `src/main/assets/`: executable-local runtime assets such as the overworld terrain tileset
+- `assets/`: repository-source runtime assets staged into the executable-local build output
 - `src/main/GameRuntimeSupport.hpp`: small runtime helpers shared by the implementation and tests
 - `src/main/main.cpp`: minimal startup that constructs `rpg::Game` and calls `run()`
 - `tests/`: CTest-based checks for runtime handoff and loop helper behavior

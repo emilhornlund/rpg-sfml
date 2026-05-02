@@ -9,6 +9,7 @@ add_executable(main
     Game.cpp
     OverworldRuntime.cpp
     Player.cpp
+    TerrainAutotileSupport.cpp
     World.cpp
     WorldTerrainGenerator.cpp
     main.cpp
@@ -23,13 +24,14 @@ endif()
 
 target_link_libraries(main PRIVATE SFML::Graphics)
 
-set(RPG_MAIN_ASSET_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(RPG_MAIN_ASSET_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets")
 set(RPG_MAIN_ASSET_OUTPUT_DIR "$<TARGET_FILE_DIR:main>/assets")
 
 add_custom_command(TARGET main POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_ASSET_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset.png"
+        "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset-classification.json"
         "${RPG_MAIN_ASSET_SOURCE_DIR}/player-walking-spritesheet.png"
         "${RPG_MAIN_ASSET_OUTPUT_DIR}"
 )
