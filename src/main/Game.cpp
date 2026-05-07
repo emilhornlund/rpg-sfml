@@ -27,8 +27,8 @@
 #include <main/Game.hpp>
 #include <main/OverworldRuntime.hpp>
 
+#include "GameAssetSupport.hpp"
 #include "GameRuntimeSupport.hpp"
-#include "TerrainAutotileSupport.hpp"
 
 #include <algorithm>
 #include <SFML/Graphics/Color.hpp>
@@ -56,9 +56,6 @@ constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 constexpr int kTerrainTilesetCellSize = 16;
 constexpr int kPlayerSpritesheetCellSize = 48;
-constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
-constexpr char kTerrainTilesetClassificationFilename[] = "overworld-terrain-tileset-classification.json";
-constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 const sf::Color kBackgroundColor(24, 24, 27);
 const sf::Color kGridOverlayColor(255, 255, 255, 96);
 constexpr float kGridOverlayThickness = 1.0F;
@@ -101,30 +98,10 @@ constexpr float kGridOverlayThickness = 1.0F;
     }
 }
 
-[[nodiscard]] std::filesystem::path getExecutableDirectory()
-{
-    return std::filesystem::read_symlink("/proc/self/exe").parent_path();
-}
-
-[[nodiscard]] std::filesystem::path getTerrainTilesetPath()
-{
-    return getExecutableDirectory() / "assets" / kTerrainTilesetFilename;
-}
-
-[[nodiscard]] std::filesystem::path getTerrainTilesetClassificationPath()
-{
-    return getExecutableDirectory() / "assets" / kTerrainTilesetClassificationFilename;
-}
-
-[[nodiscard]] std::filesystem::path getPlayerSpritesheetPath()
-{
-    return getExecutableDirectory() / "assets" / kPlayerSpritesheetFilename;
-}
-
 [[nodiscard]] sf::Texture loadTerrainTileset()
 {
     sf::Texture terrainTileset;
-    const std::filesystem::path terrainTilesetPath = getTerrainTilesetPath();
+    const std::filesystem::path terrainTilesetPath = detail::getTerrainTilesetPath(detail::getAssetRootPath());
 
     if (!terrainTileset.loadFromFile(terrainTilesetPath.string()))
     {
@@ -137,13 +114,13 @@ constexpr float kGridOverlayThickness = 1.0F;
 
 [[nodiscard]] detail::TerrainTilesetMetadata loadTerrainTilesetMetadata()
 {
-    return detail::TerrainTilesetMetadata::loadFromFile(getTerrainTilesetClassificationPath());
+    return detail::loadTerrainTilesetMetadata(detail::getAssetRootPath());
 }
 
 [[nodiscard]] sf::Texture loadPlayerSpritesheet()
 {
     sf::Texture playerSpritesheet;
-    const std::filesystem::path playerSpritesheetPath = getPlayerSpritesheetPath();
+    const std::filesystem::path playerSpritesheetPath = detail::getPlayerSpritesheetPath(detail::getAssetRootPath());
 
     if (!playerSpritesheet.loadFromFile(playerSpritesheetPath.string()))
     {

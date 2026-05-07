@@ -29,6 +29,8 @@
 
 #include <main/OverworldRuntime.hpp>
 
+#include "TilesetAssetLoader.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -70,6 +72,10 @@ class TerrainTilesetMetadata
 {
 public:
     [[nodiscard]] static TerrainTilesetMetadata loadFromFile(const std::filesystem::path& path);
+    [[nodiscard]] static TerrainTilesetMetadata loadFromAssetRoot(
+        const std::filesystem::path& assetRoot,
+        const std::filesystem::path& classificationRelativePath);
+    [[nodiscard]] static TerrainTilesetMetadata loadFromDocument(const TilesetAssetDocument& document);
 
     [[nodiscard]] std::size_t getBaseVariantCount(TileType tileType) const noexcept;
     [[nodiscard]] const TerrainAtlasCell& getBaseVariant(TileType tileType, std::size_t variantIndex) const;

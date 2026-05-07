@@ -27,14 +27,9 @@
 #include "TerrainAutotileSupport.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
-#include <fstream>
 #include <limits>
-#include <regex>
-#include <sstream>
 #include <stdexcept>
-#include <string>
 #include <tuple>
 
 namespace rpg
@@ -51,132 +46,6 @@ constexpr std::uint32_t kDecorRollHashSalt = 0x1F2A5C7DU;
 constexpr std::uint32_t kDecorVariantHashSalt = 0x9B3C41E2U;
 constexpr std::uint32_t kDecorWeightNumerator = 1U;
 constexpr std::uint32_t kDecorWeightDenominator = 32U;
-
-[[nodiscard]] std::string readFileContents(const std::filesystem::path& path)
-{
-    std::ifstream input(path);
-
-    if (!input)
-    {
-        throw std::runtime_error("Failed to open terrain tileset classification file: " + path.string());
-    }
-
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    return buffer.str();
-}
-
-[[nodiscard]] std::vector<std::string> extractJsonObjects(const std::string& contents)
-{
-    std::vector<std::string> objects;
-    std::size_t objectStart = std::string::npos;
-    int depth = 0;
-    bool inString = false;
-    bool escaped = false;
-
-    for (std::size_t index = 0; index < contents.size(); ++index)
-    {
-        const char character = contents[index];
-
-        if (escaped)
-        {
-            escaped = false;
-            continue;
-        }
-
-        if (character == '\\' && inString)
-        {
-            escaped = true;
-            continue;
-        }
-
-        if (character == '"')
-        {
-            inString = !inString;
-            continue;
-        }
-
-        if (inString)
-        {
-            continue;
-        }
-
-        if (character == '{')
-        {
-            if (depth == 0)
-            {
-                objectStart = index;
-            }
-
-            ++depth;
-            continue;
-        }
-
-        if (character == '}')
-        {
-            --depth;
-
-            if (depth == 0 && objectStart != std::string::npos)
-            {
-                objects.push_back(contents.substr(objectStart, index - objectStart + 1));
-                objectStart = std::string::npos;
-            }
-        }
-    }
-
-    return objects;
-}
-
-[[nodiscard]] std::optional<std::string> matchStringField(
-    const std::string& objectText,
-    const std::string& fieldName)
-{
-    const std::regex pattern("\"" + fieldName + "\"\\s*:\\s*(null|\"([^\"]*)\")");
-    std::smatch match;
-
-    if (!std::regex_search(objectText, match, pattern))
-    {
-        return std::nullopt;
-    }
-
-    if (match[1].str() == "null")
-    {
-        return std::nullopt;
-    }
-
-    return match[2].str();
-}
-
-[[nodiscard]] int matchRequiredIntField(const std::string& objectText, const std::string& fieldName)
-{
-    const std::regex pattern("\"" + fieldName + "\"\\s*:\\s*(-?\\d+)");
-    std::smatch match;
-
-    if (!std::regex_search(objectText, match, pattern))
-    {
-        throw std::runtime_error("Missing integer field in terrain tileset classification: " + fieldName);
-    }
-
-    return std::stoi(match[1].str());
-}
-
-[[nodiscard]] std::optional<int> matchOptionalIntField(const std::string& objectText, const std::string& fieldName)
-{
-    const std::regex pattern("\"" + fieldName + "\"\\s*:\\s*(null|-?\\d+)");
-    std::smatch match;
-
-    if (!std::regex_search(objectText, match, pattern))
-    {
-        return std::nullopt;
-    }
-
-    if (match[1].str() == "null")
-    {
-        return std::nullopt;
-    }
-
-    return std::stoi(match[1].str());
-}
 
 [[nodiscard]] TileType parseTileType(const std::string& value)
 {
@@ -460,67 +329,57 @@ bool TerrainTilesetMetadata::TransitionKey::operator<(const TransitionKey& other
 
 TerrainTilesetMetadata TerrainTilesetMetadata::loadFromFile(const std::filesystem::path& path)
 {
+    return loadFromDocument(TilesetAssetDocument::loadFromFile(path));
+}
+
+TerrainTilesetMetadata TerrainTilesetMetadata::loadFromAssetRoot(
+    const std::filesystem::path& assetRoot,
+    const std::filesystem::path& classificationRelativePath)
+{
+    return loadFromDocument(TilesetAssetDocument::loadFromAssetRoot(assetRoot, classificationRelativePath));
+}
+
+TerrainTilesetMetadata TerrainTilesetMetadata::loadFromDocument(const TilesetAssetDocument& document)
+{
     TerrainTilesetMetadata metadata;
-    const std::vector<std::string> objects = extractJsonObjects(readFileContents(path));
 
-    for (const std::string& objectText : objects)
+    for (const TilesetAssetTile& tile : document.getTiles())
     {
-        const std::optional<std::string> category = matchStringField(objectText, "category");
-
-        if (!category.has_value())
+        if (tile.kind != TilesetAssetTileKind::Terrain || !tile.terrain.has_value())
         {
             continue;
         }
 
-        const TerrainAtlasCell cell{
-            matchRequiredIntField(objectText, "x"),
-            matchRequiredIntField(objectText, "y")};
+        const TerrainAtlasCell cell{tile.atlas.column, tile.atlas.row};
+        const TileType terrainType = parseTileType(tile.terrain->id);
 
-        if (*category == "base")
+        if (tile.terrain->classification == "base")
         {
-            const std::optional<std::string> terrainValue = matchStringField(objectText, "terrain");
-
-            if (!terrainValue.has_value())
-            {
-                throw std::runtime_error("Base terrain entry is missing terrain value");
-            }
-
-            metadata.m_baseVariants[parseTileType(*terrainValue)].push_back(cell);
+            metadata.m_baseVariants[terrainType].push_back(cell);
             continue;
         }
 
-        if (*category == "decor")
+        if (tile.terrain->classification == "decor")
         {
-            const std::optional<std::string> terrainValue = matchStringField(objectText, "terrain");
-
-            if (!terrainValue.has_value())
-            {
-                throw std::runtime_error("Decor terrain entry is missing terrain value");
-            }
-
-            metadata.m_decorVariants[parseTileType(*terrainValue)].push_back(cell);
+            metadata.m_decorVariants[terrainType].push_back(cell);
             continue;
         }
 
-        if (*category != "autotile_transition")
+        if (tile.terrain->classification != "autotile_transition")
         {
             continue;
         }
 
-        const std::optional<std::string> terrainValue = matchStringField(objectText, "terrain");
-        const std::optional<std::string> transitionToValue = matchStringField(objectText, "transitionTo");
-        const std::optional<std::string> autotileRoleValue = matchStringField(objectText, "autotileRole");
-
-        if (!terrainValue.has_value() || !transitionToValue.has_value() || !autotileRoleValue.has_value())
+        if (!tile.terrain->transitionTo.has_value() || !tile.terrain->autotile.has_value())
         {
             throw std::runtime_error("Autotile transition entry is missing required terrain metadata");
         }
 
         const TransitionKey key{
-            parseTileType(*terrainValue),
-            parseTileType(*transitionToValue)};
-        const TerrainAutotileRole role = parseAutotileRole(*autotileRoleValue);
-        const int animationFrame = matchOptionalIntField(objectText, "animationFrame").value_or(0);
+            terrainType,
+            parseTileType(*tile.terrain->transitionTo)};
+        const TerrainAutotileRole role = parseAutotileRole(tile.terrain->autotile->role);
+        const int animationFrame = tile.terrain->animationFrame.value_or(0);
         metadata.m_transitionCells[key][role][animationFrame] = cell;
     }
 

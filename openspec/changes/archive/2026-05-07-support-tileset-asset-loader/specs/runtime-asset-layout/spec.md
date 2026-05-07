@@ -1,8 +1,4 @@
-## Purpose
-
-Define the repository and runtime asset layout required for bundled executable assets.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Build stages bundled runtime assets from the repository root
 The project SHALL source bundled runtime assets from the repository-root `assets/` directory and SHALL stage the executable's required runtime files into the built executable's `assets/` directory, including generated classification files under `output/classifications/` when they are required for runtime loading.

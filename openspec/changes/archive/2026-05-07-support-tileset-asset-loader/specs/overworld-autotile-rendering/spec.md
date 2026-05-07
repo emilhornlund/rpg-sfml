@@ -1,8 +1,4 @@
-## Purpose
-
-Define metadata-driven autotile selection, variation, and animation behavior for overworld terrain rendering.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Overworld terrain rendering selects autotile transitions from neighboring terrain
 The game runtime SHALL resolve terrain presentation for each visible overworld tile from the tile's terrain category, neighboring terrain categories, and the updated tileset classification metadata instead of from a fixed one-cell-per-`TileType` mapping. The renderer SHALL normalize terrain borders into the canonical directed pairs supported by the atlas and SHALL resolve one autotile role per rendered tile for those transitions.
@@ -39,16 +35,3 @@ The game runtime SHALL select the default terrain appearance for non-transition 
 - **WHEN** a visible terrain tile qualifies for a classified transition role to a neighboring terrain category
 - **THEN** the renderer draws the transition tile for that role instead of a base-or-decor default appearance
 - **AND** the tile still remains owned by its original gameplay-facing terrain category
-
-### Requirement: Overworld terrain rendering animates water transition tiles
-The game runtime SHALL support animated terrain rendering for transition pairs that target water by selecting from the classified animation frames for the resolved pair and autotile role. Water-adjacent transitions SHALL keep their pair and role selection deterministic while allowing the animation frame to advance over time.
-
-#### Scenario: Water transition frames cycle without changing the resolved role
-- **WHEN** the renderer draws a visible terrain tile whose selected transition pair targets water
-- **THEN** it selects the classified animation frame for that pair and role from the active animation phase
-- **AND** the same tile keeps the same directed pair and autotile role until its neighboring terrain changes
-
-#### Scenario: Non-water transitions remain static
-- **WHEN** the renderer draws a visible terrain tile whose selected transition pair does not target water
-- **THEN** it uses a single classified atlas entry for the resolved role
-- **AND** the rendered transition does not cycle through animation frames
