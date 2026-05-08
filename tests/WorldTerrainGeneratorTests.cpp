@@ -461,7 +461,6 @@ struct CardinalNeighborMask
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
     const rpg::World world(config);
     std::optional<rpg::ChunkContent> supportedChunk;
-    std::optional<rpg::ChunkContent> blockedChunk;
 
     for (int chunkY = -12; chunkY <= 12; ++chunkY)
     {
@@ -476,28 +475,10 @@ struct CardinalNeighborMask
             {
                 supportedChunk = content;
             }
-
-            if (!blockedChunk.has_value() && metadata.traversabilitySummary.traversableTileCount == 0)
-            {
-                blockedChunk = content;
-            }
-
-            if (supportedChunk.has_value() && blockedChunk.has_value())
-            {
-                break;
-            }
-        }
-
-        if (supportedChunk.has_value() && blockedChunk.has_value())
-        {
-            break;
         }
     }
 
-    if (!supportedChunk.has_value()
-        || !blockedChunk.has_value()
-        || supportedChunk->instances.empty()
-        || !blockedChunk->instances.empty())
+    if (!supportedChunk.has_value() || supportedChunk->instances.empty())
     {
         return false;
     }
@@ -524,6 +505,51 @@ struct CardinalNeighborMask
     }
 
     return true;
+}
+
+[[nodiscard]] bool isWaterVegetationPrototypeId(const std::string& prototypeId) noexcept
+{
+    return prototypeId.starts_with("water_lily_") || prototypeId.starts_with("marsh_reeds_");
+}
+
+[[nodiscard]] const char* getPlacementClassName(const rpg::TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case rpg::TileType::Grass:
+        return "grass";
+    case rpg::TileType::Sand:
+        return "sand";
+    case rpg::TileType::Water:
+        return "water";
+    case rpg::TileType::Forest:
+        return "forest";
+    }
+
+    return "";
+}
+
+[[nodiscard]] bool prototypeSupportsTileType(
+    const rpg::detail::VegetationPrototype& prototype,
+    const rpg::TileType tileType) noexcept
+{
+    const std::string_view placementClass = getPlacementClassName(tileType);
+    const auto placeOnIt = std::find(prototype.placeOn.begin(), prototype.placeOn.end(), placementClass);
+
+    if (placeOnIt == prototype.placeOn.end())
+    {
+        return false;
+    }
+
+    const auto biomeIt = std::find_if(
+        prototype.biomes.begin(),
+        prototype.biomes.end(),
+        [placementClass](const auto& entry)
+        {
+            return entry.first == placementClass;
+        });
+
+    return biomeIt != prototype.biomes.end() && biomeIt->second > 0.0F;
 }
 
 [[nodiscard]] bool verifyVisibleContentQueries()
@@ -626,6 +652,104 @@ struct CardinalNeighborMask
         && grassChunkCount > 0
         && forestTreeCount * grassChunkCount > grassTreeCount * forestChunkCount
         && forestInstanceCount * grassChunkCount > grassInstanceCount * forestChunkCount;
+}
+
+[[nodiscard]] bool verifyWaterVegetationPlacementIsDeterministic()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World firstWorld(config);
+    const rpg::World secondWorld(config);
+    std::optional<rpg::ChunkCoordinates> sampleChunk;
+
+    for (int chunkY = -12; chunkY <= 12 && !sampleChunk.has_value(); ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkCoordinates chunkCoordinates{chunkX, chunkY};
+            const rpg::ChunkContent content = firstWorld.getChunkContent(chunkCoordinates);
+            const auto waterVegetationIt = std::find_if(
+                content.instances.begin(),
+                content.instances.end(),
+                [](const rpg::ContentInstance& instance)
+                {
+                    return isWaterVegetationPrototypeId(instance.prototypeId);
+                });
+
+            if (waterVegetationIt != content.instances.end())
+            {
+                sampleChunk = chunkCoordinates;
+                break;
+            }
+        }
+    }
+
+    if (!sampleChunk.has_value())
+    {
+        return false;
+    }
+
+    const rpg::ChunkContent firstContent = firstWorld.getChunkContent(*sampleChunk);
+    const rpg::ChunkContent repeatedContent = firstWorld.getChunkContent(*sampleChunk);
+    const rpg::ChunkContent secondContent = secondWorld.getChunkContent(*sampleChunk);
+
+    if (!areEqual(firstContent, repeatedContent) || !areEqual(firstContent, secondContent))
+    {
+        return false;
+    }
+
+    bool foundWaterVegetation = false;
+
+    for (const rpg::ContentInstance& instance : firstContent.instances)
+    {
+        if (!isWaterVegetationPrototypeId(instance.prototypeId))
+        {
+            continue;
+        }
+
+        foundWaterVegetation = true;
+
+        if (firstWorld.getTileType(instance.anchorTile) != rpg::TileType::Water)
+        {
+            return false;
+        }
+    }
+
+    return foundWaterVegetation;
+}
+
+[[nodiscard]] bool verifyVegetationPlacementRespectsPrototypeConstraints()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    const rpg::detail::VegetationTilesetMetadata metadata =
+        rpg::detail::loadVegetationTilesetMetadata(std::filesystem::path(RPG_DEFAULT_ASSET_ROOT_PATH));
+    bool foundWaterVegetation = false;
+
+    for (int chunkY = -12; chunkY <= 12; ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            for (const rpg::ContentInstance& instance : content.instances)
+            {
+                const rpg::detail::VegetationPrototype& prototype = metadata.getPrototypeById(instance.prototypeId);
+                const rpg::TileType anchorTileType = world.getTileType(instance.anchorTile);
+
+                if (!prototypeSupportsTileType(prototype, anchorTileType))
+                {
+                    return false;
+                }
+
+                if (isWaterVegetationPrototypeId(instance.prototypeId))
+                {
+                    foundWaterVegetation = true;
+                }
+            }
+        }
+    }
+
+    return foundWaterVegetation;
 }
 
 [[nodiscard]] bool verifyLargeVegetationRemainsVisibleAcrossChunkBoundaries()
@@ -851,6 +975,16 @@ int main()
     }
 
     if (!verifyForestChunksProduceDenserVegetationThanGrassChunks())
+    {
+        return 1;
+    }
+
+    if (!verifyWaterVegetationPlacementIsDeterministic())
+    {
+        return 1;
+    }
+
+    if (!verifyVegetationPlacementRespectsPrototypeConstraints())
     {
         return 1;
     }

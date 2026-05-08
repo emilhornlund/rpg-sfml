@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rpg
@@ -99,6 +100,8 @@ struct TilesetAssetObjectData
     std::string family;
     int offsetX = 0;
     int offsetY = 0;
+    std::vector<std::string> placeOn;
+    std::vector<std::pair<std::string, float>> biomes;
 };
 
 struct TilesetAssetTile

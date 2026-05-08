@@ -137,6 +137,8 @@ VegetationTilesetMetadata VegetationTilesetMetadata::loadFromDocument(const Tile
 
         if (tile.object->role == "anchor")
         {
+            accumulator.prototype.placeOn = tile.object->placeOn;
+            accumulator.prototype.biomes = tile.object->biomes;
             ++accumulator.anchorCount;
         }
     }

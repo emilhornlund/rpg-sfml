@@ -26,6 +26,7 @@
 
 #include "GameAssetSupport.hpp"
 
+#include <algorithm>
 #include <filesystem>
 
 namespace
@@ -66,6 +67,22 @@ namespace
     const rpg::detail::VegetationTilesetMetadata metadata = rpg::detail::loadVegetationTilesetMetadata(assetRoot);
     const rpg::detail::VegetationPrototype& darkOak = metadata.getPrototypeById("oak_tree_large_dark_1");
     const rpg::detail::VegetationPrototype& bush = metadata.getPrototypeById("bush_small_1");
+    const rpg::detail::VegetationPrototype& waterLily = metadata.getPrototypeById("water_lily_1");
+    const auto containsPlacementClass = [](const rpg::detail::VegetationPrototype& prototype, const char* value)
+    {
+        return std::find(prototype.placeOn.begin(), prototype.placeOn.end(), value) != prototype.placeOn.end();
+    };
+    const auto containsBiomeWeight = [](const rpg::detail::VegetationPrototype& prototype, const char* key, const float weight)
+    {
+        const auto biomeIt = std::find_if(
+            prototype.biomes.begin(),
+            prototype.biomes.end(),
+            [key](const auto& entry)
+            {
+                return entry.first == key;
+            });
+        return biomeIt != prototype.biomes.end() && biomeIt->second == weight;
+    };
 
     return metadata.getPrototypeCount() == 25
         && metadata.getMaxPrototypeWidthInTiles() == 6
@@ -76,11 +93,25 @@ namespace
         && darkOak.bounds.minOffsetY == -7
         && darkOak.bounds.maxOffsetY == 0
         && darkOak.parts.size() == 39
+        && darkOak.placeOn.size() == 1
+        && containsPlacementClass(darkOak, "forest")
+        && darkOak.biomes.size() == 1
+        && containsBiomeWeight(darkOak, "forest", 1.0F)
         && bush.bounds.minOffsetX == 0
         && bush.bounds.maxOffsetX == 1
         && bush.bounds.minOffsetY == -1
         && bush.bounds.maxOffsetY == 0
-        && bush.parts.size() == 4;
+        && bush.parts.size() == 4
+        && bush.placeOn.size() == 2
+        && containsPlacementClass(bush, "grass")
+        && containsPlacementClass(bush, "forest")
+        && bush.biomes.size() == 2
+        && containsBiomeWeight(bush, "forest", 0.01F)
+        && containsBiomeWeight(bush, "grass", 0.1F)
+        && waterLily.placeOn.size() == 1
+        && containsPlacementClass(waterLily, "water")
+        && waterLily.biomes.size() == 1
+        && containsBiomeWeight(waterLily, "water", 0.25F);
 }
 
 } // namespace

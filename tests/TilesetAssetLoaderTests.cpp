@@ -65,6 +65,7 @@ namespace
         assetRoot,
         "output/classifications/overworld-vegetation-tileset-classification.json");
     bool foundObjectTile = false;
+    bool foundWaterLilyAnchor = false;
 
     for (const rpg::detail::TilesetAssetTile& tile : vegetation.getTiles())
     {
@@ -79,7 +80,17 @@ namespace
             && tile.object->offsetY == -1)
         {
             foundObjectTile = true;
-            break;
+        }
+
+        if (tile.object->id == "water_lily_1"
+            && tile.object->role == "anchor"
+            && tile.object->placeOn.size() == 1
+            && tile.object->placeOn.front() == "water"
+            && tile.object->biomes.size() == 1
+            && tile.object->biomes.front().first == "water"
+            && tile.object->biomes.front().second == 0.25F)
+        {
+            foundWaterLilyAnchor = true;
         }
     }
 
@@ -87,7 +98,8 @@ namespace
         && vegetation.getTileset().grid.tileSize == 16
         && vegetation.getTileset().grid.tileCount == 322
         && vegetation.getResolvedImagePath() == assetRoot / "overworld-vegetation-tileset.png"
-        && foundObjectTile;
+        && foundObjectTile
+        && foundWaterLilyAnchor;
 }
 
 } // namespace

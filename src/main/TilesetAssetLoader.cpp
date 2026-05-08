@@ -408,6 +408,18 @@ private:
     return integerValue;
 }
 
+[[nodiscard]] float asFloat(const JsonValue& value, const std::string_view context)
+{
+    const auto* numberValue = std::get_if<double>(&value.value);
+
+    if (!numberValue)
+    {
+        throw std::runtime_error("Expected number in tileset classification: " + std::string(context));
+    }
+
+    return static_cast<float>(*numberValue);
+}
+
     [[nodiscard]] const JsonValue& getRequiredField(
     const JsonObject& object,
     const std::string_view fieldName,
@@ -483,6 +495,52 @@ private:
     return tags;
 }
 
+[[nodiscard]] std::vector<std::string> parseOptionalStringArray(
+    const JsonObject& object,
+    const std::string_view fieldName,
+    const std::string_view context)
+{
+    const JsonValue* arrayValue = getOptionalField(object, fieldName);
+
+    if (!arrayValue)
+    {
+        return {};
+    }
+
+    std::vector<std::string> entries;
+
+    for (const JsonValue& entry : asArray(*arrayValue, context))
+    {
+        entries.push_back(asString(entry, std::string(context) + "[]"));
+    }
+
+    return entries;
+}
+
+[[nodiscard]] std::vector<std::pair<std::string, float>> parseOptionalFloatObject(
+    const JsonObject& object,
+    const std::string_view fieldName,
+    const std::string_view context)
+{
+    const JsonValue* objectValue = getOptionalField(object, fieldName);
+
+    if (!objectValue)
+    {
+        return {};
+    }
+
+    std::vector<std::pair<std::string, float>> entries;
+    const JsonObject& values = asObject(*objectValue, context);
+    entries.reserve(values.size());
+
+    for (const auto& [key, value] : values)
+    {
+        entries.emplace_back(key, asFloat(value, std::string(context) + "." + key));
+    }
+
+    return entries;
+}
+
 [[nodiscard]] TilesetAssetAtlasEntry parseAtlas(const JsonObject& object)
 {
     const JsonObject& atlas = asObject(getRequiredField(object, "atlas", "tile"), "tile.atlas");
@@ -528,7 +586,9 @@ private:
         asString(getRequiredField(objectData, "role", "tile.object"), "tile.object.role"),
         asString(getRequiredField(objectData, "family", "tile.object"), "tile.object.family"),
         asInt(getRequiredField(offset, "x", "tile.object.offset"), "tile.object.offset.x"),
-        asInt(getRequiredField(offset, "y", "tile.object.offset"), "tile.object.offset.y")};
+        asInt(getRequiredField(offset, "y", "tile.object.offset"), "tile.object.offset.y"),
+        parseOptionalStringArray(objectData, "placeOn", "tile.object.placeOn"),
+        parseOptionalFloatObject(objectData, "biomes", "tile.object.biomes")};
 }
 
 [[nodiscard]] TilesetAssetTile parseTile(const JsonValue& value)
