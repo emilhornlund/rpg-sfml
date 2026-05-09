@@ -44,12 +44,15 @@ public:
 
     [[nodiscard]] ChunkContent generateChunkContent(
         const ChunkCoordinates& chunkCoordinates,
-        const ChunkMetadata& metadata) const;
+        const ChunkMetadata& metadata,
+        const std::vector<TileType>& tiles) const;
 
 private:
     std::uint32_t m_worldSeed;
     float m_tileSize;
 };
+
+[[nodiscard]] int getWorldContentVisibilityOverscanInTiles();
 
 } // namespace detail
 } // namespace rpg

@@ -5,6 +5,7 @@ add_executable(game_asset_support_tests
     GameAssetSupportTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
 )
 
 add_executable(gameplay_module_types_tests
@@ -13,6 +14,8 @@ add_executable(gameplay_module_types_tests
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
@@ -23,6 +26,8 @@ add_executable(overworld_runtime_tests
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
@@ -32,6 +37,8 @@ add_executable(overworld_vertical_slice_tests
     "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
@@ -39,6 +46,8 @@ add_executable(overworld_vertical_slice_tests
 add_executable(world_terrain_generator_tests
     WorldTerrainGeneratorTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
@@ -105,6 +114,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(tileset_asset_loader_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+target_compile_definitions(gameplay_module_types_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
+target_compile_definitions(overworld_runtime_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
+target_compile_definitions(overworld_vertical_slice_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
+target_compile_definitions(world_terrain_generator_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
+
 add_test(NAME game_runtime_support_tests COMMAND game_runtime_support_tests)
 add_test(
     NAME game_asset_support_tests
@@ -148,6 +162,7 @@ add_test(
     NAME main_asset_staging_check
     COMMAND ${CMAKE_COMMAND}
         -DTERRAIN_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
+        -DVEGETATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-vegetation-tileset.png
         -DTERRAIN_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-terrain-tileset-classification.json
         -DVEGETATION_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-vegetation-tileset-classification.json
         -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/player-walking-spritesheet.png

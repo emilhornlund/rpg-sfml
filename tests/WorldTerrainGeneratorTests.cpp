@@ -25,10 +25,12 @@
  */
 
 #include "BiomeSampler.hpp"
+#include "GameAssetSupport.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <main/World.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -72,11 +74,17 @@ constexpr float kFloatTolerance = 0.001F;
 {
     return lhs.id == rhs.id
         && lhs.type == rhs.type
+        && lhs.prototypeId == rhs.prototypeId
+        && lhs.anchorTile.x == rhs.anchorTile.x
+        && lhs.anchorTile.y == rhs.anchorTile.y
         && areClose(lhs.position.x, rhs.position.x)
         && areClose(lhs.position.y, rhs.position.y)
+        && areClose(lhs.footprint.offset.x, rhs.footprint.offset.x)
+        && areClose(lhs.footprint.offset.y, rhs.footprint.offset.y)
         && areClose(lhs.footprint.size.width, rhs.footprint.size.width)
         && areClose(lhs.footprint.size.height, rhs.footprint.size.height)
-        && lhs.appearanceId.value == rhs.appearanceId.value;
+        && lhs.appearanceId.value == rhs.appearanceId.value
+        && areClose(lhs.sortKeyY, rhs.sortKeyY);
 }
 
 [[nodiscard]] bool areEqual(
@@ -545,16 +553,20 @@ struct CardinalNeighborMask
 
     const float frameSize = world.getTileSize() * 0.5F;
     const float overlap = world.getTileSize() * 0.25F;
+    const float footprintLeft = sampleInstance->position.x + sampleInstance->footprint.offset.x;
+    const float footprintRight = footprintLeft + sampleInstance->footprint.size.width;
+    const float footprintVerticalCenter =
+        sampleInstance->position.y + sampleInstance->footprint.offset.y + (sampleInstance->footprint.size.height * 0.5F);
     const rpg::ViewFrame intersectingFrame{
         {
-            sampleInstance->position.x + (sampleInstance->footprint.size.width * 0.5F) + (frameSize * 0.5F) - overlap,
-            sampleInstance->position.y,
+            footprintRight + (frameSize * 0.5F) - overlap,
+            footprintVerticalCenter,
         },
         {frameSize, frameSize}};
     const rpg::ViewFrame nonIntersectingFrame{
         {
-            sampleInstance->position.x + sampleInstance->footprint.size.width + frameSize,
-            sampleInstance->position.y,
+            footprintRight + frameSize,
+            footprintVerticalCenter,
         },
         {frameSize, frameSize}};
 
@@ -563,6 +575,141 @@ struct CardinalNeighborMask
 
     return containsVisibleContent(intersectingContent, *sampleInstance)
         && !containsVisibleContent(nonIntersectingContent, *sampleInstance);
+}
+
+[[nodiscard]] bool verifyForestChunksProduceDenserVegetationThanGrassChunks()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    int forestChunkCount = 0;
+    int grassChunkCount = 0;
+    int forestTreeCount = 0;
+    int grassTreeCount = 0;
+    int forestInstanceCount = 0;
+    int grassInstanceCount = 0;
+
+    for (int chunkY = -12; chunkY <= 12; ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkCoordinates chunkCoordinates{chunkX, chunkY};
+            const rpg::ChunkMetadata metadata = world.getChunkMetadata(chunkCoordinates);
+            const rpg::ChunkContent content = world.getChunkContent(chunkCoordinates);
+            const int treeCount = static_cast<int>(std::count_if(
+                content.instances.begin(),
+                content.instances.end(),
+                [](const rpg::ContentInstance& instance)
+                {
+                    return instance.type == rpg::ContentType::Tree;
+                }));
+
+            if (metadata.biomeSummary.forestTileCount > metadata.biomeSummary.grassTileCount
+                && metadata.biomeSummary.forestTileCount > 0)
+            {
+                ++forestChunkCount;
+                forestTreeCount += treeCount;
+                forestInstanceCount += static_cast<int>(content.instances.size());
+                continue;
+            }
+
+            if (metadata.biomeSummary.grassTileCount > metadata.biomeSummary.forestTileCount
+                && metadata.biomeSummary.grassTileCount > 0)
+            {
+                ++grassChunkCount;
+                grassTreeCount += treeCount;
+                grassInstanceCount += static_cast<int>(content.instances.size());
+            }
+        }
+    }
+
+    return forestChunkCount > 0
+        && grassChunkCount > 0
+        && forestTreeCount * grassChunkCount > grassTreeCount * forestChunkCount
+        && forestInstanceCount * grassChunkCount > grassInstanceCount * forestChunkCount;
+}
+
+[[nodiscard]] bool verifyLargeVegetationRemainsVisibleAcrossChunkBoundaries()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    std::optional<rpg::ContentInstance> spanningInstance;
+    constexpr int kChunkSizeInTiles = rpg::detail::getChunkSizeInTiles();
+
+    for (int chunkY = -12; chunkY <= 12 && !spanningInstance.has_value(); ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+            const float chunkTop = static_cast<float>(chunkY * kChunkSizeInTiles) * world.getTileSize();
+
+            for (const rpg::ContentInstance& instance : content.instances)
+            {
+                const float top = instance.position.y + instance.footprint.offset.y;
+
+                if (instance.type == rpg::ContentType::Tree && top < chunkTop)
+                {
+                    spanningInstance = instance;
+                    break;
+                }
+            }
+
+            if (spanningInstance.has_value())
+            {
+                break;
+            }
+        }
+    }
+
+    if (!spanningInstance.has_value())
+    {
+        return false;
+    }
+
+    const float frameSize = world.getTileSize() * 0.5F;
+    const float top = spanningInstance->position.y + spanningInstance->footprint.offset.y;
+    const float frameCenterX = spanningInstance->position.x;
+    const float frameCenterY = top + (frameSize * 0.5F);
+    const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(
+        {{frameCenterX, frameCenterY}, {frameSize, frameSize}});
+
+    return containsVisibleContent(visibleContent, *spanningInstance);
+}
+
+[[nodiscard]] bool verifyVegetationFootprintsMatchMetadataBounds()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    const rpg::detail::VegetationTilesetMetadata metadata =
+        rpg::detail::loadVegetationTilesetMetadata(std::filesystem::path(RPG_DEFAULT_ASSET_ROOT_PATH));
+
+    for (int chunkY = -12; chunkY <= 12; ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            for (const rpg::ContentInstance& instance : content.instances)
+            {
+                const rpg::detail::VegetationPrototype& prototype = metadata.getPrototypeById(instance.prototypeId);
+                const float expectedOffsetX = (static_cast<float>(prototype.bounds.minOffsetX) - 0.5F) * world.getTileSize();
+                const float expectedOffsetY = (static_cast<float>(prototype.bounds.minOffsetY) - 0.5F) * world.getTileSize();
+                const float expectedWidth = static_cast<float>(
+                    prototype.bounds.maxOffsetX - prototype.bounds.minOffsetX + 1) * world.getTileSize();
+                const float expectedHeight = static_cast<float>(
+                    prototype.bounds.maxOffsetY - prototype.bounds.minOffsetY + 1) * world.getTileSize();
+
+                if (!areClose(instance.footprint.offset.x, expectedOffsetX)
+                    || !areClose(instance.footprint.offset.y, expectedOffsetY)
+                    || !areClose(instance.footprint.size.width, expectedWidth)
+                    || !areClose(instance.footprint.size.height, expectedHeight))
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
 }
 
 [[nodiscard]] bool verifyAbsoluteCoordinateSignalsAreWorldSizeIndependent()
@@ -699,6 +846,21 @@ int main()
     }
 
     if (!verifyVisibleContentQueries())
+    {
+        return 1;
+    }
+
+    if (!verifyForestChunksProduceDenserVegetationThanGrassChunks())
+    {
+        return 1;
+    }
+
+    if (!verifyLargeVegetationRemainsVisibleAcrossChunkBoundaries())
+    {
+        return 1;
+    }
+
+    if (!verifyVegetationFootprintsMatchMetadataBounds())
     {
         return 1;
     }

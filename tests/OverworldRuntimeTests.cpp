@@ -156,6 +156,7 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(renderSnapshot.cameraFrame.size.height, 720.0F / 3.0F)
         && areClose(playerMarker->position.x, spawnPosition.x)
         && areClose(playerMarker->position.y, spawnPosition.y)
+        && areClose(playerMarker->sortKeyY, spawnPosition.y)
         && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
         && playerMarker->animationFrameIndex == 1
         && containsVisibleTile(renderSnapshot.visibleTiles, world.getSpawnTile());
@@ -286,6 +287,7 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(playerMarker->size.height, 48.0F)
         && areClose(playerMarker->origin.x, 24.0F)
         && areClose(playerMarker->origin.y, 32.0F)
+        && areClose(playerMarker->sortKeyY, playerMarker->position.y)
         && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
         && playerMarker->animationFrameIndex == 1
         && renderSnapshot.markers.size() == 1;
@@ -339,13 +341,17 @@ constexpr float kFloatTolerance = 0.001F;
 
         if (renderContent == nullptr
             || renderContent->type != content.instance.type
+            || renderContent->prototypeId != content.instance.prototypeId
+            || renderContent->anchorTile.x != content.instance.anchorTile.x
+            || renderContent->anchorTile.y != content.instance.anchorTile.y
             || renderContent->appearanceId.value != content.instance.appearanceId.value
             || !areClose(renderContent->position.x, content.instance.position.x)
             || !areClose(renderContent->position.y, content.instance.position.y)
             || !areClose(renderContent->size.width, content.instance.footprint.size.width)
             || !areClose(renderContent->size.height, content.instance.footprint.size.height)
-            || !areClose(renderContent->origin.x, content.instance.footprint.size.width * 0.5F)
-            || !areClose(renderContent->origin.y, content.instance.footprint.size.height * 0.5F))
+            || !areClose(renderContent->origin.x, -content.instance.footprint.offset.x)
+            || !areClose(renderContent->origin.y, -content.instance.footprint.offset.y)
+            || !areClose(renderContent->sortKeyY, content.instance.sortKeyY))
         {
             return false;
         }

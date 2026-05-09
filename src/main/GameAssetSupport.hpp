@@ -28,6 +28,7 @@
 #define RPG_MAIN_GAME_ASSET_SUPPORT_HPP
 
 #include "TerrainAutotileSupport.hpp"
+#include "VegetationAtlasSupport.hpp"
 
 #include <filesystem>
 
@@ -37,6 +38,8 @@ namespace rpg::detail
 inline constexpr char kAssetDirectoryName[] = "assets";
 inline constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
 inline constexpr char kTerrainTilesetClassificationFilename[] = "overworld-terrain-tileset-classification.json";
+inline constexpr char kVegetationTilesetFilename[] = "overworld-vegetation-tileset.png";
+inline constexpr char kVegetationTilesetClassificationFilename[] = "overworld-vegetation-tileset-classification.json";
 inline constexpr char kTerrainTilesetClassificationDirectory[] = "output/classifications";
 inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 
@@ -65,9 +68,19 @@ inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet
     return assetRoot / kPlayerSpritesheetFilename;
 }
 
+[[nodiscard]] inline std::filesystem::path getVegetationTilesetPath(const std::filesystem::path& assetRoot)
+{
+    return assetRoot / kVegetationTilesetFilename;
+}
+
 [[nodiscard]] inline std::filesystem::path getTerrainTilesetClassificationPath(const std::filesystem::path& assetRoot)
 {
     return assetRoot / kTerrainTilesetClassificationDirectory / kTerrainTilesetClassificationFilename;
+}
+
+[[nodiscard]] inline std::filesystem::path getVegetationTilesetClassificationPath(const std::filesystem::path& assetRoot)
+{
+    return assetRoot / kTerrainTilesetClassificationDirectory / kVegetationTilesetClassificationFilename;
 }
 
 [[nodiscard]] inline TerrainTilesetMetadata loadTerrainTilesetMetadata(const std::filesystem::path& assetRoot)
@@ -75,6 +88,13 @@ inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet
     return TerrainTilesetMetadata::loadFromAssetRoot(
         assetRoot,
         std::filesystem::path(kTerrainTilesetClassificationDirectory) / kTerrainTilesetClassificationFilename);
+}
+
+[[nodiscard]] inline VegetationTilesetMetadata loadVegetationTilesetMetadata(const std::filesystem::path& assetRoot)
+{
+    return VegetationTilesetMetadata::loadFromAssetRoot(
+        assetRoot,
+        std::filesystem::path(kTerrainTilesetClassificationDirectory) / kVegetationTilesetClassificationFilename);
 }
 
 } // namespace rpg::detail

@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -123,8 +124,8 @@ struct ChunkMetadata
  */
 enum class ContentType
 {
-    SpawnSite,
-    PointOfInterest
+    Tree,
+    Shrub
 };
 
 /**
@@ -140,6 +141,7 @@ struct ContentAppearanceId
  */
 struct ContentFootprint
 {
+    WorldPosition offset{0.0F, 0.0F};
     WorldSize size{0.0F, 0.0F};
 };
 
@@ -149,10 +151,13 @@ struct ContentFootprint
 struct ContentInstance
 {
     std::uint64_t id = 0;
-    ContentType type = ContentType::SpawnSite;
+    ContentType type = ContentType::Tree;
+    std::string prototypeId;
+    TileCoordinates anchorTile{0, 0};
     WorldPosition position{0.0F, 0.0F};
     ContentFootprint footprint{};
     ContentAppearanceId appearanceId{};
+    float sortKeyY = 0.0F;
 };
 
 /**

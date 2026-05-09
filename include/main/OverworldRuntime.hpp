@@ -31,6 +31,7 @@
 #include <main/Player.hpp>
 #include <main/World.hpp>
 
+#include <string>
 #include <vector>
 
 /**
@@ -87,6 +88,7 @@ struct OverworldRenderMarker
     OverworldRenderMarkerAppearance appearance = OverworldRenderMarkerAppearance::Player;
     PlayerFacingDirection facingDirection = PlayerFacingDirection::Down;
     int animationFrameIndex = 1;
+    float sortKeyY = 0.0F;
 };
 
 /**
@@ -95,11 +97,14 @@ struct OverworldRenderMarker
 struct OverworldRenderContent
 {
     std::uint64_t id = 0;
-    ContentType type = ContentType::SpawnSite;
+    ContentType type = ContentType::Tree;
+    std::string prototypeId;
+    TileCoordinates anchorTile{0, 0};
     WorldSize size{0.0F, 0.0F};
     WorldPosition origin{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
     ContentAppearanceId appearanceId{};
+    float sortKeyY = 0.0F;
 };
 
 /**

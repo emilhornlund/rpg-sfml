@@ -11,6 +11,7 @@ add_executable(main
     Player.cpp
     TerrainAutotileSupport.cpp
     TilesetAssetLoader.cpp
+    VegetationAtlasSupport.cpp
     World.cpp
     WorldContent.cpp
     WorldTerrainGenerator.cpp
@@ -19,6 +20,7 @@ add_executable(main
 
 target_compile_features(main PRIVATE cxx_std_20)
 target_include_directories(main PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../include")
+target_compile_definitions(main PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="$<TARGET_FILE_DIR:main>/assets")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic)
@@ -36,6 +38,7 @@ add_custom_command(TARGET main POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_CLASSIFICATION_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset.png"
+        "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-vegetation-tileset.png"
         "${RPG_MAIN_ASSET_SOURCE_DIR}/player-walking-spritesheet.png"
         "${RPG_MAIN_ASSET_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different

@@ -47,11 +47,17 @@ constexpr float kFloatTolerance = 0.001F;
 {
     return lhs.id == rhs.id
         && lhs.type == rhs.type
+        && lhs.prototypeId == rhs.prototypeId
+        && lhs.anchorTile.x == rhs.anchorTile.x
+        && lhs.anchorTile.y == rhs.anchorTile.y
         && areClose(lhs.position.x, rhs.position.x)
         && areClose(lhs.position.y, rhs.position.y)
+        && areClose(lhs.footprint.offset.x, rhs.footprint.offset.x)
+        && areClose(lhs.footprint.offset.y, rhs.footprint.offset.y)
         && areClose(lhs.footprint.size.width, rhs.footprint.size.width)
         && areClose(lhs.footprint.size.height, rhs.footprint.size.height)
-        && lhs.appearanceId.value == rhs.appearanceId.value;
+        && lhs.appearanceId.value == rhs.appearanceId.value
+        && areClose(lhs.sortKeyY, rhs.sortKeyY);
 }
 
 [[nodiscard]] bool areEqual(

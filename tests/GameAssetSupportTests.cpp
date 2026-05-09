@@ -38,9 +38,12 @@ namespace
 
     return assetRoot == fakeExecutableDirectory / "assets"
         && rpg::detail::getTerrainTilesetPath(assetRoot) == assetRoot / "overworld-terrain-tileset.png"
+        && rpg::detail::getVegetationTilesetPath(assetRoot) == assetRoot / "overworld-vegetation-tileset.png"
         && rpg::detail::getPlayerSpritesheetPath(assetRoot) == assetRoot / "player-walking-spritesheet.png"
         && rpg::detail::getTerrainTilesetClassificationPath(assetRoot)
-            == assetRoot / "output/classifications/overworld-terrain-tileset-classification.json";
+            == assetRoot / "output/classifications/overworld-terrain-tileset-classification.json"
+        && rpg::detail::getVegetationTilesetClassificationPath(assetRoot)
+            == assetRoot / "output/classifications/overworld-vegetation-tileset-classification.json";
 }
 
 [[nodiscard]] bool verifyTerrainMetadataLoading(const std::filesystem::path& assetRoot)
@@ -58,6 +61,28 @@ namespace
         && topTransition.tileY == 5;
 }
 
+[[nodiscard]] bool verifyVegetationMetadataLoading(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::VegetationTilesetMetadata metadata = rpg::detail::loadVegetationTilesetMetadata(assetRoot);
+    const rpg::detail::VegetationPrototype& darkOak = metadata.getPrototypeById("oak_tree_large_dark_1");
+    const rpg::detail::VegetationPrototype& bush = metadata.getPrototypeById("bush_small_1");
+
+    return metadata.getPrototypeCount() == 25
+        && metadata.getMaxPrototypeWidthInTiles() == 6
+        && metadata.getMaxPrototypeHeightInTiles() == 8
+        && darkOak.family == "tree"
+        && darkOak.bounds.minOffsetX == -3
+        && darkOak.bounds.maxOffsetX == 2
+        && darkOak.bounds.minOffsetY == -7
+        && darkOak.bounds.maxOffsetY == 0
+        && darkOak.parts.size() == 39
+        && bush.bounds.minOffsetX == 0
+        && bush.bounds.maxOffsetX == 1
+        && bush.bounds.minOffsetY == -1
+        && bush.bounds.maxOffsetY == 0
+        && bush.parts.size() == 4;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -73,6 +98,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifyTerrainMetadataLoading(argv[1]))
+    {
+        return 1;
+    }
+
+    if (!verifyVegetationMetadataLoading(argv[1]))
     {
         return 1;
     }

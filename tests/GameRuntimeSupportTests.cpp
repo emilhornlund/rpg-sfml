@@ -88,19 +88,15 @@ bool verifyOverworldRenderPassOrder()
         },
         [&phases]()
         {
-            phases.emplace_back("generated-content");
+            phases.emplace_back("objects");
         },
         [&phases]()
         {
             phases.emplace_back("tile-grid");
         },
-        [&phases]()
-        {
-            phases.emplace_back("player");
-        },
         true);
 
-    return phases == std::vector<std::string>{"terrain", "generated-content", "tile-grid", "player"};
+    return phases == std::vector<std::string>{"terrain", "objects", "tile-grid"};
 }
 
 bool verifyOverworldRenderPassOrderWithoutTileGrid()
@@ -114,19 +110,15 @@ bool verifyOverworldRenderPassOrderWithoutTileGrid()
         },
         [&phases]()
         {
-            phases.emplace_back("generated-content");
+            phases.emplace_back("objects");
         },
         [&phases]()
         {
             phases.emplace_back("tile-grid");
         },
-        [&phases]()
-        {
-            phases.emplace_back("player");
-        },
         false);
 
-    return phases == std::vector<std::string>{"terrain", "generated-content", "player"};
+    return phases == std::vector<std::string>{"terrain", "objects"};
 }
 
 bool verifyPlayerSpritePlacement()
@@ -233,6 +225,48 @@ bool verifyTileGridOverlayGeometry()
         && std::fabs(overlayRectangles[3].position.x - 63.0F) < 0.0001F;
 }
 
+bool verifyOverworldRenderOrdering()
+{
+    const rpg::OverworldRenderContent higherVegetation{
+        17,
+        rpg::ContentType::Tree,
+        "oak_tree_large_dark_1",
+        {4, 5},
+        {96.0F, 128.0F},
+        {56.0F, 120.0F},
+        {72.0F, 88.0F},
+        {11},
+        88.0F};
+    const rpg::OverworldRenderContent lowerVegetation{
+        18,
+        rpg::ContentType::Shrub,
+        "bush_small_1",
+        {4, 8},
+        {32.0F, 32.0F},
+        {8.0F, 24.0F},
+        {72.0F, 136.0F},
+        {19},
+        136.0F};
+    const rpg::OverworldRenderMarker playerMarker{
+        {48.0F, 48.0F},
+        {24.0F, 32.0F},
+        {72.0F, 136.0F},
+        rpg::OverworldRenderMarkerAppearance::Player,
+        rpg::PlayerFacingDirection::Down,
+        1,
+        136.0F};
+
+    return rpg::detail::shouldRenderBefore(
+               rpg::detail::makeRenderOrderKey(higherVegetation),
+               rpg::detail::makeRenderOrderKey(lowerVegetation))
+        && rpg::detail::shouldRenderBefore(
+            rpg::detail::makeRenderOrderKey(lowerVegetation),
+            rpg::detail::makeRenderOrderKey(playerMarker))
+        && !rpg::detail::shouldRenderBefore(
+            rpg::detail::makeRenderOrderKey(playerMarker),
+            rpg::detail::makeRenderOrderKey(lowerVegetation));
+}
+
 } // namespace
 
 int main()
@@ -273,6 +307,11 @@ int main()
     }
 
     if (!verifyTileGridOverlayGeometry())
+    {
+        return 1;
+    }
+
+    if (!verifyOverworldRenderOrdering())
     {
         return 1;
     }

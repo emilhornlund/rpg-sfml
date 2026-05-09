@@ -68,21 +68,25 @@ namespace
         placement.position,
         OverworldRenderMarkerAppearance::Player,
         player.getFacingDirection(),
-        player.getWalkFrameIndex()};
+        player.getWalkFrameIndex(),
+        placement.position.y};
 }
 
-[[nodiscard]] constexpr OverworldRenderContent makeRenderContent(const VisibleWorldContent& visibleContent) noexcept
+[[nodiscard]] OverworldRenderContent makeRenderContent(const VisibleWorldContent& visibleContent) noexcept
 {
     return {
         visibleContent.instance.id,
         visibleContent.instance.type,
+        visibleContent.instance.prototypeId,
+        visibleContent.instance.anchorTile,
         visibleContent.instance.footprint.size,
         {
-            visibleContent.instance.footprint.size.width * 0.5F,
-            visibleContent.instance.footprint.size.height * 0.5F,
+            -visibleContent.instance.footprint.offset.x,
+            -visibleContent.instance.footprint.offset.y,
         },
         visibleContent.instance.position,
-        visibleContent.instance.appearanceId};
+        visibleContent.instance.appearanceId,
+        visibleContent.instance.sortKeyY};
 }
 
 } // namespace

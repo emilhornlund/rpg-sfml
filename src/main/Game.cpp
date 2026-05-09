@@ -31,6 +31,7 @@
 #include "GameRuntimeSupport.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -55,6 +56,7 @@ namespace rpg
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 constexpr int kTerrainTilesetCellSize = 16;
+constexpr int kVegetationTilesetCellSize = 16;
 constexpr int kPlayerSpritesheetCellSize = 48;
 const sf::Color kBackgroundColor(24, 24, 27);
 const sf::Color kGridOverlayColor(255, 255, 255, 96);
@@ -131,6 +133,25 @@ constexpr float kGridOverlayThickness = 1.0F;
     return playerSpritesheet;
 }
 
+[[nodiscard]] sf::Texture loadVegetationTileset()
+{
+    sf::Texture vegetationTileset;
+    const std::filesystem::path vegetationTilesetPath = detail::getVegetationTilesetPath(detail::getAssetRootPath());
+
+    if (!vegetationTileset.loadFromFile(vegetationTilesetPath.string()))
+    {
+        throw std::runtime_error("Failed to load overworld vegetation tileset from " + vegetationTilesetPath.string());
+    }
+
+    vegetationTileset.setSmooth(false);
+    return vegetationTileset;
+}
+
+[[nodiscard]] detail::VegetationTilesetMetadata loadVegetationTilesetMetadata()
+{
+    return detail::loadVegetationTilesetMetadata(detail::getAssetRootPath());
+}
+
 [[nodiscard]] sf::IntRect getTerrainTilesetRect(const detail::TerrainAtlasCell& cell) noexcept
 {
     return {
@@ -199,34 +220,27 @@ using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
         {kPlayerSpritesheetCellSize, kPlayerSpritesheetCellSize}};
 }
 
-[[nodiscard]] sf::Color getGeneratedContentBaseColor(const ContentType type) noexcept
+[[nodiscard]] sf::IntRect getVegetationTilesetRect(const detail::VegetationAtlasCell& cell) noexcept
 {
-    switch (type)
-    {
-    case ContentType::SpawnSite:
-        return {98, 190, 122, 224};
-    case ContentType::PointOfInterest:
-        return {214, 163, 74, 224};
-    }
-
-    return {180, 180, 180, 224};
+    return {
+        {cell.tileX * kVegetationTilesetCellSize, cell.tileY * kVegetationTilesetCellSize},
+        {kVegetationTilesetCellSize, kVegetationTilesetCellSize}};
 }
 
-[[nodiscard]] sf::Color getGeneratedContentColor(const OverworldRenderContent& renderContent) noexcept
+struct RenderQueueEntry
 {
-    const sf::Color baseColor = getGeneratedContentBaseColor(renderContent.type);
-    const int variation = static_cast<int>(renderContent.appearanceId.value % 41U) - 20;
-    const auto clampChannel = [variation](const int channel)
+    enum class Kind
     {
-        return static_cast<std::uint8_t>(std::clamp(channel + variation, 0, 255));
+        Vegetation,
+        Player
     };
 
-    return {
-        clampChannel(baseColor.r),
-        clampChannel(baseColor.g),
-        clampChannel(baseColor.b),
-        baseColor.a};
-}
+    Kind kind = Kind::Vegetation;
+    float sortKeyY = 0.0F;
+    std::uint64_t stableId = 0;
+    const OverworldRenderContent* content = nullptr;
+    const OverworldRenderMarker* marker = nullptr;
+};
 
 class Game::Impl
 {
@@ -235,6 +249,8 @@ public:
         : window(sf::VideoMode({kWindowWidth, kWindowHeight}), "rpg-sfml", sf::State::Windowed)
         , terrainTileset(loadTerrainTileset())
         , terrainTilesetMetadata(loadTerrainTilesetMetadata())
+        , vegetationTileset(loadVegetationTileset())
+        , vegetationTilesetMetadata(loadVegetationTilesetMetadata())
         , playerSpritesheet(loadPlayerSpritesheet())
     {
         window.setFramerateLimit(60);
@@ -243,6 +259,8 @@ public:
     sf::RenderWindow window;
     sf::Texture terrainTileset;
     detail::TerrainTilesetMetadata terrainTilesetMetadata;
+    sf::Texture vegetationTileset;
+    detail::VegetationTilesetMetadata vegetationTilesetMetadata;
     sf::Texture playerSpritesheet;
     OverworldRuntime overworldRuntime;
     detail::OverworldDirectionalInput directionalInput;
@@ -361,10 +379,44 @@ void Game::render()
     sf::Sprite tileSprite(m_impl->terrainTileset);
     const VisibleTileTypeMap visibleTileTypes = buildVisibleTileTypeMap(renderSnapshot);
     const std::uint32_t worldGenerationSeed = m_impl->overworldRuntime.getWorldGenerationSeed();
-    sf::RectangleShape generatedContentShape;
+    const float worldTileSize = renderSnapshot.visibleTiles.empty() ? 16.0F : renderSnapshot.visibleTiles.front().size.width;
+    sf::Sprite vegetationSprite(m_impl->vegetationTileset);
     sf::Sprite playerSprite(m_impl->playerSpritesheet);
     sf::RectangleShape gridSegment;
     gridSegment.setFillColor(kGridOverlayColor);
+
+    std::vector<RenderQueueEntry> renderQueue;
+    renderQueue.reserve(renderSnapshot.generatedContent.size() + renderSnapshot.markers.size());
+
+    for (const OverworldRenderContent& renderContent : renderSnapshot.generatedContent)
+    {
+        renderQueue.push_back({
+            RenderQueueEntry::Kind::Vegetation,
+            renderContent.sortKeyY,
+            renderContent.id,
+            &renderContent,
+            nullptr});
+    }
+
+    for (const OverworldRenderMarker& renderMarker : renderSnapshot.markers)
+    {
+        renderQueue.push_back({
+            RenderQueueEntry::Kind::Player,
+            renderMarker.sortKeyY,
+            std::numeric_limits<std::uint64_t>::max(),
+            nullptr,
+            &renderMarker});
+    }
+
+    std::stable_sort(
+        renderQueue.begin(),
+        renderQueue.end(),
+        [](const RenderQueueEntry& lhs, const RenderQueueEntry& rhs)
+        {
+            return detail::shouldRenderBefore(
+                {lhs.sortKeyY, static_cast<std::uint8_t>(lhs.kind), lhs.stableId},
+                {rhs.sortKeyY, static_cast<std::uint8_t>(rhs.kind), rhs.stableId});
+        });
 
     detail::executeOverworldRenderPasses(
         [&]()
@@ -387,13 +439,37 @@ void Game::render()
         },
         [&]()
         {
-            for (const OverworldRenderContent& renderContent : renderSnapshot.generatedContent)
+            for (const RenderQueueEntry& entry : renderQueue)
             {
-                generatedContentShape.setSize({renderContent.size.width, renderContent.size.height});
-                generatedContentShape.setOrigin({renderContent.origin.x, renderContent.origin.y});
-                generatedContentShape.setPosition({renderContent.position.x, renderContent.position.y});
-                generatedContentShape.setFillColor(getGeneratedContentColor(renderContent));
-                m_impl->window.draw(generatedContentShape);
+                if (entry.kind == RenderQueueEntry::Kind::Vegetation)
+                {
+                    const OverworldRenderContent& renderContent = *entry.content;
+                    const detail::VegetationPrototype& prototype =
+                        m_impl->vegetationTilesetMetadata.getPrototypeById(renderContent.prototypeId);
+
+                    for (const detail::VegetationAtlasPart& part : prototype.parts)
+                    {
+                        const float scaleX = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+                        const float scaleY = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+                        vegetationSprite.setTextureRect(getVegetationTilesetRect(part.cell));
+                        vegetationSprite.setScale({scaleX, scaleY});
+                        vegetationSprite.setOrigin({8.0F, 8.0F});
+                        vegetationSprite.setPosition({
+                            renderContent.position.x + static_cast<float>(part.offsetX) * worldTileSize,
+                            renderContent.position.y + static_cast<float>(part.offsetY) * worldTileSize});
+                        m_impl->window.draw(vegetationSprite);
+                    }
+                    continue;
+                }
+
+                const OverworldRenderMarker& renderMarker = *entry.marker;
+                const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
+                const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
+                playerSprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
+                playerSprite.setScale({scaleX, scaleY});
+                playerSprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
+                playerSprite.setPosition({renderMarker.position.x, renderMarker.position.y});
+                m_impl->window.draw(playerSprite);
             }
         },
         [&]()
@@ -408,19 +484,6 @@ void Game::render()
                     gridSegment.setPosition({overlayRectangle.position.x, overlayRectangle.position.y});
                     m_impl->window.draw(gridSegment);
                 }
-            }
-        },
-        [&]()
-        {
-            for (const OverworldRenderMarker& renderMarker : renderSnapshot.markers)
-            {
-                const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
-                const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
-                playerSprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
-                playerSprite.setScale({scaleX, scaleY});
-                playerSprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
-                playerSprite.setPosition({renderMarker.position.x, renderMarker.position.y});
-                m_impl->window.draw(playerSprite);
             }
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));

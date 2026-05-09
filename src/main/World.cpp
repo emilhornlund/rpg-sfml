@@ -125,12 +125,10 @@ struct WorldBounds
         return false;
     }
 
-    const float halfWidth = instance.footprint.size.width * 0.5F;
-    const float halfHeight = instance.footprint.size.height * 0.5F;
-    const float left = instance.position.x - halfWidth;
-    const float right = instance.position.x + halfWidth;
-    const float top = instance.position.y - halfHeight;
-    const float bottom = instance.position.y + halfHeight;
+    const float left = instance.position.x + instance.footprint.offset.x;
+    const float right = left + instance.footprint.size.width;
+    const float top = instance.position.y + instance.footprint.offset.y;
+    const float bottom = top + instance.footprint.size.height;
 
     return left <= bounds.right
         && right >= bounds.left
@@ -279,12 +277,17 @@ std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame
         return visibleContent;
     }
 
-    const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
+    const VisibleTileBounds contentBounds{
+        bounds.minX - detail::getWorldContentVisibilityOverscanInTiles(),
+        bounds.maxX + detail::getWorldContentVisibilityOverscanInTiles(),
+        bounds.minY - detail::getWorldContentVisibilityOverscanInTiles(),
+        bounds.maxY + detail::getWorldContentVisibilityOverscanInTiles()};
+    const VisibleChunkBounds contentChunkBounds = getVisibleChunkBounds(contentBounds);
     const WorldBounds worldBounds = getWorldBounds(frame);
 
-    for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
+    for (int chunkY = contentChunkBounds.minY; chunkY <= contentChunkBounds.maxY; ++chunkY)
     {
-        for (int chunkX = chunkBounds.minX; chunkX <= chunkBounds.maxX; ++chunkX)
+        for (int chunkX = contentChunkBounds.minX; chunkX <= contentChunkBounds.maxX; ++chunkX)
         {
             const State::RetainedChunkData& chunk = ensureChunkRetained({chunkX, chunkY});
 
@@ -315,8 +318,8 @@ World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinat
     detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(coordinates.x, coordinates.y);
     const detail::WorldContent worldContent{m_state.config};
     State::RetainedChunkData retainedChunk;
+    retainedChunk.content = worldContent.generateChunkContent(coordinates, chunkData.metadata, chunkData.tiles);
     retainedChunk.tiles = std::move(chunkData.tiles);
-    retainedChunk.content = worldContent.generateChunkContent(coordinates, chunkData.metadata);
     retainedChunk.metadata = std::move(chunkData.metadata);
     const auto insertedChunk = m_state.chunks.emplace(chunkKey, std::move(retainedChunk));
     return insertedChunk.first->second;

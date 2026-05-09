@@ -1,16 +1,4 @@
-## Purpose
-
-Define the gameplay-owned render snapshot boundary that supplies overworld frame content to the game shell without exposing SFML-specific runtime types.
-
-## Requirements
-
-### Requirement: Overworld runtime publishes render snapshots
-The overworld gameplay runtime SHALL publish a render snapshot for the active frame instead of requiring the outer game shell to derive overworld presentation state ad hoc. The render snapshot SHALL be expressed through repo-native runtime types and SHALL not expose SFML-specific types.
-
-#### Scenario: Snapshot is available after frame progression
-- **WHEN** the overworld runtime initializes or updates the active gameplay frame
-- **THEN** it publishes a render snapshot for that frame
-- **AND** the snapshot can be consumed by the outer game shell without querying `World`, `Player`, or `Camera` directly
+## MODIFIED Requirements
 
 ### Requirement: Render snapshots describe visible frame content
 The render snapshot SHALL include the active camera frame, the visible terrain tiles for that frame, a collection of renderable markers for gameplay entities that should appear in the frame, and a collection of renderable generated-content entries for deterministic world content visible in that frame. Snapshot-published object entries SHALL carry the world-space information required to render vegetation and gameplay markers in deterministic y-sorted order.

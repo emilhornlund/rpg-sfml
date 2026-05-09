@@ -31,6 +31,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 namespace rpg::detail
@@ -275,23 +276,54 @@ void executeFrame(
     std::forward<RenderFn>(render)();
 }
 
-template <typename RenderTerrainFn, typename RenderGeneratedContentFn, typename RenderTileGridFn, typename RenderPlayerFn>
+template <typename RenderTerrainFn, typename RenderObjectsFn, typename RenderTileGridFn>
 void executeOverworldRenderPasses(
     RenderTerrainFn&& renderTerrain,
-    RenderGeneratedContentFn&& renderGeneratedContent,
+    RenderObjectsFn&& renderObjects,
     RenderTileGridFn&& renderTileGrid,
-    RenderPlayerFn&& renderPlayer,
     const bool shouldRenderTileGrid)
 {
     std::forward<RenderTerrainFn>(renderTerrain)();
-    std::forward<RenderGeneratedContentFn>(renderGeneratedContent)();
+    std::forward<RenderObjectsFn>(renderObjects)();
 
     if (shouldRenderTileGrid)
     {
         std::forward<RenderTileGridFn>(renderTileGrid)();
     }
+}
 
-    std::forward<RenderPlayerFn>(renderPlayer)();
+struct OverworldRenderOrderKey
+{
+    float sortKeyY = 0.0F;
+    std::uint8_t kindPriority = 0;
+    std::uint64_t stableId = 0;
+};
+
+[[nodiscard]] constexpr OverworldRenderOrderKey makeRenderOrderKey(const OverworldRenderContent& renderContent) noexcept
+{
+    return {renderContent.sortKeyY, 0U, renderContent.id};
+}
+
+[[nodiscard]] constexpr OverworldRenderOrderKey makeRenderOrderKey(const OverworldRenderMarker& renderMarker) noexcept
+{
+    return {renderMarker.sortKeyY, 1U, std::numeric_limits<std::uint64_t>::max()};
+}
+
+[[nodiscard]] constexpr bool shouldRenderBefore(
+    const OverworldRenderOrderKey& lhs,
+    const OverworldRenderOrderKey& rhs) noexcept
+{
+    if (lhs.sortKeyY != rhs.sortKeyY)
+    {
+        return lhs.sortKeyY < rhs.sortKeyY;
+    }
+
+    if (lhs.kindPriority != rhs.kindPriority)
+    {
+        return lhs.kindPriority < rhs.kindPriority;
+    }
+
+    return lhs.stableId < rhs.stableId;
 }
 
 } // namespace rpg::detail
