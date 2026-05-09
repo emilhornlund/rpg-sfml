@@ -253,7 +253,10 @@ public:
         , vegetationTilesetMetadata(loadVegetationTilesetMetadata())
         , playerSpritesheet(loadPlayerSpritesheet())
     {
-        window.setFramerateLimit(60);
+        const detail::WindowFramePacingConfig framePacing = detail::getDefaultWindowFramePacingConfig();
+        window.setVerticalSyncEnabled(framePacing.mode == detail::WindowFramePacingMode::VerticalSync);
+        window.setFramerateLimit(
+            framePacing.mode == detail::WindowFramePacingMode::FramerateLimit ? framePacing.framerateLimit : 0U);
     }
 
     sf::RenderWindow window;

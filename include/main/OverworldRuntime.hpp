@@ -192,6 +192,7 @@ private:
     World m_world;
     Player m_player;
     Camera m_camera;
+    WorldSize m_viewportSize{0.0F, 0.0F};
     OverworldRenderSnapshot m_renderSnapshot;
     bool m_isInitialized = false;
 };

@@ -30,6 +30,7 @@
 #include <main/OverworldRuntime.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <utility>
@@ -81,6 +82,18 @@ struct OverlayRectangle
 {
     WorldSize size{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
+};
+
+enum class WindowFramePacingMode
+{
+    VerticalSync,
+    FramerateLimit
+};
+
+struct WindowFramePacingConfig
+{
+    WindowFramePacingMode mode = WindowFramePacingMode::FramerateLimit;
+    unsigned int framerateLimit = 0;
 };
 
 constexpr int kMinDebugZoomPercent = 100;
@@ -231,6 +244,42 @@ constexpr void applyDirectionalInputRelease(
 [[nodiscard]] constexpr bool shouldRenderTileGridOverlay(const OverworldInput::DebugViewState& debugViewState) noexcept
 {
     return debugViewState.isEnabled && debugViewState.showTileGrid;
+}
+
+[[nodiscard]] constexpr WindowFramePacingConfig makeWindowFramePacingConfig(
+    const WindowFramePacingMode mode,
+    const unsigned int framerateLimit = 0) noexcept
+{
+    return {
+        mode,
+        mode == WindowFramePacingMode::FramerateLimit ? framerateLimit : 0U};
+}
+
+[[nodiscard]] constexpr WindowFramePacingConfig getDefaultWindowFramePacingConfig() noexcept
+{
+    return makeWindowFramePacingConfig(WindowFramePacingMode::FramerateLimit, 60U);
+}
+
+[[nodiscard]] inline WorldPosition snapPositionToPixelGrid(
+    const WorldPosition& position,
+    const WorldSize& pixelStep) noexcept
+{
+    const float stepX = pixelStep.width > 0.0F ? pixelStep.width : 1.0F;
+    const float stepY = pixelStep.height > 0.0F ? pixelStep.height : 1.0F;
+
+    return {
+        std::round(position.x / stepX) * stepX,
+        std::round(position.y / stepY) * stepY};
+}
+
+[[nodiscard]] inline ViewFrame snapViewFrameToPixelGrid(
+    const ViewFrame& frame,
+    const WorldSize& viewportSizeInPixels) noexcept
+{
+    const WorldSize pixelStep{
+        viewportSizeInPixels.width > 0.0F ? frame.size.width / viewportSizeInPixels.width : 1.0F,
+        viewportSizeInPixels.height > 0.0F ? frame.size.height / viewportSizeInPixels.height : 1.0F};
+    return {snapPositionToPixelGrid(frame.center, pixelStep), frame.size};
 }
 
 [[nodiscard]] constexpr std::array<OverlayRectangle, 4> getTileGridOverlayRectangles(

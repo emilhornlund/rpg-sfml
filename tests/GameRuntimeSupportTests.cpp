@@ -77,6 +77,18 @@ bool verifyFrameOrder()
         && std::fabs(observedDeltaTime - 0.25F) < 0.0001F;
 }
 
+bool verifyFramePacingConfiguration()
+{
+    const rpg::detail::WindowFramePacingConfig defaultConfig = rpg::detail::getDefaultWindowFramePacingConfig();
+    const rpg::detail::WindowFramePacingConfig fallbackConfig =
+        rpg::detail::makeWindowFramePacingConfig(rpg::detail::WindowFramePacingMode::FramerateLimit, 60U);
+
+    return defaultConfig.mode == rpg::detail::WindowFramePacingMode::FramerateLimit
+        && defaultConfig.framerateLimit == 60U
+        && fallbackConfig.mode == rpg::detail::WindowFramePacingMode::FramerateLimit
+        && fallbackConfig.framerateLimit == 60U;
+}
+
 bool verifyOverworldRenderPassOrder()
 {
     std::vector<std::string> phases;
@@ -267,6 +279,17 @@ bool verifyOverworldRenderOrdering()
             rpg::detail::makeRenderOrderKey(lowerVegetation));
 }
 
+bool verifyPixelSnappedViewFrame()
+{
+    const rpg::ViewFrame unsnappedFrame{{103.2F, 135.6F}, {320.0F, 180.0F}};
+    const rpg::ViewFrame snappedFrame = rpg::detail::snapViewFrameToPixelGrid(unsnappedFrame, {960.0F, 540.0F});
+
+    return std::fabs(snappedFrame.center.x - (310.0F / 3.0F)) < 0.0001F
+        && std::fabs(snappedFrame.center.y - (407.0F / 3.0F)) < 0.0001F
+        && std::fabs(snappedFrame.size.width - unsnappedFrame.size.width) < 0.0001F
+        && std::fabs(snappedFrame.size.height - unsnappedFrame.size.height) < 0.0001F;
+}
+
 } // namespace
 
 int main()
@@ -277,6 +300,11 @@ int main()
     }
 
     if (!verifyFrameOrder())
+    {
+        return 1;
+    }
+
+    if (!verifyFramePacingConfiguration())
     {
         return 1;
     }
@@ -312,6 +340,11 @@ int main()
     }
 
     if (!verifyOverworldRenderOrdering())
+    {
+        return 1;
+    }
+
+    if (!verifyPixelSnappedViewFrame())
     {
         return 1;
     }

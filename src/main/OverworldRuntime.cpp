@@ -97,6 +97,8 @@ OverworldRuntime::~OverworldRuntime() = default;
 
 void OverworldRuntime::initialize(const WorldSize& viewportSize)
 {
+    m_viewportSize = viewportSize;
+
     if (!m_isInitialized)
     {
         m_player.spawn(m_world.getSpawnPosition());
@@ -114,6 +116,7 @@ void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput
 {
     applyDebugViewState(input.debugViewState);
     initialize(input.viewportSize);
+    m_viewportSize = input.viewportSize;
     m_player.setMovementIntent(input.movementIntent);
     m_player.update(deltaTimeSeconds, m_world);
     m_camera.update(
@@ -142,7 +145,7 @@ std::uint32_t OverworldRuntime::getWorldGenerationSeed() const noexcept
 void OverworldRuntime::refreshRenderSnapshot()
 {
     const float tileSize = m_world.getTileSize();
-    m_renderSnapshot.cameraFrame = m_camera.getFrame();
+    m_renderSnapshot.cameraFrame = detail::snapViewFrameToPixelGrid(m_camera.getFrame(), m_viewportSize);
 
     const std::vector<VisibleWorldTile> visibleTiles = m_world.getVisibleTiles(m_renderSnapshot.cameraFrame);
     m_renderSnapshot.visibleTiles.clear();

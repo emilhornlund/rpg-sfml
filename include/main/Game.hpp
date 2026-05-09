@@ -135,6 +135,7 @@ private:
 
     /**
      * @brief Render the current frame to the game window.
+     *
      */
     void render();
 

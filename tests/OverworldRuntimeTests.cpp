@@ -360,6 +360,47 @@ constexpr float kFloatTolerance = 0.001F;
     return true;
 }
 
+[[nodiscard]] bool verifyRenderSnapshotPublishesPixelSnappedCamera()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
+    const std::optional<rpg::TileCoordinates> traversableNeighbor = findAdjacentTile(world, spawnTile, true);
+
+    if (!traversableNeighbor.has_value())
+    {
+        return false;
+    }
+
+    runtime.initialize({320.0F, 224.0F});
+    constexpr float kPartialStepSeconds = 2.7F / 96.0F;
+
+    runtime.update(
+        kPartialStepSeconds,
+        {
+            movementIntentForTiles(spawnTile, *traversableNeighbor),
+            {320.0F, 224.0F}});
+
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
+
+    if (playerMarker == nullptr)
+    {
+        return false;
+    }
+
+    const float pixelStepX = renderSnapshot.cameraFrame.size.width / 320.0F;
+    const float pixelStepY = renderSnapshot.cameraFrame.size.height / 224.0F;
+    const float expectedSnappedCenterX = std::round(playerMarker->position.x / pixelStepX) * pixelStepX;
+    const float expectedSnappedCenterY = std::round(playerMarker->position.y / pixelStepY) * pixelStepY;
+
+    return areClose(renderSnapshot.cameraFrame.center.x, expectedSnappedCenterX)
+        && areClose(renderSnapshot.cameraFrame.center.y, expectedSnappedCenterY)
+        && (!areClose(renderSnapshot.cameraFrame.center.x, std::round(renderSnapshot.cameraFrame.center.x))
+            || !areClose(renderSnapshot.cameraFrame.center.y, std::round(renderSnapshot.cameraFrame.center.y)))
+        && containsVisibleTile(renderSnapshot.visibleTiles, world.getTileCoordinates(playerMarker->position));
+}
+
 } // namespace
 
 int main()
@@ -390,6 +431,11 @@ int main()
     }
 
     if (!verifyRenderSnapshotPublishesGeneratedContent())
+    {
+        return 1;
+    }
+
+    if (!verifyRenderSnapshotPublishesPixelSnappedCamera())
     {
         return 1;
     }
