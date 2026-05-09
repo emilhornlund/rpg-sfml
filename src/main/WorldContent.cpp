@@ -29,6 +29,7 @@
 #include "WorldTerrainGenerator.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -155,26 +156,27 @@ struct PrototypeDescriptor
 };
 
 constexpr int kTreePlacementCellSizeInTiles = 4;
+constexpr int kPropPlacementCellSizeInTiles = 8;
 constexpr std::uint32_t kTreeAnchorSalt = 0x41C64E6DU;
+constexpr std::uint32_t kPropAnchorSalt = 0x5BD1E995U;
 constexpr std::uint32_t kForestTreeSalt = 0x9E3779B9U;
 constexpr std::uint32_t kGrassTreeSalt = 0x7F4A7C15U;
 constexpr std::uint32_t kWaterTreeSalt = 0x63D83595U;
 constexpr std::uint32_t kSandTreeSalt = 0xB5297A4DU;
-constexpr std::uint32_t kForestShrubSalt = 0x68E31DA4U;
-constexpr std::uint32_t kGrassShrubSalt = 0x1B56C4E9U;
-constexpr std::uint32_t kWaterShrubSalt = 0xC2B2AE35U;
-constexpr std::uint32_t kSandShrubSalt = 0x27D4EB2FU;
+constexpr std::uint32_t kForestGroundSalt = 0x68E31DA4U;
+constexpr std::uint32_t kGrassGroundSalt = 0x1B56C4E9U;
+constexpr std::uint32_t kWaterGroundSalt = 0xC2B2AE35U;
+constexpr std::uint32_t kSandGroundSalt = 0x27D4EB2FU;
+constexpr std::uint32_t kForestPropSalt = 0xA24BAED4U;
+constexpr std::uint32_t kGrassPropSalt = 0x8F1BBCDCU;
+constexpr std::uint32_t kWaterPropSalt = 0x52DCE729U;
+constexpr std::uint32_t kSandPropSalt = 0x165667B1U;
 
 struct PrototypeCatalog
 {
-    std::vector<PrototypeDescriptor> forestTrees;
-    std::vector<PrototypeDescriptor> grassTrees;
-    std::vector<PrototypeDescriptor> waterTrees;
-    std::vector<PrototypeDescriptor> sandTrees;
-    std::vector<PrototypeDescriptor> forestShrubs;
-    std::vector<PrototypeDescriptor> grassShrubs;
-    std::vector<PrototypeDescriptor> waterShrubs;
-    std::vector<PrototypeDescriptor> sandShrubs;
+    std::array<std::vector<PrototypeDescriptor>, 4> treeSparse;
+    std::array<std::vector<PrototypeDescriptor>, 4> groundDense;
+    std::array<std::vector<PrototypeDescriptor>, 4> propSparse;
 };
 
 [[nodiscard]] const VegetationTilesetMetadata& getVegetationPlacementMetadata();
@@ -182,6 +184,40 @@ struct PrototypeCatalog
 [[nodiscard]] ContentType getPrototypeContentType(const VegetationPrototype& prototype) noexcept
 {
     return prototype.family == "tree" ? ContentType::Tree : ContentType::Shrub;
+}
+
+[[nodiscard]] std::size_t getTileTypeIndex(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Grass:
+        return 0;
+    case TileType::Sand:
+        return 1;
+    case TileType::Water:
+        return 2;
+    case TileType::Forest:
+        return 3;
+    }
+
+    return 0;
+}
+
+[[nodiscard]] const char* getPlacementClass(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Grass:
+        return "grass";
+    case TileType::Sand:
+        return "sand";
+    case TileType::Water:
+        return "water";
+    case TileType::Forest:
+        return "forest";
+    }
+
+    return "grass";
 }
 
 [[nodiscard]] bool allowsPlacementOn(
@@ -214,8 +250,14 @@ struct PrototypeCatalog
 void appendPrototypeDescriptor(
     std::vector<PrototypeDescriptor>& destination,
     const VegetationPrototype& prototype,
-    const std::string_view placementClass)
+    const std::string_view placementClass,
+    const VegetationPlacementMode placementMode)
 {
+    if (prototype.placementMode != placementMode)
+    {
+        return;
+    }
+
     if (!allowsPlacementOn(prototype, placementClass))
     {
         return;
@@ -239,37 +281,28 @@ void appendPrototypeDescriptor(
     for (std::size_t index = 0; index < metadata.getPrototypeCount(); ++index)
     {
         const VegetationPrototype& prototype = metadata.getPrototype(index);
-        appendPrototypeDescriptor(catalog.forestTrees, prototype, "forest");
-        appendPrototypeDescriptor(catalog.grassTrees, prototype, "grass");
-        appendPrototypeDescriptor(catalog.waterTrees, prototype, "water");
-        appendPrototypeDescriptor(catalog.sandTrees, prototype, "sand");
-        appendPrototypeDescriptor(catalog.forestShrubs, prototype, "forest");
-        appendPrototypeDescriptor(catalog.grassShrubs, prototype, "grass");
-        appendPrototypeDescriptor(catalog.waterShrubs, prototype, "water");
-        appendPrototypeDescriptor(catalog.sandShrubs, prototype, "sand");
+        for (const TileType tileType : {TileType::Grass, TileType::Sand, TileType::Water, TileType::Forest})
+        {
+            const std::size_t tileTypeIndex = getTileTypeIndex(tileType);
+            const char* placementClass = getPlacementClass(tileType);
+            appendPrototypeDescriptor(
+                catalog.treeSparse[tileTypeIndex],
+                prototype,
+                placementClass,
+                VegetationPlacementMode::TreeSparse);
+            appendPrototypeDescriptor(
+                catalog.groundDense[tileTypeIndex],
+                prototype,
+                placementClass,
+                VegetationPlacementMode::GroundDense);
+            appendPrototypeDescriptor(
+                catalog.propSparse[tileTypeIndex],
+                prototype,
+                placementClass,
+                VegetationPlacementMode::PropSparse);
+        }
     }
 
-    auto eraseMismatchedType = [](std::vector<PrototypeDescriptor>& descriptors, const ContentType type)
-    {
-        descriptors.erase(
-            std::remove_if(
-                descriptors.begin(),
-                descriptors.end(),
-                [type](const PrototypeDescriptor& descriptor)
-                {
-                    return descriptor.type != type;
-                }),
-            descriptors.end());
-    };
-
-    eraseMismatchedType(catalog.forestTrees, ContentType::Tree);
-    eraseMismatchedType(catalog.grassTrees, ContentType::Tree);
-    eraseMismatchedType(catalog.waterTrees, ContentType::Tree);
-    eraseMismatchedType(catalog.sandTrees, ContentType::Tree);
-    eraseMismatchedType(catalog.forestShrubs, ContentType::Shrub);
-    eraseMismatchedType(catalog.grassShrubs, ContentType::Shrub);
-    eraseMismatchedType(catalog.waterShrubs, ContentType::Shrub);
-    eraseMismatchedType(catalog.sandShrubs, ContentType::Shrub);
     return catalog;
 }
 
@@ -318,23 +351,22 @@ namespace
 
 [[nodiscard]] const std::vector<PrototypeDescriptor>& getPrototypePool(
     const TileType tileType,
-    const ContentType contentType) noexcept
+    const VegetationPlacementMode placementMode) noexcept
 {
     const PrototypeCatalog& catalog = getPrototypeCatalog();
+    const std::size_t tileTypeIndex = getTileTypeIndex(tileType);
 
-    switch (tileType)
+    switch (placementMode)
     {
-    case TileType::Grass:
-        return contentType == ContentType::Tree ? catalog.grassTrees : catalog.grassShrubs;
-    case TileType::Sand:
-        return contentType == ContentType::Tree ? catalog.sandTrees : catalog.sandShrubs;
-    case TileType::Water:
-        return contentType == ContentType::Tree ? catalog.waterTrees : catalog.waterShrubs;
-    case TileType::Forest:
-        return contentType == ContentType::Tree ? catalog.forestTrees : catalog.forestShrubs;
+    case VegetationPlacementMode::TreeSparse:
+        return catalog.treeSparse[tileTypeIndex];
+    case VegetationPlacementMode::GroundDense:
+        return catalog.groundDense[tileTypeIndex];
+    case VegetationPlacementMode::PropSparse:
+        return catalog.propSparse[tileTypeIndex];
     }
 
-    return catalog.grassShrubs;
+    return catalog.groundDense[tileTypeIndex];
 }
 
 [[nodiscard]] const PrototypeDescriptor* choosePrototype(
@@ -443,19 +475,19 @@ namespace
     switch (tileType)
     {
     case TileType::Grass:
-        return kGrassShrubSalt;
+        return kGrassGroundSalt;
     case TileType::Sand:
-        return kSandShrubSalt;
+        return kSandGroundSalt;
     case TileType::Water:
-        return kWaterShrubSalt;
+        return kWaterGroundSalt;
     case TileType::Forest:
-        return kForestShrubSalt;
+        return kForestGroundSalt;
     }
 
-    return kGrassShrubSalt;
+    return kGrassGroundSalt;
 }
 
-[[nodiscard]] float getShrubPlacementChance(
+[[nodiscard]] float getGroundPlacementChance(
     const std::uint32_t worldSeed,
     const TileCoordinates& anchorTile,
     const TileType tileType) noexcept
@@ -471,10 +503,49 @@ namespace
 
     if (tileType == TileType::Forest)
     {
-        return std::clamp(0.03F + (0.05F * clusterNoise) + (0.03F * localNoise), 0.0F, 0.25F);
+        return std::clamp(0.008F + (0.022F * clusterNoise) + (0.014F * localNoise), 0.0F, 0.12F);
     }
 
     return std::clamp(0.004F + (0.01F * clusterNoise) + (0.006F * localNoise), 0.0F, 0.08F);
+}
+
+[[nodiscard]] std::uint32_t getPropPlacementSalt(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Grass:
+        return kGrassPropSalt;
+    case TileType::Sand:
+        return kSandPropSalt;
+    case TileType::Water:
+        return kWaterPropSalt;
+    case TileType::Forest:
+        return kForestPropSalt;
+    }
+
+    return kGrassPropSalt;
+}
+
+[[nodiscard]] float getPropPlacementChance(
+    const std::uint32_t worldSeed,
+    const TileCoordinates& anchorTile,
+    const TileType tileType) noexcept
+{
+    const float clusterNoise = sampleValueNoise(
+        worldSeed ^ 0xD1B54A32U,
+        static_cast<float>(anchorTile.x) / 24.0F,
+        static_cast<float>(anchorTile.y) / 24.0F);
+    const float localNoise = sampleValueNoise(
+        worldSeed ^ 0x94D049BBU,
+        static_cast<float>(anchorTile.x) / 8.0F,
+        static_cast<float>(anchorTile.y) / 8.0F);
+
+    if (tileType == TileType::Forest)
+    {
+        return std::clamp(0.04F + (0.05F * clusterNoise) + (0.03F * localNoise), 0.0F, 0.16F);
+    }
+
+    return std::clamp(0.008F + (0.015F * clusterNoise) + (0.01F * localNoise), 0.0F, 0.05F);
 }
 
 void appendContentInstance(
@@ -497,18 +568,18 @@ void appendContentInstance(
     });
 }
 
-[[nodiscard]] bool isTreeAnchorOccupied(
-    const std::vector<TileCoordinates>& occupiedTreeAnchors,
+[[nodiscard]] bool isAnchorOccupied(
+    const std::vector<TileCoordinates>& occupiedAnchors,
     const TileCoordinates& candidate) noexcept
 {
     return std::find_if(
-               occupiedTreeAnchors.begin(),
-               occupiedTreeAnchors.end(),
+               occupiedAnchors.begin(),
+               occupiedAnchors.end(),
                [&candidate](const TileCoordinates& occupied)
                {
                    return occupied.x == candidate.x && occupied.y == candidate.y;
                })
-        != occupiedTreeAnchors.end();
+        != occupiedAnchors.end();
 }
 
 } // namespace
@@ -539,7 +610,7 @@ ChunkContent WorldContent::generateChunkContent(
         return content;
     }
 
-    std::vector<TileCoordinates> occupiedTreeAnchors;
+    std::vector<TileCoordinates> occupiedSparseAnchors;
     const int chunkMinX = chunkCoordinates.x * getChunkSizeInTiles();
     const int chunkMinY = chunkCoordinates.y * getChunkSizeInTiles();
     const int chunkMaxX = chunkMinX + getChunkSizeInTiles() - 1;
@@ -566,7 +637,8 @@ ChunkContent WorldContent::generateChunkContent(
             }
 
             const TileType tileType = getChunkTile(tiles, chunkCoordinates, anchorTile);
-            const std::vector<PrototypeDescriptor>& prototypePool = getPrototypePool(tileType, ContentType::Tree);
+            const std::vector<PrototypeDescriptor>& prototypePool =
+                getPrototypePool(tileType, VegetationPlacementMode::TreeSparse);
 
             if (prototypePool.empty())
             {
@@ -591,7 +663,64 @@ ChunkContent WorldContent::generateChunkContent(
             }
 
             appendContentInstance(content, m_worldSeed, anchorTile, *descriptor, m_tileSize);
-            occupiedTreeAnchors.push_back(anchorTile);
+            occupiedSparseAnchors.push_back(anchorTile);
+        }
+    }
+
+    const int minPropCellX = floorDivide(chunkMinX, kPropPlacementCellSizeInTiles);
+    const int maxPropCellX = floorDivide(chunkMaxX, kPropPlacementCellSizeInTiles);
+    const int minPropCellY = floorDivide(chunkMinY, kPropPlacementCellSizeInTiles);
+    const int maxPropCellY = floorDivide(chunkMaxY, kPropPlacementCellSizeInTiles);
+
+    for (int cellY = minPropCellY; cellY <= maxPropCellY; ++cellY)
+    {
+        for (int cellX = minPropCellX; cellX <= maxPropCellX; ++cellX)
+        {
+            const std::uint32_t candidateHash = hashCoordinates(m_worldSeed ^ kPropAnchorSalt, cellX, cellY);
+            const TileCoordinates anchorTile{
+                cellX * kPropPlacementCellSizeInTiles
+                    + positiveModulo(static_cast<int>(candidateHash & 0xFFFFU), kPropPlacementCellSizeInTiles),
+                cellY * kPropPlacementCellSizeInTiles
+                    + positiveModulo(static_cast<int>((candidateHash >> 16U) & 0xFFFFU), kPropPlacementCellSizeInTiles)};
+
+            if (anchorTile.x < chunkMinX || anchorTile.x > chunkMaxX || anchorTile.y < chunkMinY || anchorTile.y > chunkMaxY)
+            {
+                continue;
+            }
+
+            if (isAnchorOccupied(occupiedSparseAnchors, anchorTile))
+            {
+                continue;
+            }
+
+            const TileType tileType = getChunkTile(tiles, chunkCoordinates, anchorTile);
+            const std::vector<PrototypeDescriptor>& prototypePool =
+                getPrototypePool(tileType, VegetationPlacementMode::PropSparse);
+
+            if (prototypePool.empty())
+            {
+                continue;
+            }
+
+            const float chance = getPropPlacementChance(m_worldSeed, anchorTile, tileType);
+            const std::uint32_t placementSalt = getPropPlacementSalt(tileType);
+            const float placementRoll = toUnitFloat(m_worldSeed ^ placementSalt, anchorTile.x, anchorTile.y);
+
+            if (placementRoll > chance)
+            {
+                continue;
+            }
+
+            const PrototypeDescriptor* descriptor =
+                choosePrototype(prototypePool, hashCoordinates(m_worldSeed ^ placementSalt, anchorTile.x, anchorTile.y));
+
+            if (!descriptor)
+            {
+                continue;
+            }
+
+            appendContentInstance(content, m_worldSeed, anchorTile, *descriptor, m_tileSize);
+            occupiedSparseAnchors.push_back(anchorTile);
         }
     }
 
@@ -602,19 +731,20 @@ ChunkContent WorldContent::generateChunkContent(
             const TileCoordinates anchorTile = getWorldTileCoordinates(chunkCoordinates.x, chunkCoordinates.y, {localX, localY});
             const TileType tileType = tiles[static_cast<std::size_t>(localY * getChunkSizeInTiles() + localX)];
 
-            if (isTreeAnchorOccupied(occupiedTreeAnchors, anchorTile))
+            if (isAnchorOccupied(occupiedSparseAnchors, anchorTile))
             {
                 continue;
             }
 
-            const std::vector<PrototypeDescriptor>& prototypePool = getPrototypePool(tileType, ContentType::Shrub);
+            const std::vector<PrototypeDescriptor>& prototypePool =
+                getPrototypePool(tileType, VegetationPlacementMode::GroundDense);
 
             if (prototypePool.empty())
             {
                 continue;
             }
 
-            const float chance = getShrubPlacementChance(m_worldSeed, anchorTile, tileType);
+            const float chance = getGroundPlacementChance(m_worldSeed, anchorTile, tileType);
             const std::uint32_t placementSalt = getPlacementSalt(ContentType::Shrub, tileType);
             const float placementRoll = toUnitFloat(m_worldSeed ^ placementSalt, anchorTile.x, anchorTile.y);
 

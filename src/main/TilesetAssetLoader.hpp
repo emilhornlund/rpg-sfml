@@ -38,6 +38,13 @@ namespace rpg
 namespace detail
 {
 
+enum class VegetationPlacementMode
+{
+    TreeSparse,
+    GroundDense,
+    PropSparse
+};
+
 enum class TilesetAssetTileKind
 {
     Terrain,
@@ -100,6 +107,7 @@ struct TilesetAssetObjectData
     std::string family;
     int offsetX = 0;
     int offsetY = 0;
+    std::optional<VegetationPlacementMode> placementMode;
     std::vector<std::string> placeOn;
     std::vector<std::pair<std::string, float>> biomes;
 };

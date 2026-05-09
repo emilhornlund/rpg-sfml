@@ -68,6 +68,7 @@ struct VegetationPrototype
     std::vector<std::string> tags;
     std::vector<VegetationAtlasPart> parts;
     VegetationPrototypeBounds bounds{};
+    VegetationPlacementMode placementMode = VegetationPlacementMode::GroundDense;
     std::vector<std::string> placeOn;
     std::vector<std::pair<std::string, float>> biomes;
 };

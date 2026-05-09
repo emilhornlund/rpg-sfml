@@ -66,6 +66,8 @@ namespace
         "output/classifications/overworld-vegetation-tileset-classification.json");
     bool foundObjectTile = false;
     bool foundWaterLilyAnchor = false;
+    bool foundPropAnchor = false;
+    bool foundTreeAnchor = false;
 
     for (const rpg::detail::TilesetAssetTile& tile : vegetation.getTiles())
     {
@@ -84,6 +86,8 @@ namespace
 
         if (tile.object->id == "water_lily_1"
             && tile.object->role == "anchor"
+            && tile.object->placementMode.has_value()
+            && *tile.object->placementMode == rpg::detail::VegetationPlacementMode::GroundDense
             && tile.object->placeOn.size() == 1
             && tile.object->placeOn.front() == "water"
             && tile.object->biomes.size() == 1
@@ -92,6 +96,22 @@ namespace
         {
             foundWaterLilyAnchor = true;
         }
+
+        if (tile.object->id == "stump_cut_large_1"
+            && tile.object->role == "anchor"
+            && tile.object->placementMode.has_value()
+            && *tile.object->placementMode == rpg::detail::VegetationPlacementMode::PropSparse)
+        {
+            foundPropAnchor = true;
+        }
+
+        if (tile.object->id == "round_tree_small_1"
+            && tile.object->role == "anchor"
+            && tile.object->placementMode.has_value()
+            && *tile.object->placementMode == rpg::detail::VegetationPlacementMode::TreeSparse)
+        {
+            foundTreeAnchor = true;
+        }
     }
 
     return vegetation.getTileset().id == "overworld-vegetation-tileset"
@@ -99,7 +119,9 @@ namespace
         && vegetation.getTileset().grid.tileCount == 322
         && vegetation.getResolvedImagePath() == assetRoot / "overworld-vegetation-tileset.png"
         && foundObjectTile
-        && foundWaterLilyAnchor;
+        && foundWaterLilyAnchor
+        && foundPropAnchor
+        && foundTreeAnchor;
 }
 
 } // namespace

@@ -476,6 +476,37 @@ private:
     return asInt(*field, fieldName);
 }
 
+[[nodiscard]] std::optional<VegetationPlacementMode> getOptionalPlacementMode(
+    const JsonObject& object,
+    const std::string_view fieldName,
+    const std::string_view context)
+{
+    const std::optional<std::string> value = getOptionalString(object, fieldName);
+
+    if (!value.has_value())
+    {
+        return std::nullopt;
+    }
+
+    if (*value == "tree_sparse")
+    {
+        return VegetationPlacementMode::TreeSparse;
+    }
+
+    if (*value == "ground_dense")
+    {
+        return VegetationPlacementMode::GroundDense;
+    }
+
+    if (*value == "prop_sparse")
+    {
+        return VegetationPlacementMode::PropSparse;
+    }
+
+    throw std::runtime_error(
+        "Unsupported vegetation placement mode in tileset classification: " + std::string(context) + "." + std::string(fieldName));
+}
+
 [[nodiscard]] std::vector<std::string> parseTags(const JsonObject& object)
 {
     const JsonValue* tagsValue = getOptionalField(object, "tags");
@@ -587,6 +618,7 @@ private:
         asString(getRequiredField(objectData, "family", "tile.object"), "tile.object.family"),
         asInt(getRequiredField(offset, "x", "tile.object.offset"), "tile.object.offset.x"),
         asInt(getRequiredField(offset, "y", "tile.object.offset"), "tile.object.offset.y"),
+        getOptionalPlacementMode(objectData, "placementMode", "tile.object"),
         parseOptionalStringArray(objectData, "placeOn", "tile.object.placeOn"),
         parseOptionalFloatObject(objectData, "biomes", "tile.object.biomes")};
 }

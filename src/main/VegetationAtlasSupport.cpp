@@ -137,6 +137,12 @@ VegetationTilesetMetadata VegetationTilesetMetadata::loadFromDocument(const Tile
 
         if (tile.object->role == "anchor")
         {
+            if (!tile.object->placementMode.has_value())
+            {
+                throw std::runtime_error("Vegetation anchor is missing placementMode metadata: " + tile.object->id);
+            }
+
+            accumulator.prototype.placementMode = *tile.object->placementMode;
             accumulator.prototype.placeOn = tile.object->placeOn;
             accumulator.prototype.biomes = tile.object->biomes;
             ++accumulator.anchorCount;

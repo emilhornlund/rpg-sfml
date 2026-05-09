@@ -512,6 +512,13 @@ struct CardinalNeighborMask
     return prototypeId.starts_with("water_lily_") || prototypeId.starts_with("marsh_reeds_");
 }
 
+[[nodiscard]] bool isPlacementMode(
+    const rpg::detail::VegetationPrototype& prototype,
+    const rpg::detail::VegetationPlacementMode placementMode) noexcept
+{
+    return prototype.placementMode == placementMode;
+}
+
 [[nodiscard]] const char* getPlacementClassName(const rpg::TileType tileType) noexcept
 {
     switch (tileType)
@@ -752,6 +759,56 @@ struct CardinalNeighborMask
     return foundWaterVegetation;
 }
 
+[[nodiscard]] bool verifyForestPlacementModeDensityHierarchy()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    const rpg::World world(config);
+    const rpg::detail::VegetationTilesetMetadata metadata =
+        rpg::detail::loadVegetationTilesetMetadata(std::filesystem::path(RPG_DEFAULT_ASSET_ROOT_PATH));
+    int forestTreeSparseCount = 0;
+    int forestGroundDenseCount = 0;
+    int forestPropSparseCount = 0;
+
+    for (int chunkY = -12; chunkY <= 12; ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            for (const rpg::ContentInstance& instance : content.instances)
+            {
+                if (world.getTileType(instance.anchorTile) != rpg::TileType::Forest)
+                {
+                    continue;
+                }
+
+                const rpg::detail::VegetationPrototype& prototype = metadata.getPrototypeById(instance.prototypeId);
+
+                if (isPlacementMode(prototype, rpg::detail::VegetationPlacementMode::TreeSparse))
+                {
+                    ++forestTreeSparseCount;
+                    continue;
+                }
+
+                if (isPlacementMode(prototype, rpg::detail::VegetationPlacementMode::GroundDense))
+                {
+                    ++forestGroundDenseCount;
+                    continue;
+                }
+
+                if (isPlacementMode(prototype, rpg::detail::VegetationPlacementMode::PropSparse))
+                {
+                    ++forestPropSparseCount;
+                }
+            }
+        }
+    }
+
+    return forestTreeSparseCount > forestGroundDenseCount
+        && forestGroundDenseCount > forestPropSparseCount
+        && forestPropSparseCount > 0;
+}
+
 [[nodiscard]] bool verifyLargeVegetationRemainsVisibleAcrossChunkBoundaries()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
@@ -985,6 +1042,11 @@ int main()
     }
 
     if (!verifyVegetationPlacementRespectsPrototypeConstraints())
+    {
+        return 1;
+    }
+
+    if (!verifyForestPlacementModeDensityHierarchy())
     {
         return 1;
     }
