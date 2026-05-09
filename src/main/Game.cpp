@@ -31,11 +31,13 @@
 #include "GameRuntimeSupport.hpp"
 
 #include <algorithm>
+#include <SFML/Graphics/Font.hpp>
 #include <limits>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <SFML/System/Clock.hpp>
@@ -48,6 +50,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -60,7 +63,13 @@ constexpr int kVegetationTilesetCellSize = 16;
 constexpr int kPlayerSpritesheetCellSize = 48;
 const sf::Color kBackgroundColor(24, 24, 27);
 const sf::Color kGridOverlayColor(255, 255, 255, 96);
+const sf::Color kDebugOverlayBackgroundColor(0, 0, 0, 160);
+const sf::Color kDebugOverlayTextColor(245, 245, 245);
 constexpr float kGridOverlayThickness = 1.0F;
+constexpr float kDebugOverlayPadding = 8.0F;
+constexpr float kDebugOverlayMargin = 12.0F;
+constexpr unsigned int kDebugOverlayCharacterSize = 16U;
+constexpr float kDebugOverlayFrameRateSampleWindowSeconds = 0.25F;
 
 [[nodiscard]] std::optional<detail::OverworldDirectionalKey> getDirectionalKey(
     const sf::Keyboard::Key key) noexcept
@@ -98,6 +107,19 @@ constexpr float kGridOverlayThickness = 1.0F;
     default:
         return std::nullopt;
     }
+}
+
+[[nodiscard]] sf::Font loadDebugOverlayFont()
+{
+    sf::Font debugOverlayFont;
+    const std::filesystem::path debugOverlayFontPath = detail::getDebugOverlayFontPath(detail::getAssetRootPath());
+
+    if (!debugOverlayFont.openFromFile(debugOverlayFontPath))
+    {
+        throw std::runtime_error("Failed to load debug overlay font from " + debugOverlayFontPath.string());
+    }
+
+    return debugOverlayFont;
 }
 
 [[nodiscard]] sf::Texture loadTerrainTileset()
@@ -227,6 +249,30 @@ using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
         {kVegetationTilesetCellSize, kVegetationTilesetCellSize}};
 }
 
+[[nodiscard]] int getDisplayedFrameRate(
+    const float accumulatedSeconds,
+    const std::uint32_t sampleCount,
+    const int fallbackFrameRate) noexcept
+{
+    return accumulatedSeconds > 0.0F
+        ? static_cast<int>(static_cast<float>(sampleCount) / accumulatedSeconds + 0.5F)
+        : fallbackFrameRate;
+}
+
+[[nodiscard]] std::string buildDebugOverlayString(
+    const OverworldDebugSnapshot& debugSnapshot,
+    const int displayedFramesPerSecond)
+{
+    std::ostringstream overlayStream;
+    overlayStream
+        << "FPS: " << displayedFramesPerSecond << '\n'
+        << "Loaded objects: " << debugSnapshot.loadedGeneratedContentCount << '\n'
+        << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
+        << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
+        << "Zoom: " << debugSnapshot.zoomPercent << '%';
+    return overlayStream.str();
+}
+
 struct RenderQueueEntry
 {
     enum class Kind
@@ -252,6 +298,7 @@ public:
         , vegetationTileset(loadVegetationTileset())
         , vegetationTilesetMetadata(loadVegetationTilesetMetadata())
         , playerSpritesheet(loadPlayerSpritesheet())
+        , debugOverlayFont(loadDebugOverlayFont())
     {
         const detail::WindowFramePacingConfig framePacing = detail::getDefaultWindowFramePacingConfig();
         window.setVerticalSyncEnabled(framePacing.mode == detail::WindowFramePacingMode::VerticalSync);
@@ -265,10 +312,15 @@ public:
     sf::Texture vegetationTileset;
     detail::VegetationTilesetMetadata vegetationTilesetMetadata;
     sf::Texture playerSpritesheet;
+    sf::Font debugOverlayFont;
     OverworldRuntime overworldRuntime;
     detail::OverworldDirectionalInput directionalInput;
     OverworldInput::DebugViewState debugViewState = detail::makeOverworldDebugViewState(detail::isDebugViewModeEnabledForBuild());
+    detail::DebugOverlayState debugOverlayState;
     float terrainAnimationElapsedSeconds = 0.0F;
+    float frameRateAccumulatedSeconds = 0.0F;
+    std::uint32_t frameRateSampleCount = 0;
+    int displayedFramesPerSecond = 0;
 };
 
 Game::Game()
@@ -333,6 +385,11 @@ void Game::processEvents()
                 detail::applyOverworldDebugViewAction(m_impl->debugViewState, *debugViewAction);
             }
 
+            if (keyPressed->code == sf::Keyboard::Key::F1)
+            {
+                detail::toggleDebugOverlayVisibility(m_impl->debugOverlayState);
+            }
+
             if (keyPressed->code == sf::Keyboard::Key::Escape)
             {
                 runtimeEvent = detail::RuntimeEvent::EscapePressed;
@@ -359,6 +416,26 @@ void Game::update(float deltaTimeSeconds)
     const WorldSize viewportSize{
         static_cast<float>(kWindowWidth),
         static_cast<float>(kWindowHeight)};
+    m_impl->frameRateAccumulatedSeconds += std::max(deltaTimeSeconds, 0.0F);
+    ++m_impl->frameRateSampleCount;
+
+    if (m_impl->frameRateAccumulatedSeconds >= kDebugOverlayFrameRateSampleWindowSeconds)
+    {
+        m_impl->displayedFramesPerSecond = getDisplayedFrameRate(
+            m_impl->frameRateAccumulatedSeconds,
+            m_impl->frameRateSampleCount,
+            m_impl->displayedFramesPerSecond);
+        m_impl->frameRateAccumulatedSeconds = 0.0F;
+        m_impl->frameRateSampleCount = 0;
+    }
+    else if (m_impl->displayedFramesPerSecond == 0)
+    {
+        m_impl->displayedFramesPerSecond = getDisplayedFrameRate(
+            m_impl->frameRateAccumulatedSeconds,
+            m_impl->frameRateSampleCount,
+            0);
+    }
+
     m_impl->terrainAnimationElapsedSeconds += deltaTimeSeconds;
 
     m_impl->overworldRuntime.update(
@@ -374,6 +451,7 @@ void Game::render()
     m_impl->window.clear(kBackgroundColor);
 
     const OverworldRenderSnapshot& renderSnapshot = m_impl->overworldRuntime.getRenderSnapshot();
+    const OverworldDebugSnapshot& debugSnapshot = m_impl->overworldRuntime.getDebugSnapshot();
     sf::View view;
     view.setCenter({renderSnapshot.cameraFrame.center.x, renderSnapshot.cameraFrame.center.y});
     view.setSize({renderSnapshot.cameraFrame.size.width, renderSnapshot.cameraFrame.size.height});
@@ -490,6 +568,33 @@ void Game::render()
             }
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
+
+    if (detail::shouldRenderDebugOverlay(m_impl->debugOverlayState))
+    {
+        m_impl->window.setView(m_impl->window.getDefaultView());
+
+        sf::Text debugOverlayText(
+            m_impl->debugOverlayFont,
+            buildDebugOverlayString(
+                debugSnapshot,
+                m_impl->displayedFramesPerSecond),
+            kDebugOverlayCharacterSize);
+        debugOverlayText.setFillColor(kDebugOverlayTextColor);
+
+        const sf::FloatRect textBounds = debugOverlayText.getLocalBounds();
+        debugOverlayText.setPosition({
+            kDebugOverlayMargin + kDebugOverlayPadding - textBounds.position.x,
+            kDebugOverlayMargin + kDebugOverlayPadding - textBounds.position.y});
+        sf::RectangleShape debugOverlayBackground;
+        debugOverlayBackground.setFillColor(kDebugOverlayBackgroundColor);
+        debugOverlayBackground.setPosition({kDebugOverlayMargin, kDebugOverlayMargin});
+        debugOverlayBackground.setSize({
+            textBounds.size.x + (kDebugOverlayPadding * 2.0F),
+            textBounds.size.y + (kDebugOverlayPadding * 2.0F)});
+
+        m_impl->window.draw(debugOverlayBackground);
+        m_impl->window.draw(debugOverlayText);
+    }
 
     m_impl->window.display();
 }

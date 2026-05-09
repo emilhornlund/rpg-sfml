@@ -219,6 +219,49 @@ bool verifyDebugViewStateTranslation()
         && !rpg::detail::shouldRenderTileGridOverlay(disabledDebugViewState);
 }
 
+bool verifyDebugOverlayVisibilityTranslation()
+{
+    rpg::detail::DebugOverlayState debugOverlayState;
+
+    if (rpg::detail::shouldRenderDebugOverlay(debugOverlayState))
+    {
+        return false;
+    }
+
+    rpg::detail::toggleDebugOverlayVisibility(debugOverlayState);
+
+    if (!rpg::detail::shouldRenderDebugOverlay(debugOverlayState))
+    {
+        return false;
+    }
+
+    rpg::detail::toggleDebugOverlayVisibility(debugOverlayState);
+    return !rpg::detail::shouldRenderDebugOverlay(debugOverlayState);
+}
+
+bool verifyDebugOverlayDoesNotBlockInputTranslation()
+{
+    const rpg::WorldSize viewportSize{320.0F, 224.0F};
+    rpg::detail::DebugOverlayState debugOverlayState;
+    rpg::detail::OverworldDirectionalInput directionalInput;
+    rpg::OverworldInput::DebugViewState debugViewState = rpg::detail::makeOverworldDebugViewState(true);
+
+    rpg::detail::toggleDebugOverlayVisibility(debugOverlayState);
+    rpg::detail::applyDirectionalInputPress(directionalInput, rpg::detail::OverworldDirectionalKey::Left);
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ZoomOut);
+    rpg::detail::applyOverworldDebugViewAction(debugViewState, rpg::detail::OverworldDebugViewAction::ToggleTileGrid);
+
+    const rpg::OverworldInput overworldInput = rpg::detail::getOverworldInput(directionalInput, viewportSize, debugViewState);
+
+    return rpg::detail::shouldRenderDebugOverlay(debugOverlayState)
+        && matchesMovementIntent(overworldInput.movementIntent, -1.0F, 0.0F)
+        && overworldInput.debugViewState.isEnabled
+        && overworldInput.debugViewState.zoomPercent == 250
+        && overworldInput.debugViewState.showTileGrid
+        && std::fabs(overworldInput.viewportSize.width - viewportSize.width) < 0.0001F
+        && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F;
+}
+
 bool verifyTileGridOverlayGeometry()
 {
     const rpg::OverworldRenderTile visibleTile{
@@ -330,6 +373,16 @@ int main()
     }
 
     if (!verifyDebugViewStateTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugOverlayVisibilityTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugOverlayDoesNotBlockInputTranslation())
     {
         return 1;
     }

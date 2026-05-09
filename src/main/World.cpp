@@ -304,6 +304,19 @@ std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame
     return visibleContent;
 }
 
+std::size_t World::getRetainedGeneratedContentCount() const noexcept
+{
+    std::size_t retainedCount = 0;
+
+    for (const auto& [chunkKey, retainedChunk] : m_state.chunks)
+    {
+        (void)chunkKey;
+        retainedCount += retainedChunk.content.instances.size();
+    }
+
+    return retainedCount;
+}
+
 World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinates& coordinates) const
 {
     const auto chunkKey = std::make_pair(coordinates.x, coordinates.y);

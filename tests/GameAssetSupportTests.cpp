@@ -44,7 +44,8 @@ namespace
         && rpg::detail::getTerrainTilesetClassificationPath(assetRoot)
             == assetRoot / "output/classifications/overworld-terrain-tileset-classification.json"
         && rpg::detail::getVegetationTilesetClassificationPath(assetRoot)
-            == assetRoot / "output/classifications/overworld-vegetation-tileset-classification.json";
+            == assetRoot / "output/classifications/overworld-vegetation-tileset-classification.json"
+        && rpg::detail::getDebugOverlayFontPath(assetRoot) == assetRoot / "output/fonts/PixelOperator8.ttf";
 }
 
 [[nodiscard]] bool verifyTerrainMetadataLoading(const std::filesystem::path& assetRoot)
@@ -114,6 +115,15 @@ namespace
         && containsBiomeWeight(waterLily, "water", 0.25F);
 }
 
+[[nodiscard]] bool verifyDebugOverlayFontPresence(const std::filesystem::path& assetRoot)
+{
+    const std::filesystem::path fontPath = rpg::detail::getDebugOverlayFontPath(assetRoot);
+
+    return std::filesystem::exists(fontPath)
+        && std::filesystem::is_regular_file(fontPath)
+        && std::filesystem::file_size(fontPath) > 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -134,6 +144,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifyVegetationMetadataLoading(argv[1]))
+    {
+        return 1;
+    }
+
+    if (!verifyDebugOverlayFontPresence(argv[1]))
     {
         return 1;
     }

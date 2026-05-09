@@ -31,6 +31,7 @@
 #include <main/Player.hpp>
 #include <main/World.hpp>
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -119,6 +120,17 @@ struct OverworldRenderSnapshot
 };
 
 /**
+ * @brief Gameplay-owned diagnostic snapshot for the current overworld frame.
+ */
+struct OverworldDebugSnapshot
+{
+    TileCoordinates playerTileCoordinates{0, 0};
+    int zoomPercent = 300;
+    std::size_t loadedGeneratedContentCount = 0;
+    std::size_t renderedGeneratedContentCount = 0;
+};
+
+/**
  * @brief Owns the active overworld gameplay session.
  *
  * The overworld runtime coordinates the world, player, and camera modules for
@@ -169,6 +181,13 @@ public:
     [[nodiscard]] const OverworldRenderSnapshot& getRenderSnapshot() const noexcept;
 
     /**
+     * @brief Read the debug snapshot for the active overworld frame.
+     *
+     * @return Current debug snapshot.
+     */
+    [[nodiscard]] const OverworldDebugSnapshot& getDebugSnapshot() const noexcept;
+
+    /**
      * @brief Read the deterministic world-generation seed.
      *
      * @return Seed used for world generation and seed-backed render selection.
@@ -194,6 +213,7 @@ private:
     Camera m_camera;
     WorldSize m_viewportSize{0.0F, 0.0F};
     OverworldRenderSnapshot m_renderSnapshot;
+    OverworldDebugSnapshot m_debugSnapshot;
     bool m_isInitialized = false;
 };
 

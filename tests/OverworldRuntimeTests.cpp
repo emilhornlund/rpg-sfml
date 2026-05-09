@@ -401,6 +401,30 @@ constexpr float kFloatTolerance = 0.001F;
         && containsVisibleTile(renderSnapshot.visibleTiles, world.getTileCoordinates(playerMarker->position));
 }
 
+[[nodiscard]] bool verifyDebugSnapshotPublishesOverlayData()
+{
+    rpg::OverworldRuntime runtime;
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1200.0F, 900.0F},
+            {true, 150, false}});
+
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldDebugSnapshot& debugSnapshot = runtime.getDebugSnapshot();
+    rpg::World world;
+    const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(renderSnapshot.cameraFrame);
+    const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(renderSnapshot.cameraFrame);
+
+    return !visibleTiles.empty()
+        && debugSnapshot.playerTileCoordinates.x == world.getSpawnTile().x
+        && debugSnapshot.playerTileCoordinates.y == world.getSpawnTile().y
+        && debugSnapshot.zoomPercent == 150
+        && debugSnapshot.loadedGeneratedContentCount == world.getRetainedGeneratedContentCount()
+        && debugSnapshot.renderedGeneratedContentCount == visibleContent.size();
+}
+
 } // namespace
 
 int main()
@@ -436,6 +460,11 @@ int main()
     }
 
     if (!verifyRenderSnapshotPublishesPixelSnappedCamera())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugSnapshotPublishesOverlayData())
     {
         return 1;
     }

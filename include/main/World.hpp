@@ -29,6 +29,7 @@
 
 #include <main/OverworldTypes.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -330,6 +331,14 @@ public:
      * @return Visible generated content instances for the frame.
      */
     [[nodiscard]] std::vector<VisibleWorldContent> getVisibleContent(const ViewFrame& frame) const;
+
+    /**
+     * @brief Count retained generated-content instances across loaded chunks.
+     *
+     * @return Number of generated-content instances currently retained in the
+     * loaded chunk cache.
+     */
+    [[nodiscard]] std::size_t getRetainedGeneratedContentCount() const noexcept;
 
     /**
      * @brief Convert a tile coordinate to the center of that tile in world space.

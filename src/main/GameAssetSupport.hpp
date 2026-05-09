@@ -41,7 +41,9 @@ inline constexpr char kTerrainTilesetClassificationFilename[] = "overworld-terra
 inline constexpr char kVegetationTilesetFilename[] = "overworld-vegetation-tileset.png";
 inline constexpr char kVegetationTilesetClassificationFilename[] = "overworld-vegetation-tileset-classification.json";
 inline constexpr char kTerrainTilesetClassificationDirectory[] = "output/classifications";
+inline constexpr char kFontDirectory[] = "output/fonts";
 inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
+inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
 
 [[nodiscard]] inline std::filesystem::path getExecutableDirectory()
 {
@@ -81,6 +83,11 @@ inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet
 [[nodiscard]] inline std::filesystem::path getVegetationTilesetClassificationPath(const std::filesystem::path& assetRoot)
 {
     return assetRoot / kTerrainTilesetClassificationDirectory / kVegetationTilesetClassificationFilename;
+}
+
+[[nodiscard]] inline std::filesystem::path getDebugOverlayFontPath(const std::filesystem::path& assetRoot)
+{
+    return assetRoot / kFontDirectory / kDebugOverlayFontFilename;
 }
 
 [[nodiscard]] inline TerrainTilesetMetadata loadTerrainTilesetMetadata(const std::filesystem::path& assetRoot)

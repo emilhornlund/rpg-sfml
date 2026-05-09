@@ -96,6 +96,11 @@ struct WindowFramePacingConfig
     unsigned int framerateLimit = 0;
 };
 
+struct DebugOverlayState
+{
+    bool isVisible = false;
+};
+
 constexpr int kMinDebugZoomPercent = 100;
 constexpr int kDefaultDebugZoomPercent = 300;
 constexpr int kMaxDebugZoomPercent = 400;
@@ -244,6 +249,16 @@ constexpr void applyDirectionalInputRelease(
 [[nodiscard]] constexpr bool shouldRenderTileGridOverlay(const OverworldInput::DebugViewState& debugViewState) noexcept
 {
     return debugViewState.isEnabled && debugViewState.showTileGrid;
+}
+
+constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState) noexcept
+{
+    debugOverlayState.isVisible = !debugOverlayState.isVisible;
+}
+
+[[nodiscard]] constexpr bool shouldRenderDebugOverlay(const DebugOverlayState& debugOverlayState) noexcept
+{
+    return debugOverlayState.isVisible;
 }
 
 [[nodiscard]] constexpr WindowFramePacingConfig makeWindowFramePacingConfig(

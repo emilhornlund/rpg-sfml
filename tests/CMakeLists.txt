@@ -166,5 +166,6 @@ add_test(
         -DTERRAIN_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-terrain-tileset-classification.json
         -DVEGETATION_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-vegetation-tileset-classification.json
         -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/player-walking-spritesheet.png
+        -DDEBUG_OVERLAY_FONT_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/fonts/PixelOperator8.ttf
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_main_asset_staging.cmake"
 )

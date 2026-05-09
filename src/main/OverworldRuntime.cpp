@@ -137,6 +137,11 @@ const OverworldRenderSnapshot& OverworldRuntime::getRenderSnapshot() const noexc
     return m_renderSnapshot;
 }
 
+const OverworldDebugSnapshot& OverworldRuntime::getDebugSnapshot() const noexcept
+{
+    return m_debugSnapshot;
+}
+
 std::uint32_t OverworldRuntime::getWorldGenerationSeed() const noexcept
 {
     return m_world.getGenerationSeed();
@@ -171,6 +176,11 @@ void OverworldRuntime::refreshRenderSnapshot()
 
     m_renderSnapshot.markers.clear();
     m_renderSnapshot.markers.push_back(makePlayerRenderMarker(placement, m_player));
+
+    m_debugSnapshot.playerTileCoordinates = m_world.getTileCoordinates(m_player.getPosition());
+    m_debugSnapshot.zoomPercent = m_camera.getZoomPercent();
+    m_debugSnapshot.loadedGeneratedContentCount = m_world.getRetainedGeneratedContentCount();
+    m_debugSnapshot.renderedGeneratedContentCount = m_renderSnapshot.generatedContent.size();
 }
 
 } // namespace rpg
