@@ -126,7 +126,8 @@ struct OverworldDebugSnapshot
 {
     TileCoordinates playerTileCoordinates{0, 0};
     int zoomPercent = 300;
-    std::size_t loadedGeneratedContentCount = 0;
+    std::size_t retainedChunkCount = 0;
+    std::size_t retainedGeneratedContentCount = 0;
     std::size_t renderedGeneratedContentCount = 0;
 };
 

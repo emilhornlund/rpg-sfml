@@ -341,6 +341,23 @@ public:
     [[nodiscard]] std::size_t getRetainedGeneratedContentCount() const noexcept;
 
     /**
+     * @brief Count retained chunks in the active world cache.
+     *
+     * @return Number of chunks currently retained by the world.
+     */
+    [[nodiscard]] std::size_t getRetainedChunkCount() const noexcept;
+
+    /**
+     * @brief Update the active retention window used for chunk eviction.
+     *
+     * The world derives a chunk retention window from the supplied frame and
+     * prunes retained chunks that fall outside the buffered retention bounds.
+     *
+     * @param frame Camera frame that defines the active streaming window.
+     */
+    void updateRetentionWindow(const ViewFrame& frame);
+
+    /**
      * @brief Convert a tile coordinate to the center of that tile in world space.
      *
      * @param coordinates Tile coordinates to convert.
@@ -372,9 +389,20 @@ private:
             ChunkContent content;
         };
 
+        struct RetentionWindow
+        {
+            int minChunkX = 0;
+            int maxChunkX = -1;
+            int minChunkY = 0;
+            int maxChunkY = -1;
+            bool isActive = false;
+        };
+
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
         mutable std::map<std::pair<int, int>, RetainedChunkData> chunks;
+        mutable std::size_t retainedGeneratedContentCount = 0;
+        mutable RetentionWindow retentionWindow;
     };
 
     /**
@@ -383,6 +411,7 @@ private:
     State m_state;
 
     [[nodiscard]] State::RetainedChunkData& ensureChunkRetained(const ChunkCoordinates& coordinates) const;
+    void pruneRetainedChunks() const;
 };
 
 } // namespace rpg

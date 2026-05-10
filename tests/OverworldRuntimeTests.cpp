@@ -440,6 +440,7 @@ constexpr float kFloatTolerance = 0.001F;
     const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
     const rpg::OverworldDebugSnapshot& debugSnapshot = runtime.getDebugSnapshot();
     rpg::World world;
+    world.updateRetentionWindow(renderSnapshot.cameraFrame);
     const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(renderSnapshot.cameraFrame);
     const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(renderSnapshot.cameraFrame);
 
@@ -447,7 +448,8 @@ constexpr float kFloatTolerance = 0.001F;
         && debugSnapshot.playerTileCoordinates.x == world.getSpawnTile().x
         && debugSnapshot.playerTileCoordinates.y == world.getSpawnTile().y
         && debugSnapshot.zoomPercent == 150
-        && debugSnapshot.loadedGeneratedContentCount == world.getRetainedGeneratedContentCount()
+        && debugSnapshot.retainedChunkCount == world.getRetainedChunkCount()
+        && debugSnapshot.retainedGeneratedContentCount == world.getRetainedGeneratedContentCount()
         && debugSnapshot.renderedGeneratedContentCount == visibleContent.size();
 }
 

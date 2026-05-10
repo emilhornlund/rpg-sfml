@@ -270,6 +270,24 @@ bool verifyDebugOverlayDoesNotBlockInputTranslation()
         && std::fabs(overworldInput.viewportSize.height - viewportSize.height) < 0.0001F;
 }
 
+bool verifyDebugOverlayStringFormatting()
+{
+    const rpg::OverworldDebugSnapshot debugSnapshot{
+        {12, -7},
+        150,
+        17,
+        42,
+        9};
+
+    return rpg::detail::buildDebugOverlayString(debugSnapshot, 144)
+        == "FPS: 144\n"
+           "Retained chunks: 17\n"
+           "Retained objects: 42\n"
+           "Rendered objects: 9\n"
+           "Coordinates: (12, -7)\n"
+           "Zoom: 150%";
+}
+
 bool verifyTileGridOverlayGeometry()
 {
     const rpg::OverworldRenderTile visibleTile{
@@ -396,6 +414,11 @@ int main()
     }
 
     if (!verifyDebugOverlayDoesNotBlockInputTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugOverlayStringFormatting())
     {
         return 1;
     }

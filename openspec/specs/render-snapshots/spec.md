@@ -14,12 +14,17 @@ The overworld gameplay runtime SHALL publish a render snapshot for the active fr
 - **AND** both snapshots can be consumed by the outer game shell without querying `World`, `Player`, or `Camera` directly
 
 ### Requirement: Debug snapshot describes overlay-facing runtime values
-The overworld runtime SHALL publish debug snapshot data containing the current player tile coordinates, active zoom percentage, retained generated-content count for loaded chunks, and visible generated-content count for the active frame.
+The overworld runtime SHALL publish debug snapshot data containing the current player tile coordinates, active zoom percentage, retained chunk count, retained generated-content count for loaded chunks, and visible generated-content count for the active frame.
 
 #### Scenario: Overlay reads gameplay-derived diagnostics
 - **WHEN** the outer game shell prepares to draw the debug overlay for the current frame
-- **THEN** it can read player tile coordinates, zoom percentage, loaded generated-content count, and rendered generated-content count from repo-native runtime snapshot data
+- **THEN** it can read player tile coordinates, zoom percentage, retained chunk count, retained generated-content count, and rendered generated-content count from repo-native runtime snapshot data
 - **AND** it does not need to inspect gameplay-owned modules directly to derive those values
+
+#### Scenario: Snapshot metrics reflect bounded chunk retention
+- **WHEN** the overworld runtime advances through exploration that causes old chunks to unload
+- **THEN** the published retained chunk count and retained generated-content count describe only the chunks currently retained in the world cache
+- **AND** those counts are allowed to decrease after retention pruning removes out-of-window chunks
 
 ### Requirement: Render snapshots describe visible frame content
 The render snapshot SHALL include the active camera frame, the visible terrain tiles for that frame, a collection of renderable markers for gameplay entities that should appear in the frame, and a collection of renderable generated-content entries for deterministic world content visible in that frame. Snapshot-published object entries SHALL carry the world-space information required to render vegetation and gameplay markers in deterministic y-sorted order.

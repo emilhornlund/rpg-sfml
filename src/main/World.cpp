@@ -118,6 +118,32 @@ struct WorldBounds
         detail::getChunkCoordinate(bounds.maxY)};
 }
 
+[[nodiscard]] VisibleTileBounds getContentTileBounds(const float tileSize, const ViewFrame& frame) noexcept
+{
+    const VisibleTileBounds bounds = getVisibleTileBounds(tileSize, frame);
+
+    if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
+    {
+        return bounds;
+    }
+
+    const int contentOverscanInTiles = detail::getWorldContentVisibilityOverscanInTiles();
+    return {
+        bounds.minX - contentOverscanInTiles,
+        bounds.maxX + contentOverscanInTiles,
+        bounds.minY - contentOverscanInTiles,
+        bounds.maxY + contentOverscanInTiles};
+}
+
+[[nodiscard]] VisibleChunkBounds expandChunkBounds(const VisibleChunkBounds& bounds, const int marginInChunks) noexcept
+{
+    return {
+        bounds.minX - marginInChunks,
+        bounds.maxX + marginInChunks,
+        bounds.minY - marginInChunks,
+        bounds.maxY + marginInChunks};
+}
+
 [[nodiscard]] bool intersectsWorldBounds(const WorldBounds& bounds, const ContentInstance& instance) noexcept
 {
     if (instance.footprint.size.width <= 0.0F || instance.footprint.size.height <= 0.0F)
@@ -277,11 +303,7 @@ std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame
         return visibleContent;
     }
 
-    const VisibleTileBounds contentBounds{
-        bounds.minX - detail::getWorldContentVisibilityOverscanInTiles(),
-        bounds.maxX + detail::getWorldContentVisibilityOverscanInTiles(),
-        bounds.minY - detail::getWorldContentVisibilityOverscanInTiles(),
-        bounds.maxY + detail::getWorldContentVisibilityOverscanInTiles()};
+    const VisibleTileBounds contentBounds = getContentTileBounds(m_state.config.tileSize, frame);
     const VisibleChunkBounds contentChunkBounds = getVisibleChunkBounds(contentBounds);
     const WorldBounds worldBounds = getWorldBounds(frame);
 
@@ -306,15 +328,34 @@ std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame
 
 std::size_t World::getRetainedGeneratedContentCount() const noexcept
 {
-    std::size_t retainedCount = 0;
+    return m_state.retainedGeneratedContentCount;
+}
 
-    for (const auto& [chunkKey, retainedChunk] : m_state.chunks)
+std::size_t World::getRetainedChunkCount() const noexcept
+{
+    return m_state.chunks.size();
+}
+
+void World::updateRetentionWindow(const ViewFrame& frame)
+{
+    constexpr int kRetentionMarginInChunks = 1;
+    const VisibleTileBounds contentBounds = getContentTileBounds(m_state.config.tileSize, frame);
+
+    if (contentBounds.minX > contentBounds.maxX || contentBounds.minY > contentBounds.maxY)
     {
-        (void)chunkKey;
-        retainedCount += retainedChunk.content.instances.size();
+        return;
     }
 
-    return retainedCount;
+    const VisibleChunkBounds retentionChunkBounds = expandChunkBounds(
+        getVisibleChunkBounds(contentBounds),
+        kRetentionMarginInChunks);
+    m_state.retentionWindow = {
+        retentionChunkBounds.minX,
+        retentionChunkBounds.maxX,
+        retentionChunkBounds.minY,
+        retentionChunkBounds.maxY,
+        true};
+    pruneRetainedChunks();
 }
 
 World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinates& coordinates) const
@@ -335,7 +376,35 @@ World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinat
     retainedChunk.tiles = std::move(chunkData.tiles);
     retainedChunk.metadata = std::move(chunkData.metadata);
     const auto insertedChunk = m_state.chunks.emplace(chunkKey, std::move(retainedChunk));
+    m_state.retainedGeneratedContentCount += insertedChunk.first->second.content.instances.size();
     return insertedChunk.first->second;
+}
+
+void World::pruneRetainedChunks() const
+{
+    if (!m_state.retentionWindow.isActive)
+    {
+        return;
+    }
+
+    auto chunkIt = m_state.chunks.begin();
+
+    while (chunkIt != m_state.chunks.end())
+    {
+        const ChunkCoordinates coordinates{chunkIt->first.first, chunkIt->first.second};
+
+        if (coordinates.x >= m_state.retentionWindow.minChunkX
+            && coordinates.x <= m_state.retentionWindow.maxChunkX
+            && coordinates.y >= m_state.retentionWindow.minChunkY
+            && coordinates.y <= m_state.retentionWindow.maxChunkY)
+        {
+            ++chunkIt;
+            continue;
+        }
+
+        m_state.retainedGeneratedContentCount -= chunkIt->second.content.instances.size();
+        chunkIt = m_state.chunks.erase(chunkIt);
+    }
 }
 
 WorldPosition World::getTileCenter(const TileCoordinates& coordinates) const noexcept

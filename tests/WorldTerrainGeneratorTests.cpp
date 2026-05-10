@@ -610,6 +610,101 @@ struct CardinalNeighborMask
         && !containsVisibleContent(nonIntersectingContent, *sampleInstance);
 }
 
+[[nodiscard]] bool verifyChunkRetentionWindowCanUnloadAndRegenerate()
+{
+    const rpg::WorldConfig config{.seed = 0x0BADCAFEU, .widthInTiles = 48, .heightInTiles = 32, .tileSize = 24.0F};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const rpg::ViewFrame firstFrame{
+        {
+            static_cast<float>(rpg::detail::getChunkSizeInTiles() * 10) * config.tileSize,
+            static_cast<float>(rpg::detail::getChunkSizeInTiles() * 8) * config.tileSize,
+        },
+        {config.tileSize * 8.0F, config.tileSize * 6.0F}};
+
+    world.updateRetentionWindow(firstFrame);
+    const std::vector<rpg::VisibleWorldTile> firstVisibleTiles = world.getVisibleTiles(firstFrame);
+
+    if (firstVisibleTiles.empty() || world.getRetainedChunkCount() == 0)
+    {
+        return false;
+    }
+
+    const rpg::ChunkCoordinates retainedChunk = world.getChunkCoordinates(firstVisibleTiles.front().coordinates);
+    const rpg::ChunkContent retainedContent = world.getChunkContent(retainedChunk);
+    const std::size_t retainedChunkCount = world.getRetainedChunkCount();
+    const std::size_t retainedContentCount = world.getRetainedGeneratedContentCount();
+    const std::size_t generatedAfterFirstWindow = rpg::detail::getGeneratedChunkCount();
+    const rpg::ViewFrame secondFrame{
+        {
+            static_cast<float>(-rpg::detail::getChunkSizeInTiles() * 10) * config.tileSize,
+            static_cast<float>(-rpg::detail::getChunkSizeInTiles() * 8) * config.tileSize,
+        },
+        firstFrame.size};
+
+    world.updateRetentionWindow(secondFrame);
+
+    if (world.getRetainedChunkCount() >= retainedChunkCount
+        || world.getRetainedGeneratedContentCount() >= retainedContentCount)
+    {
+        return false;
+    }
+
+    const std::size_t generatedBeforeReload = rpg::detail::getGeneratedChunkCount();
+    const rpg::ChunkContent reloadedContent = world.getChunkContent(retainedChunk);
+
+    return generatedBeforeReload == generatedAfterFirstWindow
+        && rpg::detail::getGeneratedChunkCount() > generatedBeforeReload
+        && areEqual(retainedContent, reloadedContent);
+}
+
+[[nodiscard]] bool verifyVisibleQueriesStillWorkWithChunkUnloading()
+{
+    const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
+    rpg::World world(config);
+    std::optional<rpg::ContentInstance> sampleInstance;
+
+    for (int chunkY = -12; chunkY <= 12 && !sampleInstance.has_value(); ++chunkY)
+    {
+        for (int chunkX = -12; chunkX <= 12; ++chunkX)
+        {
+            const rpg::ChunkContent content = world.getChunkContent(rpg::ChunkCoordinates{chunkX, chunkY});
+
+            if (!content.instances.empty())
+            {
+                sampleInstance = content.instances.front();
+                break;
+            }
+        }
+    }
+
+    if (!sampleInstance.has_value())
+    {
+        return false;
+    }
+
+    const float frameSize = world.getTileSize() * 0.5F;
+    const float overlap = world.getTileSize() * 0.25F;
+    const float footprintLeft = sampleInstance->position.x + sampleInstance->footprint.offset.x;
+    const float footprintRight = footprintLeft + sampleInstance->footprint.size.width;
+    const float footprintVerticalCenter =
+        sampleInstance->position.y + sampleInstance->footprint.offset.y + (sampleInstance->footprint.size.height * 0.5F);
+    const rpg::ViewFrame frame{
+        {
+            footprintRight + (frameSize * 0.5F) - overlap,
+            footprintVerticalCenter,
+        },
+        {frameSize, frameSize}};
+
+    world.updateRetentionWindow(frame);
+    const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(frame);
+    const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(frame);
+
+    return !visibleTiles.empty()
+        && containsVisibleContent(visibleContent, *sampleInstance)
+        && world.getRetainedChunkCount() > 0;
+}
+
 [[nodiscard]] bool verifyForestChunksProduceDenserVegetationThanGrassChunks()
 {
     const rpg::WorldConfig config{.seed = 0x89ABCDEFU, .widthInTiles = 48, .heightInTiles = 28, .tileSize = 16.0F};
@@ -1027,6 +1122,16 @@ int main()
     }
 
     if (!verifyVisibleContentQueries())
+    {
+        return 1;
+    }
+
+    if (!verifyChunkRetentionWindowCanUnloadAndRegenerate())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleQueriesStillWorkWithChunkUnloading())
     {
         return 1;
     }

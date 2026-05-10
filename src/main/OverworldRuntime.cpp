@@ -151,6 +151,7 @@ void OverworldRuntime::refreshRenderSnapshot()
 {
     const float tileSize = m_world.getTileSize();
     m_renderSnapshot.cameraFrame = detail::snapViewFrameToPixelGrid(m_camera.getFrame(), m_viewportSize);
+    m_world.updateRetentionWindow(m_renderSnapshot.cameraFrame);
 
     const std::vector<VisibleWorldTile> visibleTiles = m_world.getVisibleTiles(m_renderSnapshot.cameraFrame);
     m_renderSnapshot.visibleTiles.clear();
@@ -179,7 +180,8 @@ void OverworldRuntime::refreshRenderSnapshot()
 
     m_debugSnapshot.playerTileCoordinates = m_world.getTileCoordinates(m_player.getPosition());
     m_debugSnapshot.zoomPercent = m_camera.getZoomPercent();
-    m_debugSnapshot.loadedGeneratedContentCount = m_world.getRetainedGeneratedContentCount();
+    m_debugSnapshot.retainedChunkCount = m_world.getRetainedChunkCount();
+    m_debugSnapshot.retainedGeneratedContentCount = m_world.getRetainedGeneratedContentCount();
     m_debugSnapshot.renderedGeneratedContentCount = m_renderSnapshot.generatedContent.size();
 }
 

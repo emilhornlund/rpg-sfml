@@ -33,6 +33,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <sstream>
+#include <string>
 #include <utility>
 
 namespace rpg::detail
@@ -268,6 +270,21 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
 [[nodiscard]] constexpr bool shouldRenderDebugOverlay(const DebugOverlayState& debugOverlayState) noexcept
 {
     return debugOverlayState.isVisible;
+}
+
+[[nodiscard]] inline std::string buildDebugOverlayString(
+    const OverworldDebugSnapshot& debugSnapshot,
+    const int displayedFramesPerSecond)
+{
+    std::ostringstream overlayStream;
+    overlayStream
+        << "FPS: " << displayedFramesPerSecond << '\n'
+        << "Retained chunks: " << debugSnapshot.retainedChunkCount << '\n'
+        << "Retained objects: " << debugSnapshot.retainedGeneratedContentCount << '\n'
+        << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
+        << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
+        << "Zoom: " << debugSnapshot.zoomPercent << '%';
+    return overlayStream.str();
 }
 
 [[nodiscard]] constexpr WindowFramePacingConfig makeWindowFramePacingConfig(

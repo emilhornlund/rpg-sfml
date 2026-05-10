@@ -50,7 +50,6 @@
 #include <cstdint>
 #include <map>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -257,20 +256,6 @@ using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
     return accumulatedSeconds > 0.0F
         ? static_cast<int>(static_cast<float>(sampleCount) / accumulatedSeconds + 0.5F)
         : fallbackFrameRate;
-}
-
-[[nodiscard]] std::string buildDebugOverlayString(
-    const OverworldDebugSnapshot& debugSnapshot,
-    const int displayedFramesPerSecond)
-{
-    std::ostringstream overlayStream;
-    overlayStream
-        << "FPS: " << displayedFramesPerSecond << '\n'
-        << "Loaded objects: " << debugSnapshot.loadedGeneratedContentCount << '\n'
-        << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
-        << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
-        << "Zoom: " << debugSnapshot.zoomPercent << '%';
-    return overlayStream.str();
 }
 
 struct RenderQueueEntry
@@ -574,7 +559,7 @@ void Game::render()
 
         sf::Text debugOverlayText(
             m_impl->debugOverlayFont,
-            buildDebugOverlayString(
+            detail::buildDebugOverlayString(
                 debugSnapshot,
                 m_impl->displayedFramesPerSecond),
             kDebugOverlayCharacterSize);
