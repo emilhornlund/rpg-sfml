@@ -1,5 +1,12 @@
+include(VendoredSFML)
+
+rpg_resolve_vendored_sfml(RPG_TEST_SFML_INCLUDE_DIR RPG_TEST_SFML_LIB_DIR)
+
 add_executable(game_runtime_support_tests
     GameRuntimeSupportTests.cpp
+)
+add_executable(player_occlusion_silhouette_tests
+    PlayerOcclusionSilhouetteTests.cpp
 )
 add_executable(game_asset_support_tests
     GameAssetSupportTests.cpp
@@ -63,6 +70,7 @@ add_executable(tileset_asset_loader_tests
 )
 
 target_compile_features(game_runtime_support_tests PRIVATE cxx_std_20)
+target_compile_features(player_occlusion_silhouette_tests PRIVATE cxx_std_20)
 target_compile_features(game_asset_support_tests PRIVATE cxx_std_20)
 target_compile_features(gameplay_module_types_tests PRIVATE cxx_std_20)
 target_compile_features(overworld_runtime_tests PRIVATE cxx_std_20)
@@ -72,6 +80,10 @@ target_compile_features(terrain_autotile_support_tests PRIVATE cxx_std_20)
 target_compile_features(tileset_asset_loader_tests PRIVATE cxx_std_20)
 
 target_include_directories(game_runtime_support_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/src/main"
+)
+target_include_directories(player_occlusion_silhouette_tests PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/src/main"
 )
@@ -105,6 +117,7 @@ target_include_directories(tileset_asset_loader_tests PRIVATE
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(game_runtime_support_tests PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(player_occlusion_silhouette_tests PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(game_asset_support_tests PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(gameplay_module_types_tests PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(overworld_runtime_tests PRIVATE -Wall -Wextra -Wpedantic)
@@ -119,7 +132,16 @@ target_compile_definitions(overworld_runtime_tests PRIVATE RPG_DEFAULT_ASSET_ROO
 target_compile_definitions(overworld_vertical_slice_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
 target_compile_definitions(world_terrain_generator_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
 
+target_link_libraries(player_occlusion_silhouette_tests PRIVATE SFML::Graphics)
+set_target_properties(player_occlusion_silhouette_tests PROPERTIES
+    BUILD_RPATH "${RPG_TEST_SFML_LIB_DIR}"
+)
+
 add_test(NAME game_runtime_support_tests COMMAND game_runtime_support_tests)
+add_test(NAME player_occlusion_silhouette_tests COMMAND player_occlusion_silhouette_tests)
+set_tests_properties(player_occlusion_silhouette_tests PROPERTIES
+    ENVIRONMENT "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
 add_test(
     NAME game_asset_support_tests
     COMMAND game_asset_support_tests

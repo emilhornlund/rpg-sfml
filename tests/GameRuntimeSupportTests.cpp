@@ -26,6 +26,7 @@
 
 #include "GameRuntimeSupport.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -348,6 +349,78 @@ bool verifyOverworldRenderOrdering()
             rpg::detail::makeRenderOrderKey(lowerVegetation));
 }
 
+bool verifyFrontOccluderSelection()
+{
+    const rpg::OverworldRenderContent backgroundVegetation{
+        11,
+        rpg::ContentType::Shrub,
+        "bush_small_1",
+        {3, 6},
+        {32.0F, 32.0F},
+        {8.0F, 24.0F},
+        {56.0F, 104.0F},
+        {18},
+        104.0F};
+    const rpg::OverworldRenderContent sameDepthVegetation{
+        12,
+        rpg::ContentType::Shrub,
+        "bush_small_1",
+        {4, 8},
+        {32.0F, 32.0F},
+        {8.0F, 24.0F},
+        {72.0F, 136.0F},
+        {19},
+        136.0F};
+    const rpg::OverworldRenderContent frontVegetation{
+        13,
+        rpg::ContentType::Tree,
+        "tree_small_1",
+        {5, 10},
+        {48.0F, 48.0F},
+        {24.0F, 40.0F},
+        {88.0F, 152.0F},
+        {20},
+        152.0F};
+    const rpg::OverworldRenderMarker playerMarker{
+        {48.0F, 48.0F},
+        {24.0F, 32.0F},
+        {72.0F, 136.0F},
+        rpg::OverworldRenderMarkerAppearance::Player,
+        rpg::PlayerFacingDirection::Down,
+        1,
+        136.0F};
+
+    std::vector<rpg::detail::OverworldRenderQueueEntry> renderQueue{
+        rpg::detail::makeRenderQueueEntry(playerMarker, 0),
+        rpg::detail::makeRenderQueueEntry(frontVegetation, 2),
+        rpg::detail::makeRenderQueueEntry(backgroundVegetation, 0),
+        rpg::detail::makeRenderQueueEntry(sameDepthVegetation, 1)};
+
+    std::stable_sort(
+        renderQueue.begin(),
+        renderQueue.end(),
+        [](const rpg::detail::OverworldRenderQueueEntry& lhs, const rpg::detail::OverworldRenderQueueEntry& rhs)
+        {
+            return rpg::detail::shouldRenderBefore(lhs.orderKey, rhs.orderKey);
+        });
+
+    std::vector<rpg::detail::OverworldRenderQueueEntry> unobstructedQueue{
+        rpg::detail::makeRenderQueueEntry(backgroundVegetation, 0),
+        rpg::detail::makeRenderQueueEntry(playerMarker, 0)};
+
+    std::stable_sort(
+        unobstructedQueue.begin(),
+        unobstructedQueue.end(),
+        [](const rpg::detail::OverworldRenderQueueEntry& lhs, const rpg::detail::OverworldRenderQueueEntry& rhs)
+        {
+            return rpg::detail::shouldRenderBefore(lhs.orderKey, rhs.orderKey);
+        });
+
+    return rpg::detail::collectFrontGeneratedContentIndices(renderQueue) == std::vector<std::size_t>{2}
+        && rpg::detail::collectFrontGeneratedContentIndices(unobstructedQueue).empty()
+        && rpg::detail::collectFrontGeneratedContentIndices(std::vector<rpg::detail::OverworldRenderQueueEntry>{}).empty();
+}
+
 bool verifyPixelSnappedViewFrame()
 {
     const rpg::ViewFrame unsnappedFrame{{103.2F, 135.6F}, {320.0F, 180.0F}};
@@ -429,6 +502,11 @@ int main()
     }
 
     if (!verifyOverworldRenderOrdering())
+    {
+        return 1;
+    }
+
+    if (!verifyFrontOccluderSelection())
     {
         return 1;
     }

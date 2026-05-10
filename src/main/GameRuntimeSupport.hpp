@@ -31,11 +31,13 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace rpg::detail
 {
@@ -389,6 +391,19 @@ struct OverworldRenderOrderKey
     std::uint64_t stableId = 0;
 };
 
+enum class OverworldRenderQueueEntryKind : std::uint8_t
+{
+    GeneratedContent = 0,
+    PlayerMarker = 1
+};
+
+struct OverworldRenderQueueEntry
+{
+    OverworldRenderQueueEntryKind kind = OverworldRenderQueueEntryKind::GeneratedContent;
+    OverworldRenderOrderKey orderKey{};
+    std::size_t sourceIndex = 0;
+};
+
 [[nodiscard]] constexpr OverworldRenderOrderKey makeRenderOrderKey(const OverworldRenderContent& renderContent) noexcept
 {
     return {renderContent.sortKeyY, 0U, renderContent.id};
@@ -397,6 +412,20 @@ struct OverworldRenderOrderKey
 [[nodiscard]] constexpr OverworldRenderOrderKey makeRenderOrderKey(const OverworldRenderMarker& renderMarker) noexcept
 {
     return {renderMarker.sortKeyY, 1U, std::numeric_limits<std::uint64_t>::max()};
+}
+
+[[nodiscard]] constexpr OverworldRenderQueueEntry makeRenderQueueEntry(
+    const OverworldRenderContent& renderContent,
+    const std::size_t sourceIndex) noexcept
+{
+    return {OverworldRenderQueueEntryKind::GeneratedContent, makeRenderOrderKey(renderContent), sourceIndex};
+}
+
+[[nodiscard]] constexpr OverworldRenderQueueEntry makeRenderQueueEntry(
+    const OverworldRenderMarker& renderMarker,
+    const std::size_t sourceIndex) noexcept
+{
+    return {OverworldRenderQueueEntryKind::PlayerMarker, makeRenderOrderKey(renderMarker), sourceIndex};
 }
 
 [[nodiscard]] constexpr bool shouldRenderBefore(
@@ -414,6 +443,29 @@ struct OverworldRenderOrderKey
     }
 
     return lhs.stableId < rhs.stableId;
+}
+
+[[nodiscard]] inline std::vector<std::size_t> collectFrontGeneratedContentIndices(
+    const std::vector<OverworldRenderQueueEntry>& renderQueue)
+{
+    std::vector<std::size_t> generatedContentIndices;
+    bool passedPlayerMarker = false;
+
+    for (const OverworldRenderQueueEntry& entry : renderQueue)
+    {
+        if (entry.kind == OverworldRenderQueueEntryKind::PlayerMarker)
+        {
+            passedPlayerMarker = true;
+            continue;
+        }
+
+        if (passedPlayerMarker)
+        {
+            generatedContentIndices.push_back(entry.sourceIndex);
+        }
+    }
+
+    return generatedContentIndices;
 }
 
 } // namespace rpg::detail

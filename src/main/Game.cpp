@@ -29,10 +29,13 @@
 
 #include "GameAssetSupport.hpp"
 #include "GameRuntimeSupport.hpp"
+#include "PlayerOcclusionSilhouetteSupport.hpp"
 
 #include <algorithm>
 #include <SFML/Graphics/Font.hpp>
 #include <limits>
+#include <SFML/Graphics/RenderTexture.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -47,11 +50,13 @@
 #include <SFML/Window/WindowEnums.hpp>
 
 #include <filesystem>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace rpg
 {
@@ -69,7 +74,6 @@ constexpr float kDebugOverlayPadding = 8.0F;
 constexpr float kDebugOverlayMargin = 12.0F;
 constexpr unsigned int kDebugOverlayCharacterSize = 16U;
 constexpr float kDebugOverlayFrameRateSampleWindowSeconds = 0.25F;
-
 [[nodiscard]] std::optional<detail::OverworldDirectionalKey> getDirectionalKey(
     const sf::Keyboard::Key key) noexcept
 {
@@ -258,20 +262,62 @@ using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
         : fallbackFrameRate;
 }
 
-struct RenderQueueEntry
+void ensureRenderTextureSize(sf::RenderTexture& renderTexture, const sf::Vector2u size)
 {
-    enum class Kind
+    if (size.x == 0U || size.y == 0U)
     {
-        Vegetation,
-        Player
-    };
+        throw std::runtime_error("Failed to initialize player occlusion silhouette render target: window size is invalid.");
+    }
 
-    Kind kind = Kind::Vegetation;
-    float sortKeyY = 0.0F;
-    std::uint64_t stableId = 0;
-    const OverworldRenderContent* content = nullptr;
-    const OverworldRenderMarker* marker = nullptr;
-};
+    const sf::Vector2u currentSize = renderTexture.getSize();
+
+    if (currentSize.x != size.x || currentSize.y != size.y)
+    {
+        if (!renderTexture.resize(size))
+        {
+            throw std::runtime_error("Failed to resize player occlusion silhouette render target.");
+        }
+
+        renderTexture.setSmooth(false);
+    }
+}
+
+void drawVegetationContent(
+    sf::RenderTarget& target,
+    sf::Sprite& vegetationSprite,
+    const detail::VegetationTilesetMetadata& vegetationTilesetMetadata,
+    const OverworldRenderContent& renderContent,
+    const float worldTileSize)
+{
+    const detail::VegetationPrototype& prototype = vegetationTilesetMetadata.getPrototypeById(renderContent.prototypeId);
+
+    for (const detail::VegetationAtlasPart& part : prototype.parts)
+    {
+        const float scaleX = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+        const float scaleY = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+        vegetationSprite.setTextureRect(getVegetationTilesetRect(part.cell));
+        vegetationSprite.setScale({scaleX, scaleY});
+        vegetationSprite.setOrigin({8.0F, 8.0F});
+        vegetationSprite.setPosition({
+            renderContent.position.x + static_cast<float>(part.offsetX) * worldTileSize,
+            renderContent.position.y + static_cast<float>(part.offsetY) * worldTileSize});
+        target.draw(vegetationSprite);
+    }
+}
+
+void drawPlayerMarker(
+    sf::RenderTarget& target,
+    sf::Sprite& sprite,
+    const OverworldRenderMarker& renderMarker)
+{
+    const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
+    const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
+    sprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
+    sprite.setScale({scaleX, scaleY});
+    sprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
+    sprite.setPosition({renderMarker.position.x, renderMarker.position.y});
+    target.draw(sprite);
+}
 
 class Game::Impl
 {
@@ -283,6 +329,7 @@ public:
         , vegetationTileset(loadVegetationTileset())
         , vegetationTilesetMetadata(loadVegetationTilesetMetadata())
         , playerSpritesheet(loadPlayerSpritesheet())
+        , playerOcclusionShader(detail::loadPlayerOcclusionShader())
         , debugOverlayFont(loadDebugOverlayFont())
     {
         const detail::WindowFramePacingConfig framePacing = detail::getDefaultWindowFramePacingConfig();
@@ -297,6 +344,9 @@ public:
     sf::Texture vegetationTileset;
     detail::VegetationTilesetMetadata vegetationTilesetMetadata;
     sf::Texture playerSpritesheet;
+    sf::RenderTexture playerOcclusionMaskTexture;
+    sf::RenderTexture occluderMaskTexture;
+    sf::Shader playerOcclusionShader;
     sf::Font debugOverlayFont;
     OverworldRuntime overworldRuntime;
     detail::OverworldDirectionalInput directionalInput;
@@ -450,37 +500,26 @@ void Game::render()
     sf::RectangleShape gridSegment;
     gridSegment.setFillColor(kGridOverlayColor);
 
-    std::vector<RenderQueueEntry> renderQueue;
+    std::vector<detail::OverworldRenderQueueEntry> renderQueue;
     renderQueue.reserve(renderSnapshot.generatedContent.size() + renderSnapshot.markers.size());
 
-    for (const OverworldRenderContent& renderContent : renderSnapshot.generatedContent)
+    for (std::size_t index = 0; index < renderSnapshot.generatedContent.size(); ++index)
     {
-        renderQueue.push_back({
-            RenderQueueEntry::Kind::Vegetation,
-            renderContent.sortKeyY,
-            renderContent.id,
-            &renderContent,
-            nullptr});
+        renderQueue.push_back(detail::makeRenderQueueEntry(renderSnapshot.generatedContent[index], index));
     }
 
-    for (const OverworldRenderMarker& renderMarker : renderSnapshot.markers)
+    for (std::size_t index = 0; index < renderSnapshot.markers.size(); ++index)
     {
-        renderQueue.push_back({
-            RenderQueueEntry::Kind::Player,
-            renderMarker.sortKeyY,
-            std::numeric_limits<std::uint64_t>::max(),
-            nullptr,
-            &renderMarker});
+        const OverworldRenderMarker& renderMarker = renderSnapshot.markers[index];
+        renderQueue.push_back(detail::makeRenderQueueEntry(renderMarker, index));
     }
 
     std::stable_sort(
         renderQueue.begin(),
         renderQueue.end(),
-        [](const RenderQueueEntry& lhs, const RenderQueueEntry& rhs)
+        [](const detail::OverworldRenderQueueEntry& lhs, const detail::OverworldRenderQueueEntry& rhs)
         {
-            return detail::shouldRenderBefore(
-                {lhs.sortKeyY, static_cast<std::uint8_t>(lhs.kind), lhs.stableId},
-                {rhs.sortKeyY, static_cast<std::uint8_t>(rhs.kind), rhs.stableId});
+            return detail::shouldRenderBefore(lhs.orderKey, rhs.orderKey);
         });
 
     detail::executeOverworldRenderPasses(
@@ -504,30 +543,20 @@ void Game::render()
         },
         [&]()
         {
-            for (const RenderQueueEntry& entry : renderQueue)
+            for (const detail::OverworldRenderQueueEntry& entry : renderQueue)
             {
-                if (entry.kind == RenderQueueEntry::Kind::Vegetation)
+                if (entry.kind == detail::OverworldRenderQueueEntryKind::GeneratedContent)
                 {
-                    const OverworldRenderContent& renderContent = *entry.content;
-                    const detail::VegetationPrototype& prototype =
-                        m_impl->vegetationTilesetMetadata.getPrototypeById(renderContent.prototypeId);
-
-                    for (const detail::VegetationAtlasPart& part : prototype.parts)
-                    {
-                        const float scaleX = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
-                        const float scaleY = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
-                        vegetationSprite.setTextureRect(getVegetationTilesetRect(part.cell));
-                        vegetationSprite.setScale({scaleX, scaleY});
-                        vegetationSprite.setOrigin({8.0F, 8.0F});
-                        vegetationSprite.setPosition({
-                            renderContent.position.x + static_cast<float>(part.offsetX) * worldTileSize,
-                            renderContent.position.y + static_cast<float>(part.offsetY) * worldTileSize});
-                        m_impl->window.draw(vegetationSprite);
-                    }
+                    drawVegetationContent(
+                        m_impl->window,
+                        vegetationSprite,
+                        m_impl->vegetationTilesetMetadata,
+                        renderSnapshot.generatedContent[entry.sourceIndex],
+                        worldTileSize);
                     continue;
                 }
 
-                const OverworldRenderMarker& renderMarker = *entry.marker;
+                const OverworldRenderMarker& renderMarker = renderSnapshot.markers[entry.sourceIndex];
                 const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
                 const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
                 playerSprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
@@ -552,6 +581,53 @@ void Game::render()
             }
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
+
+    const std::vector<std::size_t> frontOccluderIndices = detail::collectFrontGeneratedContentIndices(renderQueue);
+    const auto playerMarkerIt = std::find_if(
+        renderSnapshot.markers.begin(),
+        renderSnapshot.markers.end(),
+        [](const OverworldRenderMarker& renderMarker)
+        {
+            return renderMarker.appearance == OverworldRenderMarkerAppearance::Player;
+        });
+
+    if (playerMarkerIt != renderSnapshot.markers.end() && !frontOccluderIndices.empty())
+    {
+        const sf::Vector2u windowSize = m_impl->window.getSize();
+        ensureRenderTextureSize(m_impl->playerOcclusionMaskTexture, windowSize);
+        ensureRenderTextureSize(m_impl->occluderMaskTexture, windowSize);
+
+        m_impl->playerOcclusionMaskTexture.setView(view);
+        m_impl->occluderMaskTexture.setView(view);
+        m_impl->playerOcclusionMaskTexture.clear(sf::Color::Transparent);
+        m_impl->occluderMaskTexture.clear(sf::Color::Transparent);
+
+        drawPlayerMarker(m_impl->playerOcclusionMaskTexture, playerSprite, *playerMarkerIt);
+
+        for (const std::size_t index : frontOccluderIndices)
+        {
+            drawVegetationContent(
+                m_impl->occluderMaskTexture,
+                vegetationSprite,
+                m_impl->vegetationTilesetMetadata,
+                renderSnapshot.generatedContent[index],
+                worldTileSize);
+        }
+
+        m_impl->playerOcclusionMaskTexture.display();
+        m_impl->occluderMaskTexture.display();
+
+        sf::Sprite playerOcclusionSprite(m_impl->playerOcclusionMaskTexture.getTexture());
+        m_impl->playerOcclusionShader.setUniform("currentTexture", sf::Shader::CurrentTexture);
+        m_impl->playerOcclusionShader.setUniform("occluderMask", m_impl->occluderMaskTexture.getTexture());
+        m_impl->playerOcclusionShader.setUniform(
+            "silhouetteColor",
+            sf::Glsl::Vec4(detail::kPlayerOcclusionSilhouetteColor));
+
+        m_impl->window.setView(m_impl->window.getDefaultView());
+        m_impl->window.draw(playerOcclusionSprite, &m_impl->playerOcclusionShader);
+        m_impl->window.setView(view);
+    }
 
     if (detail::shouldRenderDebugOverlay(m_impl->debugOverlayState))
     {
