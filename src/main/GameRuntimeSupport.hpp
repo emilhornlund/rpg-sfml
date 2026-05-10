@@ -246,6 +246,15 @@ constexpr void applyDirectionalInputRelease(
         debugViewState};
 }
 
+[[nodiscard]] constexpr WorldSize makeViewportSize(
+    const std::uint32_t widthPixels,
+    const std::uint32_t heightPixels) noexcept
+{
+    return {
+        static_cast<float>(widthPixels),
+        static_cast<float>(heightPixels)};
+}
+
 [[nodiscard]] constexpr bool shouldRenderTileGridOverlay(const OverworldInput::DebugViewState& debugViewState) noexcept
 {
     return debugViewState.isEnabled && debugViewState.showTileGrid;

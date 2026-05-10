@@ -413,9 +413,8 @@ void Game::processEvents()
 
 void Game::update(float deltaTimeSeconds)
 {
-    const WorldSize viewportSize{
-        static_cast<float>(kWindowWidth),
-        static_cast<float>(kWindowHeight)};
+    const sf::Vector2u windowSize = m_impl->window.getSize();
+    const WorldSize viewportSize = detail::makeViewportSize(windowSize.x, windowSize.y);
     m_impl->frameRateAccumulatedSeconds += std::max(deltaTimeSeconds, 0.0F);
     ++m_impl->frameRateSampleCount;
 

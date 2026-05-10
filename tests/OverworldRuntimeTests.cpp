@@ -319,6 +319,32 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(zoomedOutFrame.size.height, 600.0F);
 }
 
+[[nodiscard]] bool verifyUpdatedViewportChangesPublishedCameraFrame()
+{
+    rpg::OverworldRuntime runtime;
+
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1280.0F, 720.0F},
+            {true, 300, false}});
+    const rpg::ViewFrame initialFrame = runtime.getRenderSnapshot().cameraFrame;
+
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1600.0F, 900.0F},
+            {true, 300, false}});
+    const rpg::ViewFrame resizedFrame = runtime.getRenderSnapshot().cameraFrame;
+
+    return areClose(initialFrame.size.width, 1280.0F / 3.0F)
+        && areClose(initialFrame.size.height, 720.0F / 3.0F)
+        && areClose(resizedFrame.size.width, 1600.0F / 3.0F)
+        && areClose(resizedFrame.size.height, 900.0F / 3.0F);
+}
+
 [[nodiscard]] bool verifyRenderSnapshotPublishesGeneratedContent()
 {
     rpg::OverworldRuntime runtime;
@@ -450,6 +476,11 @@ int main()
     }
 
     if (!verifyDebugZoomAdjustsPublishedCameraFrame())
+    {
+        return 1;
+    }
+
+    if (!verifyUpdatedViewportChangesPublishedCameraFrame())
     {
         return 1;
     }

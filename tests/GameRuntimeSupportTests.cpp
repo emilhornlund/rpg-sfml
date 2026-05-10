@@ -192,6 +192,14 @@ bool verifyOverworldInputTranslation()
         && overworldInput.debugViewState.showTileGrid;
 }
 
+bool verifyViewportSizeTranslation()
+{
+    const rpg::WorldSize viewportSize = rpg::detail::makeViewportSize(1600U, 900U);
+
+    return std::fabs(viewportSize.width - 1600.0F) < 0.0001F
+        && std::fabs(viewportSize.height - 900.0F) < 0.0001F;
+}
+
 bool verifyDebugViewStateTranslation()
 {
     rpg::OverworldInput::DebugViewState debugViewState = rpg::detail::makeOverworldDebugViewState(true);
@@ -368,6 +376,11 @@ int main()
     }
 
     if (!verifyOverworldInputTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyViewportSizeTranslation())
     {
         return 1;
     }

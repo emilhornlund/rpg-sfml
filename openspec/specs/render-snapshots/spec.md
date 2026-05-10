@@ -42,3 +42,11 @@ Each visible tile entry, marker entry, and generated-content entry in the render
 - **AND** it can choose the correct player spritesheet frame from snapshot-provided player presentation metadata
 - **AND** it can draw deterministic generated content from snapshot-provided content presentation metadata
 - **AND** it can order vegetation and player presentation from snapshot-provided world-space ordering data
+
+### Requirement: Camera frame sizing matches the active window dimensions
+The overworld runtime SHALL publish render snapshots whose camera-frame size is derived from the active runtime viewport dimensions for the current frame so that overworld rendering stays aligned with the current window size.
+
+#### Scenario: Snapshot camera frame reflects resized viewport
+- **WHEN** the active window dimensions change before an overworld frame is updated
+- **THEN** the published render snapshot uses a camera-frame size calculated from the updated viewport dimensions for that frame
+- **AND** the outer game shell can render the overworld without stretching content because of stale camera-frame sizing
