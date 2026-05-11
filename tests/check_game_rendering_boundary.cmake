@@ -33,8 +33,20 @@ if(NOT GAME_CPP_CONTENT MATCHES "loadFromFile")
     message(FATAL_ERROR "Game.cpp does not load the terrain tileset asset")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "sf::Sprite")
-    message(FATAL_ERROR "Game.cpp does not render terrain with sprites")
+if(NOT GAME_CPP_CONTENT MATCHES "buildTerrainVertexArray")
+    message(FATAL_ERROR "Game.cpp does not build batched terrain geometry")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "buildTileGridVertexArray")
+    message(FATAL_ERROR "Game.cpp does not build batched tile-grid geometry")
+endif()
+
+if(GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw\\(tileSprite\\);")
+    message(FATAL_ERROR "Game.cpp still submits terrain through per-tile sprite draws")
+endif()
+
+if(GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw\\(gridSegment\\);")
+    message(FATAL_ERROR "Game.cpp still submits tile-grid overlay through per-rectangle draws")
 endif()
 
 if(GAME_CPP_CONTENT MATCHES "setFillColor\\(getTileColor\\(visibleTile\\.tileType\\)\\)")

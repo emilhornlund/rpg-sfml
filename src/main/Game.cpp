@@ -28,6 +28,7 @@
 #include <main/OverworldRuntime.hpp>
 
 #include "GameAssetSupport.hpp"
+#include "GameRenderBatchSupport.hpp"
 #include "GameRuntimeSupport.hpp"
 #include "PlayerOcclusionSilhouetteSupport.hpp"
 
@@ -38,10 +39,12 @@
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderStates.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
@@ -52,7 +55,6 @@
 #include <filesystem>
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -62,7 +64,6 @@ namespace rpg
 {
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
-constexpr int kTerrainTilesetCellSize = 16;
 constexpr int kVegetationTilesetCellSize = 16;
 constexpr int kPlayerSpritesheetCellSize = 48;
 const sf::Color kBackgroundColor(24, 24, 27);
@@ -175,48 +176,6 @@ constexpr float kDebugOverlayFrameRateSampleWindowSeconds = 0.25F;
 [[nodiscard]] detail::VegetationTilesetMetadata loadVegetationTilesetMetadata()
 {
     return detail::loadVegetationTilesetMetadata(detail::getAssetRootPath());
-}
-
-[[nodiscard]] sf::IntRect getTerrainTilesetRect(const detail::TerrainAtlasCell& cell) noexcept
-{
-    return {
-        {cell.tileX * kTerrainTilesetCellSize, cell.tileY * kTerrainTilesetCellSize},
-        {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
-}
-
-using VisibleTileTypeMap = std::map<std::pair<int, int>, TileType>;
-
-[[nodiscard]] VisibleTileTypeMap buildVisibleTileTypeMap(const OverworldRenderSnapshot& renderSnapshot)
-{
-    VisibleTileTypeMap visibleTileTypes;
-
-    for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
-    {
-        visibleTileTypes[{visibleTile.coordinates.x, visibleTile.coordinates.y}] = visibleTile.tileType;
-    }
-
-    return visibleTileTypes;
-}
-
-[[nodiscard]] std::array<TileType, 8> getNeighborTileTypes(
-    const VisibleTileTypeMap& visibleTileTypes,
-    const OverworldRenderTile& visibleTile) noexcept
-{
-    const auto getTileTypeOrCurrent = [&visibleTileTypes, &visibleTile](const int x, const int y) noexcept
-    {
-        const auto tileIt = visibleTileTypes.find({x, y});
-        return tileIt == visibleTileTypes.end() ? visibleTile.tileType : tileIt->second;
-    };
-
-    return {
-        getTileTypeOrCurrent(visibleTile.coordinates.x, visibleTile.coordinates.y - 1),
-        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y - 1),
-        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y),
-        getTileTypeOrCurrent(visibleTile.coordinates.x + 1, visibleTile.coordinates.y + 1),
-        getTileTypeOrCurrent(visibleTile.coordinates.x, visibleTile.coordinates.y + 1),
-        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y + 1),
-        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y),
-        getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y - 1)};
 }
 
 [[nodiscard]] int getPlayerSpritesheetRow(const PlayerFacingDirection facingDirection) noexcept
@@ -507,14 +466,23 @@ void Game::render()
     applyViewFrame(view, renderSnapshot.cameraFrame);
     m_impl->window.setView(view);
 
-    sf::Sprite tileSprite(m_impl->terrainTileset);
-    const VisibleTileTypeMap visibleTileTypes = buildVisibleTileTypeMap(renderSnapshot);
     const std::uint32_t worldGenerationSeed = m_impl->overworldRuntime.getWorldGenerationSeed();
     const float worldTileSize = renderSnapshot.visibleTiles.empty() ? 16.0F : renderSnapshot.visibleTiles.front().size.width;
+    const sf::VertexArray terrainVertexArray = detail::buildTerrainVertexArray(
+        m_impl->terrainTilesetMetadata,
+        renderSnapshot,
+        m_impl->terrainAnimationElapsedSeconds,
+        worldGenerationSeed);
+    const sf::RenderStates terrainRenderStates(&m_impl->terrainTileset);
     sf::Sprite vegetationSprite(m_impl->vegetationTileset);
     sf::Sprite playerSprite(m_impl->playerSpritesheet);
-    sf::RectangleShape gridSegment;
-    gridSegment.setFillColor(kGridOverlayColor);
+    sf::VertexArray tileGridVertexArray(sf::PrimitiveType::Triangles);
+
+    if (detail::shouldRenderTileGridOverlay(m_impl->debugViewState))
+    {
+        tileGridVertexArray =
+            detail::buildTileGridVertexArray(renderSnapshot.visibleTiles, kGridOverlayThickness, kGridOverlayColor);
+    }
 
     std::vector<detail::OverworldRenderQueueEntry> renderQueue;
     renderQueue.reserve(renderSnapshot.generatedContent.size() + renderSnapshot.markers.size());
@@ -541,21 +509,7 @@ void Game::render()
     detail::executeOverworldRenderPasses(
         [&]()
         {
-            for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
-            {
-                const float scaleX = visibleTile.size.width / static_cast<float>(kTerrainTilesetCellSize);
-                const float scaleY = visibleTile.size.height / static_cast<float>(kTerrainTilesetCellSize);
-                tileSprite.setTextureRect(getTerrainTilesetRect(detail::selectTerrainAtlasCell(
-                    m_impl->terrainTilesetMetadata,
-                    visibleTile,
-                    getNeighborTileTypes(visibleTileTypes, visibleTile),
-                    m_impl->terrainAnimationElapsedSeconds,
-                    worldGenerationSeed)));
-                tileSprite.setScale({scaleX, scaleY});
-                tileSprite.setOrigin({visibleTile.origin.x / scaleX, visibleTile.origin.y / scaleY});
-                tileSprite.setPosition({visibleTile.position.x, visibleTile.position.y});
-                m_impl->window.draw(tileSprite);
-            }
+            m_impl->window.draw(terrainVertexArray, terrainRenderStates);
         },
         [&]()
         {
@@ -584,17 +538,7 @@ void Game::render()
         },
         [&]()
         {
-            for (const OverworldRenderTile& visibleTile : renderSnapshot.visibleTiles)
-            {
-                const auto overlayRectangles = detail::getTileGridOverlayRectangles(visibleTile, kGridOverlayThickness);
-
-                for (const detail::OverlayRectangle& overlayRectangle : overlayRectangles)
-                {
-                    gridSegment.setSize({overlayRectangle.size.width, overlayRectangle.size.height});
-                    gridSegment.setPosition({overlayRectangle.position.x, overlayRectangle.position.y});
-                    m_impl->window.draw(gridSegment);
-                }
-            }
+            m_impl->window.draw(tileGridVertexArray);
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
 

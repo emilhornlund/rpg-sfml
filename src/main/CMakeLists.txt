@@ -7,6 +7,7 @@ add_executable(main
     BiomeSampler.cpp
     Camera.cpp
     Game.cpp
+    GameRenderBatchSupport.cpp
     OverworldRuntime.cpp
     Player.cpp
     TerrainAutotileSupport.cpp
