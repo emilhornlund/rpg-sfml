@@ -319,6 +319,17 @@ void drawPlayerMarker(
     target.draw(sprite);
 }
 
+void applyViewFrame(sf::View& view, const ViewFrame& frame)
+{
+    view.setCenter({frame.center.x, frame.center.y});
+    view.setSize({frame.size.width, frame.size.height});
+}
+
+void updateScreenSpaceOverlayView(sf::View& overlayView, const sf::Vector2u size)
+{
+    applyViewFrame(overlayView, detail::makeScreenSpaceViewFrame(size.x, size.y));
+}
+
 class Game::Impl
 {
 public:
@@ -336,9 +347,11 @@ public:
         window.setVerticalSyncEnabled(framePacing.mode == detail::WindowFramePacingMode::VerticalSync);
         window.setFramerateLimit(
             framePacing.mode == detail::WindowFramePacingMode::FramerateLimit ? framePacing.framerateLimit : 0U);
+        updateScreenSpaceOverlayView(overlayView, window.getSize());
     }
 
     sf::RenderWindow window;
+    sf::View overlayView;
     sf::Texture terrainTileset;
     detail::TerrainTilesetMetadata terrainTilesetMetadata;
     sf::Texture vegetationTileset;
@@ -405,6 +418,10 @@ void Game::processEvents()
         if (event->is<sf::Event::Closed>())
         {
             runtimeEvent = detail::RuntimeEvent::WindowClosed;
+        }
+        else if (const auto* resized = event->getIf<sf::Event::Resized>())
+        {
+            updateScreenSpaceOverlayView(m_impl->overlayView, resized->size);
         }
         else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
@@ -487,8 +504,7 @@ void Game::render()
     const OverworldRenderSnapshot& renderSnapshot = m_impl->overworldRuntime.getRenderSnapshot();
     const OverworldDebugSnapshot& debugSnapshot = m_impl->overworldRuntime.getDebugSnapshot();
     sf::View view;
-    view.setCenter({renderSnapshot.cameraFrame.center.x, renderSnapshot.cameraFrame.center.y});
-    view.setSize({renderSnapshot.cameraFrame.size.width, renderSnapshot.cameraFrame.size.height});
+    applyViewFrame(view, renderSnapshot.cameraFrame);
     m_impl->window.setView(view);
 
     sf::Sprite tileSprite(m_impl->terrainTileset);
@@ -624,14 +640,14 @@ void Game::render()
             "silhouetteColor",
             sf::Glsl::Vec4(detail::kPlayerOcclusionSilhouetteColor));
 
-        m_impl->window.setView(m_impl->window.getDefaultView());
+        m_impl->window.setView(m_impl->overlayView);
         m_impl->window.draw(playerOcclusionSprite, &m_impl->playerOcclusionShader);
         m_impl->window.setView(view);
     }
 
     if (detail::shouldRenderDebugOverlay(m_impl->debugOverlayState))
     {
-        m_impl->window.setView(m_impl->window.getDefaultView());
+        m_impl->window.setView(m_impl->overlayView);
 
         sf::Text debugOverlayText(
             m_impl->debugOverlayFont,

@@ -201,6 +201,16 @@ bool verifyViewportSizeTranslation()
         && std::fabs(viewportSize.height - 900.0F) < 0.0001F;
 }
 
+bool verifyScreenSpaceViewFrameTranslation()
+{
+    const rpg::ViewFrame screenSpaceViewFrame = rpg::detail::makeScreenSpaceViewFrame(1600U, 900U);
+
+    return std::fabs(screenSpaceViewFrame.center.x - 800.0F) < 0.0001F
+        && std::fabs(screenSpaceViewFrame.center.y - 450.0F) < 0.0001F
+        && std::fabs(screenSpaceViewFrame.size.width - 1600.0F) < 0.0001F
+        && std::fabs(screenSpaceViewFrame.size.height - 900.0F) < 0.0001F;
+}
+
 bool verifyDebugViewStateTranslation()
 {
     rpg::OverworldInput::DebugViewState debugViewState = rpg::detail::makeOverworldDebugViewState(true);
@@ -472,6 +482,11 @@ int main()
     }
 
     if (!verifyViewportSizeTranslation())
+    {
+        return 1;
+    }
+
+    if (!verifyScreenSpaceViewFrameTranslation())
     {
         return 1;
     }

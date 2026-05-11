@@ -259,6 +259,16 @@ constexpr void applyDirectionalInputRelease(
         static_cast<float>(heightPixels)};
 }
 
+[[nodiscard]] constexpr ViewFrame makeScreenSpaceViewFrame(
+    const std::uint32_t widthPixels,
+    const std::uint32_t heightPixels) noexcept
+{
+    const WorldSize size = makeViewportSize(widthPixels, heightPixels);
+    return {
+        {size.width * 0.5F, size.height * 0.5F},
+        size};
+}
+
 [[nodiscard]] constexpr bool shouldRenderTileGridOverlay(const OverworldInput::DebugViewState& debugViewState) noexcept
 {
     return debugViewState.isEnabled && debugViewState.showTileGrid;
