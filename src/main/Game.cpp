@@ -505,6 +505,11 @@ void Game::render()
         {
             return detail::shouldRenderBefore(lhs.orderKey, rhs.orderKey);
         });
+    const std::vector<std::size_t> frontOccluderIndices = detail::collectFrontGeneratedContentIndices(renderQueue);
+    const detail::DebugOverlayRenderMetrics debugOverlayRenderMetrics{
+        frontOccluderIndices.size(),
+        terrainVertexArray.getVertexCount(),
+        tileGridVertexArray.getVertexCount()};
 
     detail::executeOverworldRenderPasses(
         [&]()
@@ -541,8 +546,6 @@ void Game::render()
             m_impl->window.draw(tileGridVertexArray);
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
-
-    const std::vector<std::size_t> frontOccluderIndices = detail::collectFrontGeneratedContentIndices(renderQueue);
     const auto playerMarkerIt = std::find_if(
         renderSnapshot.markers.begin(),
         renderSnapshot.markers.end(),
@@ -597,6 +600,7 @@ void Game::render()
             m_impl->debugOverlayFont,
             detail::buildDebugOverlayString(
                 debugSnapshot,
+                debugOverlayRenderMetrics,
                 m_impl->displayedFramesPerSecond),
             kDebugOverlayCharacterSize);
         debugOverlayText.setFillColor(kDebugOverlayTextColor);

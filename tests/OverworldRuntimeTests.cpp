@@ -450,7 +450,9 @@ constexpr float kFloatTolerance = 0.001F;
         && debugSnapshot.zoomPercent == 150
         && debugSnapshot.retainedChunkCount == world.getRetainedChunkCount()
         && debugSnapshot.retainedGeneratedContentCount == world.getRetainedGeneratedContentCount()
-        && debugSnapshot.renderedGeneratedContentCount == visibleContent.size();
+        && debugSnapshot.renderedGeneratedContentCount == visibleContent.size()
+        && debugSnapshot.visibleTileCount == visibleTiles.size()
+        && debugSnapshot.visibleGeneratedContentCount == visibleContent.size();
 }
 
 } // namespace

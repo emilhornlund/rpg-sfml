@@ -129,6 +129,8 @@ struct OverworldDebugSnapshot
     std::size_t retainedChunkCount = 0;
     std::size_t retainedGeneratedContentCount = 0;
     std::size_t renderedGeneratedContentCount = 0;
+    std::size_t visibleTileCount = 0;
+    std::size_t visibleGeneratedContentCount = 0;
 };
 
 /**

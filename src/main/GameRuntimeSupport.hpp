@@ -105,6 +105,13 @@ struct DebugOverlayState
     bool isVisible = false;
 };
 
+struct DebugOverlayRenderMetrics
+{
+    std::size_t frontOccluderCount = 0;
+    std::size_t terrainVertexCount = 0;
+    std::size_t gridVertexCount = 0;
+};
+
 constexpr int kMinDebugZoomPercent = 100;
 constexpr int kDefaultDebugZoomPercent = 300;
 constexpr int kMaxDebugZoomPercent = 400;
@@ -286,6 +293,7 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
 
 [[nodiscard]] inline std::string buildDebugOverlayString(
     const OverworldDebugSnapshot& debugSnapshot,
+    const DebugOverlayRenderMetrics& renderMetrics,
     const int displayedFramesPerSecond)
 {
     std::ostringstream overlayStream;
@@ -294,6 +302,11 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
         << "Retained chunks: " << debugSnapshot.retainedChunkCount << '\n'
         << "Retained objects: " << debugSnapshot.retainedGeneratedContentCount << '\n'
         << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
+        << "Visible tiles: " << debugSnapshot.visibleTileCount << '\n'
+        << "Visible content: " << debugSnapshot.visibleGeneratedContentCount << '\n'
+        << "Front occluders: " << renderMetrics.frontOccluderCount << '\n'
+        << "Grid vertices: " << renderMetrics.gridVertexCount << '\n'
+        << "Terrain vertices: " << renderMetrics.terrainVertexCount << '\n'
         << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
         << "Zoom: " << debugSnapshot.zoomPercent << '%';
     return overlayStream.str();
