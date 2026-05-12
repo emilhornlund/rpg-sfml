@@ -29,6 +29,7 @@
 #include <SFML/Graphics/Rect.hpp>
 
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
@@ -41,7 +42,20 @@ namespace
 
 constexpr int kTerrainTilesetCellSize = 16;
 constexpr std::size_t kVerticesPerQuad = 6U;
-constexpr std::size_t kGridRectanglesPerTile = 4U;
+
+struct VisibleTileGridBounds
+{
+    int minTileX = 0;
+    int maxTileX = 0;
+    int minTileY = 0;
+    int maxTileY = 0;
+    float left = 0.0F;
+    float top = 0.0F;
+    float right = 0.0F;
+    float bottom = 0.0F;
+    float tileWidth = 0.0F;
+    float tileHeight = 0.0F;
+};
 
 [[nodiscard]] sf::IntRect getTerrainTilesetRect(const TerrainAtlasCell& cell) noexcept
 {
@@ -135,6 +149,115 @@ void setColoredQuadVertices(
     vertexArray[startIndex + 5U] = {{right, top}, color};
 }
 
+[[nodiscard]] VisibleTileGridBounds getVisibleTileGridBounds(const std::vector<OverworldRenderTile>& visibleTiles) noexcept
+{
+    const OverworldRenderTile& firstVisibleTile = visibleTiles.front();
+    const float firstLeft = firstVisibleTile.position.x - firstVisibleTile.origin.x;
+    const float firstTop = firstVisibleTile.position.y - firstVisibleTile.origin.y;
+    VisibleTileGridBounds bounds{
+        firstVisibleTile.coordinates.x,
+        firstVisibleTile.coordinates.x,
+        firstVisibleTile.coordinates.y,
+        firstVisibleTile.coordinates.y,
+        firstLeft,
+        firstTop,
+        firstLeft + firstVisibleTile.size.width,
+        firstTop + firstVisibleTile.size.height,
+        firstVisibleTile.size.width,
+        firstVisibleTile.size.height};
+
+    for (const OverworldRenderTile& visibleTile : visibleTiles)
+    {
+        assert(visibleTile.size.width == bounds.tileWidth && visibleTile.size.height == bounds.tileHeight);
+        const float left = visibleTile.position.x - visibleTile.origin.x;
+        const float top = visibleTile.position.y - visibleTile.origin.y;
+        const float right = left + visibleTile.size.width;
+        const float bottom = top + visibleTile.size.height;
+
+        if (visibleTile.coordinates.x < bounds.minTileX)
+        {
+            bounds.minTileX = visibleTile.coordinates.x;
+        }
+
+        if (visibleTile.coordinates.x > bounds.maxTileX)
+        {
+            bounds.maxTileX = visibleTile.coordinates.x;
+        }
+
+        if (visibleTile.coordinates.y < bounds.minTileY)
+        {
+            bounds.minTileY = visibleTile.coordinates.y;
+        }
+
+        if (visibleTile.coordinates.y > bounds.maxTileY)
+        {
+            bounds.maxTileY = visibleTile.coordinates.y;
+        }
+
+        if (left < bounds.left)
+        {
+            bounds.left = left;
+        }
+
+        if (top < bounds.top)
+        {
+            bounds.top = top;
+        }
+
+        if (right > bounds.right)
+        {
+            bounds.right = right;
+        }
+
+        if (bottom > bounds.bottom)
+        {
+            bounds.bottom = bottom;
+        }
+    }
+
+    const std::size_t expectedVisibleTileCount = static_cast<std::size_t>(bounds.maxTileX - bounds.minTileX + 1)
+        * static_cast<std::size_t>(bounds.maxTileY - bounds.minTileY + 1);
+    assert(expectedVisibleTileCount == visibleTiles.size());
+
+    return bounds;
+}
+
+[[nodiscard]] OverlayRectangle makeHorizontalGridStrip(
+    const VisibleTileGridBounds& bounds,
+    const int boundaryIndex,
+    const float lineThickness) noexcept
+{
+    const int rowCount = bounds.maxTileY - bounds.minTileY + 1;
+    const bool isOuterBoundary = boundaryIndex == 0 || boundaryIndex == rowCount;
+    const float top = boundaryIndex == 0
+        ? bounds.top
+        : (boundaryIndex == rowCount
+              ? bounds.bottom - lineThickness
+              : bounds.top + static_cast<float>(boundaryIndex) * bounds.tileHeight - lineThickness);
+
+    return {
+        {bounds.right - bounds.left, isOuterBoundary ? lineThickness : lineThickness * 2.0F},
+        {bounds.left, top}};
+}
+
+[[nodiscard]] OverlayRectangle makeVerticalGridStrip(
+    const VisibleTileGridBounds& bounds,
+    const int boundaryIndex,
+    const float lineThickness) noexcept
+{
+    const int columnCount = bounds.maxTileX - bounds.minTileX + 1;
+    const bool isOuterBoundary = boundaryIndex == 0 || boundaryIndex == columnCount;
+    const float left = boundaryIndex == 0
+        ? bounds.left
+        : (boundaryIndex == columnCount
+              ? bounds.right - lineThickness
+              : bounds.left + static_cast<float>(boundaryIndex) * bounds.tileWidth - lineThickness);
+
+    return {
+        {isOuterBoundary ? lineThickness : lineThickness * 2.0F, bounds.bottom - bounds.top},
+        {left, bounds.top}};
+}
+
 } // namespace
 
 sf::VertexArray buildTerrainVertexArray(
@@ -185,18 +308,30 @@ sf::VertexArray buildTileGridVertexArray(
         return tileGridVertexArray;
     }
 
-    tileGridVertexArray.resize(visibleTiles.size() * kGridRectanglesPerTile * kVerticesPerQuad);
+    const VisibleTileGridBounds bounds = getVisibleTileGridBounds(visibleTiles);
+    const std::size_t horizontalStripCount = static_cast<std::size_t>(bounds.maxTileY - bounds.minTileY + 2);
+    const std::size_t verticalStripCount = static_cast<std::size_t>(bounds.maxTileX - bounds.minTileX + 2);
+    tileGridVertexArray.resize((horizontalStripCount + verticalStripCount) * kVerticesPerQuad);
     std::size_t vertexIndex = 0U;
 
-    for (const OverworldRenderTile& visibleTile : visibleTiles)
+    for (int boundaryIndex = 0; boundaryIndex < bounds.maxTileY - bounds.minTileY + 2; ++boundaryIndex)
     {
-        const auto overlayRectangles = getTileGridOverlayRectangles(visibleTile, lineThickness);
+        setColoredQuadVertices(
+            tileGridVertexArray,
+            vertexIndex,
+            makeHorizontalGridStrip(bounds, boundaryIndex, lineThickness),
+            lineColor);
+        vertexIndex += kVerticesPerQuad;
+    }
 
-        for (const OverlayRectangle& overlayRectangle : overlayRectangles)
-        {
-            setColoredQuadVertices(tileGridVertexArray, vertexIndex, overlayRectangle, lineColor);
-            vertexIndex += kVerticesPerQuad;
-        }
+    for (int boundaryIndex = 0; boundaryIndex < bounds.maxTileX - bounds.minTileX + 2; ++boundaryIndex)
+    {
+        setColoredQuadVertices(
+            tileGridVertexArray,
+            vertexIndex,
+            makeVerticalGridStrip(bounds, boundaryIndex, lineThickness),
+            lineColor);
+        vertexIndex += kVerticesPerQuad;
     }
 
     return tileGridVertexArray;

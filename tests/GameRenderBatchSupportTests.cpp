@@ -33,6 +33,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 namespace
@@ -172,6 +173,95 @@ bool verifyTileGridBatchUsesOverlayRectangles()
             gridColor);
 }
 
+bool verifyTileGridBatchUsesBoundsDerivedStrips()
+{
+    const sf::Color gridColor(255, 255, 255, 96);
+    const std::vector<rpg::OverworldRenderTile> visibleTiles{
+        makeVisibleTile(2, 3, rpg::TileType::Forest),
+        makeVisibleTile(3, 3, rpg::TileType::Forest),
+        makeVisibleTile(2, 4, rpg::TileType::Forest),
+        makeVisibleTile(3, 4, rpg::TileType::Forest)};
+    const sf::VertexArray tileGridVertexArray = rpg::detail::buildTileGridVertexArray(visibleTiles, 1.0F, gridColor);
+
+    return tileGridVertexArray.getPrimitiveType() == sf::PrimitiveType::Triangles
+        && tileGridVertexArray.getVertexCount() == 36U
+        && matchesVertex(tileGridVertexArray[0], 32.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[5], 64.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[6], 32.0F, 63.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[11], 64.0F, 63.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[12], 32.0F, 79.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[17], 64.0F, 79.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[18], 32.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[23], 33.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[24], 47.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[29], 49.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[30], 63.0F, 48.0F, gridColor)
+        && matchesVertex(tileGridVertexArray[35], 64.0F, 48.0F, gridColor);
+}
+
+bool verifyTileGridBatchTracksBoundsChanges()
+{
+    const sf::Color gridColor(255, 255, 255, 96);
+    const std::vector<rpg::OverworldRenderTile> tighterVisibleTiles{
+        makeVisibleTile(2, 3, rpg::TileType::Forest),
+        makeVisibleTile(3, 3, rpg::TileType::Forest),
+        makeVisibleTile(2, 4, rpg::TileType::Forest),
+        makeVisibleTile(3, 4, rpg::TileType::Forest)};
+    const std::vector<rpg::OverworldRenderTile> widerVisibleTiles{
+        makeVisibleTile(1, 2, rpg::TileType::Forest),
+        makeVisibleTile(2, 2, rpg::TileType::Forest),
+        makeVisibleTile(3, 2, rpg::TileType::Forest),
+        makeVisibleTile(1, 3, rpg::TileType::Forest),
+        makeVisibleTile(2, 3, rpg::TileType::Forest),
+        makeVisibleTile(3, 3, rpg::TileType::Forest),
+        makeVisibleTile(1, 4, rpg::TileType::Forest),
+        makeVisibleTile(2, 4, rpg::TileType::Forest),
+        makeVisibleTile(3, 4, rpg::TileType::Forest)};
+    const sf::VertexArray tighterGridVertexArray = rpg::detail::buildTileGridVertexArray(tighterVisibleTiles, 1.0F, gridColor);
+    const sf::VertexArray widerGridVertexArray = rpg::detail::buildTileGridVertexArray(widerVisibleTiles, 1.0F, gridColor);
+
+    return tighterGridVertexArray.getVertexCount() == 36U
+        && widerGridVertexArray.getVertexCount() == 48U
+        && matchesVertex(tighterGridVertexArray[0], 32.0F, 48.0F, gridColor)
+        && matchesVertex(tighterGridVertexArray[5], 64.0F, 48.0F, gridColor)
+        && matchesVertex(widerGridVertexArray[0], 16.0F, 32.0F, gridColor)
+        && matchesVertex(widerGridVertexArray[5], 64.0F, 32.0F, gridColor)
+        && matchesVertex(widerGridVertexArray[18], 16.0F, 79.0F, gridColor)
+        && matchesVertex(widerGridVertexArray[23], 64.0F, 79.0F, gridColor);
+}
+
+bool verifyDebugOverlayUsesOptimizedGridVertexMetrics()
+{
+    const sf::Color gridColor(255, 255, 255, 96);
+    const std::vector<rpg::OverworldRenderTile> visibleTiles{
+        makeVisibleTile(2, 3, rpg::TileType::Forest),
+        makeVisibleTile(3, 3, rpg::TileType::Forest),
+        makeVisibleTile(2, 4, rpg::TileType::Forest),
+        makeVisibleTile(3, 4, rpg::TileType::Forest)};
+    const sf::VertexArray tileGridVertexArray = rpg::detail::buildTileGridVertexArray(visibleTiles, 1.0F, gridColor);
+    const rpg::OverworldDebugSnapshot debugSnapshot{
+        {12, -7},
+        150,
+        17,
+        42,
+        9,
+        visibleTiles.size(),
+        11};
+    const rpg::detail::DebugOverlayRenderMetrics enabledRenderMetrics{
+        3,
+        1536,
+        tileGridVertexArray.getVertexCount()};
+    const rpg::detail::DebugOverlayRenderMetrics disabledRenderMetrics{
+        3,
+        1536,
+        0};
+    const std::string enabledOverlayString = rpg::detail::buildDebugOverlayString(debugSnapshot, enabledRenderMetrics, 144);
+    const std::string disabledOverlayString = rpg::detail::buildDebugOverlayString(debugSnapshot, disabledRenderMetrics, 144);
+
+    return enabledOverlayString.find("Grid vertices: 36\n") != std::string::npos
+        && disabledOverlayString.find("Grid vertices: 0\n") != std::string::npos;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -189,6 +279,21 @@ int main(int argc, char** argv)
     }
 
     if (!verifyTileGridBatchUsesOverlayRectangles())
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyTileGridBatchUsesBoundsDerivedStrips())
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyTileGridBatchTracksBoundsChanges())
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyDebugOverlayUsesOptimizedGridVertexMetrics())
     {
         return EXIT_FAILURE;
     }
