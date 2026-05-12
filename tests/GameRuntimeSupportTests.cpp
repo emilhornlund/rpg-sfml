@@ -293,6 +293,7 @@ bool verifyDebugOverlayStringFormatting()
         11};
     const rpg::detail::DebugOverlayRenderMetrics renderMetrics{
         3,
+        2,
         1536,
         0};
 
@@ -304,6 +305,7 @@ bool verifyDebugOverlayStringFormatting()
            "Visible tiles: 256\n"
            "Visible content: 11\n"
            "Front occluders: 3\n"
+           "Occlusion candidates: 2\n"
            "Grid vertices: 0\n"
            "Terrain vertices: 1536\n"
            "Coordinates: (12, -7)\n"
@@ -442,6 +444,49 @@ bool verifyFrontOccluderSelection()
         && rpg::detail::collectFrontGeneratedContentIndices(std::vector<rpg::detail::OverworldRenderQueueEntry>{}).empty();
 }
 
+bool verifyOverlapQualifiedFrontOccluderSelection()
+{
+    const rpg::OverworldRenderContent overlappingFrontVegetation{
+        13,
+        rpg::ContentType::Tree,
+        "tree_small_1",
+        {5, 10},
+        {48.0F, 48.0F},
+        {24.0F, 40.0F},
+        {88.0F, 152.0F},
+        {20},
+        152.0F};
+    const rpg::OverworldRenderContent nonOverlappingFrontVegetation{
+        14,
+        rpg::ContentType::Tree,
+        "tree_small_1",
+        {18, 10},
+        {48.0F, 48.0F},
+        {24.0F, 40.0F},
+        {296.0F, 152.0F},
+        {21},
+        152.0F};
+    const rpg::OverworldRenderMarker playerMarker{
+        {48.0F, 48.0F},
+        {24.0F, 32.0F},
+        {72.0F, 136.0F},
+        rpg::OverworldRenderMarkerAppearance::Player,
+        rpg::PlayerFacingDirection::Down,
+        1,
+        136.0F};
+
+    const std::vector<std::size_t> frontOccluderIndices{0U, 1U};
+    const std::vector<rpg::OverworldRenderContent> generatedContent{
+        overlappingFrontVegetation,
+        nonOverlappingFrontVegetation};
+
+    return rpg::detail::collectOverlapQualifiedFrontGeneratedContentIndices(
+               frontOccluderIndices,
+               generatedContent,
+               playerMarker)
+        == std::vector<std::size_t>{0U};
+}
+
 bool verifyPixelSnappedViewFrame()
 {
     const rpg::ViewFrame unsnappedFrame{{103.2F, 135.6F}, {320.0F, 180.0F}};
@@ -533,6 +578,11 @@ int main()
     }
 
     if (!verifyFrontOccluderSelection())
+    {
+        return 1;
+    }
+
+    if (!verifyOverlapQualifiedFrontOccluderSelection())
     {
         return 1;
     }

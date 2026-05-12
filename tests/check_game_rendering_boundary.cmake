@@ -57,6 +57,22 @@ if(GAME_CPP_CONTENT MATCHES "getPlayerMarkerPlacement")
     message(FATAL_ERROR "Game.cpp should not derive player marker placement directly")
 endif()
 
+if(NOT GAME_CPP_CONTENT MATCHES "collectOverlapQualifiedFrontGeneratedContentIndices")
+    message(FATAL_ERROR "Game.cpp does not derive overlap-qualified occlusion candidates")
+endif()
+
+if(GAME_CPP_CONTENT MATCHES "if \\(playerMarkerIt != renderSnapshot\\.markers\\.end\\(\\) && !frontOccluderIndices\\.empty\\(\\)\\)")
+    message(FATAL_ERROR "Game.cpp still gates the occlusion pass on broad front-occluder presence")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "if \\(playerMarkerIt != renderSnapshot\\.markers\\.end\\(\\) && !overlapQualifiedOcclusionCandidateIndices\\.empty\\(\\)\\)")
+    message(FATAL_ERROR "Game.cpp does not gate the occlusion pass on overlap-qualified occlusion candidates")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "for \\(const std::size_t index : overlapQualifiedOcclusionCandidateIndices\\)")
+    message(FATAL_ERROR "Game.cpp does not render the occluder mask from overlap-qualified occlusion candidates")
+endif()
+
 if(NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.x"
     OR NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.y"
     OR NOT GAME_CPP_CONTENT MATCHES "renderSnapshot\\.markers")

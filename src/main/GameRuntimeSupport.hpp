@@ -108,8 +108,15 @@ struct DebugOverlayState
 struct DebugOverlayRenderMetrics
 {
     std::size_t frontOccluderCount = 0;
+    std::size_t overlapQualifiedOcclusionCandidateCount = 0;
     std::size_t terrainVertexCount = 0;
     std::size_t gridVertexCount = 0;
+};
+
+struct WorldRectangle
+{
+    WorldPosition position{0.0F, 0.0F};
+    WorldSize size{0.0F, 0.0F};
 };
 
 constexpr int kMinDebugZoomPercent = 100;
@@ -305,6 +312,7 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
         << "Visible tiles: " << debugSnapshot.visibleTileCount << '\n'
         << "Visible content: " << debugSnapshot.visibleGeneratedContentCount << '\n'
         << "Front occluders: " << renderMetrics.frontOccluderCount << '\n'
+        << "Occlusion candidates: " << renderMetrics.overlapQualifiedOcclusionCandidateCount << '\n'
         << "Grid vertices: " << renderMetrics.gridVertexCount << '\n'
         << "Terrain vertices: " << renderMetrics.terrainVertexCount << '\n'
         << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
@@ -377,6 +385,46 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
         {spriteFrameSize, spriteFrameSize},
         {spriteFrameSize * 0.5F, tileSize * 2.0F},
         playerPosition};
+}
+
+[[nodiscard]] constexpr WorldRectangle makeWorldRectangle(
+    const WorldPosition& position,
+    const WorldSize& size,
+    const WorldPosition& origin) noexcept
+{
+    return {
+        {position.x - origin.x, position.y - origin.y},
+        size};
+}
+
+[[nodiscard]] constexpr WorldRectangle getWorldRectangle(const OverworldRenderContent& renderContent) noexcept
+{
+    return makeWorldRectangle(renderContent.position, renderContent.size, renderContent.origin);
+}
+
+[[nodiscard]] constexpr WorldRectangle getWorldRectangle(const OverworldRenderMarker& renderMarker) noexcept
+{
+    return makeWorldRectangle(renderMarker.position, renderMarker.size, renderMarker.origin);
+}
+
+[[nodiscard]] constexpr bool doWorldRectanglesIntersect(
+    const WorldRectangle& lhs,
+    const WorldRectangle& rhs) noexcept
+{
+    if (lhs.size.width <= 0.0F || lhs.size.height <= 0.0F || rhs.size.width <= 0.0F || rhs.size.height <= 0.0F)
+    {
+        return false;
+    }
+
+    const float lhsRight = lhs.position.x + lhs.size.width;
+    const float lhsBottom = lhs.position.y + lhs.size.height;
+    const float rhsRight = rhs.position.x + rhs.size.width;
+    const float rhsBottom = rhs.position.y + rhs.size.height;
+
+    return lhs.position.x <= rhsRight
+        && lhsRight >= rhs.position.x
+        && lhs.position.y <= rhsBottom
+        && lhsBottom >= rhs.position.y;
 }
 
 template <typename ProcessEventsFn, typename UpdateFn, typename RenderFn>
@@ -489,6 +537,30 @@ struct OverworldRenderQueueEntry
     }
 
     return generatedContentIndices;
+}
+
+[[nodiscard]] inline std::vector<std::size_t> collectOverlapQualifiedFrontGeneratedContentIndices(
+    const std::vector<std::size_t>& frontGeneratedContentIndices,
+    const std::vector<OverworldRenderContent>& generatedContent,
+    const OverworldRenderMarker& playerMarker)
+{
+    std::vector<std::size_t> overlapQualifiedIndices;
+    const WorldRectangle playerBounds = getWorldRectangle(playerMarker);
+
+    for (const std::size_t index : frontGeneratedContentIndices)
+    {
+        if (index >= generatedContent.size())
+        {
+            continue;
+        }
+
+        if (doWorldRectanglesIntersect(playerBounds, getWorldRectangle(generatedContent[index])))
+        {
+            overlapQualifiedIndices.push_back(index);
+        }
+    }
+
+    return overlapQualifiedIndices;
 }
 
 } // namespace rpg::detail

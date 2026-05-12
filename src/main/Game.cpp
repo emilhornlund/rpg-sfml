@@ -75,6 +75,7 @@ constexpr float kDebugOverlayPadding = 8.0F;
 constexpr float kDebugOverlayMargin = 12.0F;
 constexpr unsigned int kDebugOverlayCharacterSize = 16U;
 constexpr float kDebugOverlayFrameRateSampleWindowSeconds = 0.25F;
+constexpr unsigned int kOcclusionRenderSurfaceScaleDivisor = 2U;
 [[nodiscard]] std::optional<detail::OverworldDirectionalKey> getDirectionalKey(
     const sf::Keyboard::Key key) noexcept
 {
@@ -239,6 +240,28 @@ void ensureRenderTextureSize(sf::RenderTexture& renderTexture, const sf::Vector2
 
         renderTexture.setSmooth(false);
     }
+}
+
+[[nodiscard]] sf::Vector2u makeOcclusionRenderSurfaceSize(const sf::Vector2u windowSize) noexcept
+{
+    return {
+        std::max(1U, (windowSize.x + kOcclusionRenderSurfaceScaleDivisor - 1U) / kOcclusionRenderSurfaceScaleDivisor),
+        std::max(1U, (windowSize.y + kOcclusionRenderSurfaceScaleDivisor - 1U) / kOcclusionRenderSurfaceScaleDivisor)};
+}
+
+void configureOcclusionCompositeSprite(sf::Sprite& sprite, const sf::Vector2u outputSize)
+{
+    const sf::Vector2u textureSize = sprite.getTexture().getSize();
+
+    if (textureSize.x == 0U || textureSize.y == 0U)
+    {
+        throw std::runtime_error("Failed to configure player occlusion silhouette sprite: render target size is invalid.");
+    }
+
+    sprite.setPosition({0.0F, 0.0F});
+    sprite.setScale({
+        static_cast<float>(outputSize.x) / static_cast<float>(textureSize.x),
+        static_cast<float>(outputSize.y) / static_cast<float>(textureSize.y)});
 }
 
 void drawVegetationContent(
@@ -506,8 +529,22 @@ void Game::render()
             return detail::shouldRenderBefore(lhs.orderKey, rhs.orderKey);
         });
     const std::vector<std::size_t> frontOccluderIndices = detail::collectFrontGeneratedContentIndices(renderQueue);
+    const auto playerMarkerIt = std::find_if(
+        renderSnapshot.markers.begin(),
+        renderSnapshot.markers.end(),
+        [](const OverworldRenderMarker& renderMarker)
+        {
+            return renderMarker.appearance == OverworldRenderMarkerAppearance::Player;
+        });
+    const std::vector<std::size_t> overlapQualifiedOcclusionCandidateIndices = playerMarkerIt != renderSnapshot.markers.end()
+        ? detail::collectOverlapQualifiedFrontGeneratedContentIndices(
+              frontOccluderIndices,
+              renderSnapshot.generatedContent,
+              *playerMarkerIt)
+        : std::vector<std::size_t>{};
     const detail::DebugOverlayRenderMetrics debugOverlayRenderMetrics{
         frontOccluderIndices.size(),
+        overlapQualifiedOcclusionCandidateIndices.size(),
         terrainVertexArray.getVertexCount(),
         tileGridVertexArray.getVertexCount()};
 
@@ -546,19 +583,13 @@ void Game::render()
             m_impl->window.draw(tileGridVertexArray);
         },
         detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
-    const auto playerMarkerIt = std::find_if(
-        renderSnapshot.markers.begin(),
-        renderSnapshot.markers.end(),
-        [](const OverworldRenderMarker& renderMarker)
-        {
-            return renderMarker.appearance == OverworldRenderMarkerAppearance::Player;
-        });
 
-    if (playerMarkerIt != renderSnapshot.markers.end() && !frontOccluderIndices.empty())
+    if (playerMarkerIt != renderSnapshot.markers.end() && !overlapQualifiedOcclusionCandidateIndices.empty())
     {
         const sf::Vector2u windowSize = m_impl->window.getSize();
-        ensureRenderTextureSize(m_impl->playerOcclusionMaskTexture, windowSize);
-        ensureRenderTextureSize(m_impl->occluderMaskTexture, windowSize);
+        const sf::Vector2u occlusionRenderSurfaceSize = makeOcclusionRenderSurfaceSize(windowSize);
+        ensureRenderTextureSize(m_impl->playerOcclusionMaskTexture, occlusionRenderSurfaceSize);
+        ensureRenderTextureSize(m_impl->occluderMaskTexture, occlusionRenderSurfaceSize);
 
         m_impl->playerOcclusionMaskTexture.setView(view);
         m_impl->occluderMaskTexture.setView(view);
@@ -567,7 +598,7 @@ void Game::render()
 
         drawPlayerMarker(m_impl->playerOcclusionMaskTexture, playerSprite, *playerMarkerIt);
 
-        for (const std::size_t index : frontOccluderIndices)
+        for (const std::size_t index : overlapQualifiedOcclusionCandidateIndices)
         {
             drawVegetationContent(
                 m_impl->occluderMaskTexture,
@@ -581,6 +612,7 @@ void Game::render()
         m_impl->occluderMaskTexture.display();
 
         sf::Sprite playerOcclusionSprite(m_impl->playerOcclusionMaskTexture.getTexture());
+        configureOcclusionCompositeSprite(playerOcclusionSprite, windowSize);
         m_impl->playerOcclusionShader.setUniform("currentTexture", sf::Shader::CurrentTexture);
         m_impl->playerOcclusionShader.setUniform("occluderMask", m_impl->occluderMaskTexture.getTexture());
         m_impl->playerOcclusionShader.setUniform(

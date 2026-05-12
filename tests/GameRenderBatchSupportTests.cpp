@@ -249,10 +249,12 @@ bool verifyDebugOverlayUsesOptimizedGridVertexMetrics()
         11};
     const rpg::detail::DebugOverlayRenderMetrics enabledRenderMetrics{
         3,
+        1,
         1536,
         tileGridVertexArray.getVertexCount()};
     const rpg::detail::DebugOverlayRenderMetrics disabledRenderMetrics{
         3,
+        0,
         1536,
         0};
     const std::string enabledOverlayString = rpg::detail::buildDebugOverlayString(debugSnapshot, enabledRenderMetrics, 144);
