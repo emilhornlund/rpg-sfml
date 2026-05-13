@@ -199,6 +199,11 @@ public:
 
 private:
     /**
+     * @brief Ensure the active overworld session has been set up once.
+     */
+    void ensureInitialized();
+
+    /**
      * @brief Apply repo-native debug view state to gameplay-facing modules.
      *
      * @param debugViewState Debug view settings translated at the shell

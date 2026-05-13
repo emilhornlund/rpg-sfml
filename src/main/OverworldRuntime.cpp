@@ -95,15 +95,19 @@ OverworldRuntime::OverworldRuntime() = default;
 
 OverworldRuntime::~OverworldRuntime() = default;
 
-void OverworldRuntime::initialize(const WorldSize& viewportSize)
+void OverworldRuntime::ensureInitialized()
 {
-    m_viewportSize = viewportSize;
-
     if (!m_isInitialized)
     {
         m_player.spawn(m_world.getSpawnPosition());
         m_isInitialized = true;
     }
+}
+
+void OverworldRuntime::initialize(const WorldSize& viewportSize)
+{
+    m_viewportSize = viewportSize;
+    ensureInitialized();
 
     m_camera.update(
         m_player.getPosition(),
@@ -115,7 +119,7 @@ void OverworldRuntime::initialize(const WorldSize& viewportSize)
 void OverworldRuntime::update(const float deltaTimeSeconds, const OverworldInput& input)
 {
     applyDebugViewState(input.debugViewState);
-    initialize(input.viewportSize);
+    ensureInitialized();
     m_viewportSize = input.viewportSize;
     m_player.setMovementIntent(input.movementIntent);
     m_player.update(deltaTimeSeconds, m_world);

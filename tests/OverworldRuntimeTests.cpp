@@ -162,6 +162,30 @@ constexpr float kFloatTolerance = 0.001F;
         && containsVisibleTile(renderSnapshot.visibleTiles, world.getSpawnTile());
 }
 
+[[nodiscard]] bool verifyRepeatedInitializationRefreshesPublishedSnapshot()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+
+    runtime.initialize({1280.0F, 720.0F});
+    const rpg::ViewFrame initialFrame = runtime.getRenderSnapshot().cameraFrame;
+
+    runtime.initialize({1600.0F, 900.0F});
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
+
+    return playerMarker != nullptr
+        && areClose(initialFrame.size.width, 1280.0F / 3.0F)
+        && areClose(initialFrame.size.height, 720.0F / 3.0F)
+        && areClose(renderSnapshot.cameraFrame.center.x, spawnPosition.x)
+        && areClose(renderSnapshot.cameraFrame.center.y, spawnPosition.y)
+        && areClose(renderSnapshot.cameraFrame.size.width, 1600.0F / 3.0F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 900.0F / 3.0F)
+        && areClose(playerMarker->position.x, spawnPosition.x)
+        && areClose(playerMarker->position.y, spawnPosition.y);
+}
+
 [[nodiscard]] bool verifyGameplayProgression()
 {
     rpg::OverworldRuntime runtime;
@@ -319,6 +343,34 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(zoomedOutFrame.size.height, 600.0F);
 }
 
+[[nodiscard]] bool verifyInitializedRuntimePublishesUpdatedViewportAndZoom()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    runtime.initialize({1280.0F, 720.0F});
+
+    runtime.update(
+        0.0F,
+        {
+            {0.0F, 0.0F},
+            {1600.0F, 900.0F},
+            {true, 150, false}});
+
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const rpg::OverworldDebugSnapshot& debugSnapshot = runtime.getDebugSnapshot();
+    const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
+    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+
+    return playerMarker != nullptr
+        && areClose(renderSnapshot.cameraFrame.center.x, spawnPosition.x)
+        && areClose(renderSnapshot.cameraFrame.center.y, spawnPosition.y)
+        && areClose(renderSnapshot.cameraFrame.size.width, 1600.0F / 1.5F)
+        && areClose(renderSnapshot.cameraFrame.size.height, 900.0F / 1.5F)
+        && debugSnapshot.zoomPercent == 150
+        && areClose(playerMarker->position.x, spawnPosition.x)
+        && areClose(playerMarker->position.y, spawnPosition.y);
+}
+
 [[nodiscard]] bool verifyUpdatedViewportChangesPublishedCameraFrame()
 {
     rpg::OverworldRuntime runtime;
@@ -464,6 +516,11 @@ int main()
         return 1;
     }
 
+    if (!verifyRepeatedInitializationRefreshesPublishedSnapshot())
+    {
+        return 1;
+    }
+
     if (!verifyGameplayProgression())
     {
         return 1;
@@ -480,6 +537,11 @@ int main()
     }
 
     if (!verifyDebugZoomAdjustsPublishedCameraFrame())
+    {
+        return 1;
+    }
+
+    if (!verifyInitializedRuntimePublishesUpdatedViewportAndZoom())
     {
         return 1;
     }
