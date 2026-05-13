@@ -41,10 +41,10 @@ namespace
         && rpg::detail::getTerrainTilesetPath(assetRoot) == assetRoot / "overworld-terrain-tileset.png"
         && rpg::detail::getVegetationTilesetPath(assetRoot) == assetRoot / "overworld-vegetation-tileset.png"
         && rpg::detail::getPlayerSpritesheetPath(assetRoot) == assetRoot / "player-walking-spritesheet.png"
-        && rpg::detail::getTerrainTilesetClassificationPath(assetRoot)
-            == assetRoot / "output/classifications/overworld-terrain-tileset-classification.json"
-        && rpg::detail::getVegetationTilesetClassificationPath(assetRoot)
-            == assetRoot / "output/classifications/overworld-vegetation-tileset-classification.json"
+        && rpg::detail::getTerrainTilesetCatalogPath(assetRoot)
+            == assetRoot / "output/catalogs/overworld-terrain-tileset-catalog.json"
+        && rpg::detail::getVegetationTilesetCatalogPath(assetRoot)
+            == assetRoot / "output/catalogs/overworld-vegetation-tileset-catalog.json"
         && rpg::detail::getDebugOverlayFontPath(assetRoot) == assetRoot / "output/fonts/PixelOperator8.ttf";
 }
 

@@ -31,14 +31,14 @@ target_link_libraries(main PRIVATE SFML::Graphics)
 
 set(RPG_MAIN_ASSET_SOURCE_DIR "${PROJECT_SOURCE_DIR}/assets")
 set(RPG_MAIN_ASSET_OUTPUT_DIR "$<TARGET_FILE_DIR:main>/assets")
-set(RPG_MAIN_CLASSIFICATION_SOURCE_DIR "${RPG_MAIN_ASSET_SOURCE_DIR}/output/classifications")
-set(RPG_MAIN_CLASSIFICATION_OUTPUT_DIR "${RPG_MAIN_ASSET_OUTPUT_DIR}/output/classifications")
+set(RPG_MAIN_CATALOG_SOURCE_DIR "${RPG_MAIN_ASSET_SOURCE_DIR}/output/catalogs")
+set(RPG_MAIN_CATALOG_OUTPUT_DIR "${RPG_MAIN_ASSET_OUTPUT_DIR}/output/catalogs")
 set(RPG_MAIN_FONT_SOURCE_DIR "${RPG_MAIN_ASSET_SOURCE_DIR}/output/fonts")
 set(RPG_MAIN_FONT_OUTPUT_DIR "${RPG_MAIN_ASSET_OUTPUT_DIR}/output/fonts")
 
 add_custom_command(TARGET main POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_ASSET_OUTPUT_DIR}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_CLASSIFICATION_OUTPUT_DIR}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_CATALOG_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_FONT_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_ASSET_SOURCE_DIR}/overworld-terrain-tileset.png"
@@ -46,9 +46,9 @@ add_custom_command(TARGET main POST_BUILD
         "${RPG_MAIN_ASSET_SOURCE_DIR}/player-walking-spritesheet.png"
         "${RPG_MAIN_ASSET_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${RPG_MAIN_CLASSIFICATION_SOURCE_DIR}/overworld-terrain-tileset-classification.json"
-        "${RPG_MAIN_CLASSIFICATION_SOURCE_DIR}/overworld-vegetation-tileset-classification.json"
-        "${RPG_MAIN_CLASSIFICATION_OUTPUT_DIR}"
+        "${RPG_MAIN_CATALOG_SOURCE_DIR}/overworld-terrain-tileset-catalog.json"
+        "${RPG_MAIN_CATALOG_SOURCE_DIR}/overworld-vegetation-tileset-catalog.json"
+        "${RPG_MAIN_CATALOG_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_FONT_SOURCE_DIR}/PixelOperator8.ttf"
         "${RPG_MAIN_FONT_OUTPUT_DIR}"

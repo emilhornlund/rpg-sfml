@@ -37,10 +37,10 @@ namespace rpg::detail
 
 inline constexpr char kAssetDirectoryName[] = "assets";
 inline constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
-inline constexpr char kTerrainTilesetClassificationFilename[] = "overworld-terrain-tileset-classification.json";
+inline constexpr char kTerrainTilesetCatalogFilename[] = "overworld-terrain-tileset-catalog.json";
 inline constexpr char kVegetationTilesetFilename[] = "overworld-vegetation-tileset.png";
-inline constexpr char kVegetationTilesetClassificationFilename[] = "overworld-vegetation-tileset-classification.json";
-inline constexpr char kTerrainTilesetClassificationDirectory[] = "output/classifications";
+inline constexpr char kVegetationTilesetCatalogFilename[] = "overworld-vegetation-tileset-catalog.json";
+inline constexpr char kTilesetCatalogDirectory[] = "output/catalogs";
 inline constexpr char kFontDirectory[] = "output/fonts";
 inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
@@ -75,14 +75,14 @@ inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
     return assetRoot / kVegetationTilesetFilename;
 }
 
-[[nodiscard]] inline std::filesystem::path getTerrainTilesetClassificationPath(const std::filesystem::path& assetRoot)
+[[nodiscard]] inline std::filesystem::path getTerrainTilesetCatalogPath(const std::filesystem::path& assetRoot)
 {
-    return assetRoot / kTerrainTilesetClassificationDirectory / kTerrainTilesetClassificationFilename;
+    return assetRoot / kTilesetCatalogDirectory / kTerrainTilesetCatalogFilename;
 }
 
-[[nodiscard]] inline std::filesystem::path getVegetationTilesetClassificationPath(const std::filesystem::path& assetRoot)
+[[nodiscard]] inline std::filesystem::path getVegetationTilesetCatalogPath(const std::filesystem::path& assetRoot)
 {
-    return assetRoot / kTerrainTilesetClassificationDirectory / kVegetationTilesetClassificationFilename;
+    return assetRoot / kTilesetCatalogDirectory / kVegetationTilesetCatalogFilename;
 }
 
 [[nodiscard]] inline std::filesystem::path getDebugOverlayFontPath(const std::filesystem::path& assetRoot)
@@ -94,14 +94,14 @@ inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
 {
     return TerrainTilesetMetadata::loadFromAssetRoot(
         assetRoot,
-        std::filesystem::path(kTerrainTilesetClassificationDirectory) / kTerrainTilesetClassificationFilename);
+        std::filesystem::path(kTilesetCatalogDirectory) / kTerrainTilesetCatalogFilename);
 }
 
 [[nodiscard]] inline VegetationTilesetMetadata loadVegetationTilesetMetadata(const std::filesystem::path& assetRoot)
 {
     return VegetationTilesetMetadata::loadFromAssetRoot(
         assetRoot,
-        std::filesystem::path(kTerrainTilesetClassificationDirectory) / kVegetationTilesetClassificationFilename);
+        std::filesystem::path(kTilesetCatalogDirectory) / kVegetationTilesetCatalogFilename);
 }
 
 } // namespace rpg::detail

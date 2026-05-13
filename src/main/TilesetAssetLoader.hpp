@@ -130,25 +130,25 @@ public:
     TilesetAssetDocument() = default;
     TilesetAssetDocument(
         std::filesystem::path assetRoot,
-        std::filesystem::path classificationPath,
+        std::filesystem::path catalogPath,
         std::filesystem::path resolvedImagePath,
         TilesetAssetMetadata tileset,
         std::vector<TilesetAssetTile> tiles);
 
-    [[nodiscard]] static TilesetAssetDocument loadFromFile(const std::filesystem::path& classificationPath);
+    [[nodiscard]] static TilesetAssetDocument loadFromFile(const std::filesystem::path& catalogPath);
     [[nodiscard]] static TilesetAssetDocument loadFromAssetRoot(
         const std::filesystem::path& assetRoot,
-        const std::filesystem::path& classificationRelativePath);
+        const std::filesystem::path& catalogRelativePath);
 
     [[nodiscard]] const std::filesystem::path& getAssetRoot() const noexcept;
-    [[nodiscard]] const std::filesystem::path& getClassificationPath() const noexcept;
+    [[nodiscard]] const std::filesystem::path& getCatalogPath() const noexcept;
     [[nodiscard]] const std::filesystem::path& getResolvedImagePath() const noexcept;
     [[nodiscard]] const TilesetAssetMetadata& getTileset() const noexcept;
     [[nodiscard]] const std::vector<TilesetAssetTile>& getTiles() const noexcept;
 
 private:
     std::filesystem::path m_assetRoot;
-    std::filesystem::path m_classificationPath;
+    std::filesystem::path m_catalogPath;
     std::filesystem::path m_resolvedImagePath;
     TilesetAssetMetadata m_tileset;
     std::vector<TilesetAssetTile> m_tiles;

@@ -179,7 +179,7 @@ add_test(NAME world_terrain_generator_tests COMMAND world_terrain_generator_test
 add_test(
     NAME terrain_autotile_support_tests
     COMMAND terrain_autotile_support_tests
-        "${PROJECT_SOURCE_DIR}/assets/output/classifications/overworld-terrain-tileset-classification.json"
+        "${PROJECT_SOURCE_DIR}/assets/output/catalogs/overworld-terrain-tileset-catalog.json"
 )
 add_test(
     NAME tileset_asset_loader_tests
@@ -210,8 +210,8 @@ add_test(
     COMMAND ${CMAKE_COMMAND}
         -DTERRAIN_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
         -DVEGETATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-vegetation-tileset.png
-        -DTERRAIN_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-terrain-tileset-classification.json
-        -DVEGETATION_CLASSIFICATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/classifications/overworld-vegetation-tileset-classification.json
+        -DTERRAIN_CATALOG_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/catalogs/overworld-terrain-tileset-catalog.json
+        -DVEGETATION_CATALOG_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/catalogs/overworld-vegetation-tileset-catalog.json
         -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/player-walking-spritesheet.png
         -DDEBUG_OVERLAY_FONT_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/fonts/PixelOperator8.ttf
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_main_asset_staging.cmake"

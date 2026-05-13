@@ -79,7 +79,7 @@ public:
     [[nodiscard]] static VegetationTilesetMetadata loadFromFile(const std::filesystem::path& path);
     [[nodiscard]] static VegetationTilesetMetadata loadFromAssetRoot(
         const std::filesystem::path& assetRoot,
-        const std::filesystem::path& classificationRelativePath);
+        const std::filesystem::path& catalogRelativePath);
     [[nodiscard]] static VegetationTilesetMetadata loadFromDocument(const TilesetAssetDocument& document);
 
     [[nodiscard]] std::size_t getPrototypeCount() const noexcept;

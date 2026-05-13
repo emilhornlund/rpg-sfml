@@ -74,7 +74,7 @@ public:
     [[nodiscard]] static TerrainTilesetMetadata loadFromFile(const std::filesystem::path& path);
     [[nodiscard]] static TerrainTilesetMetadata loadFromAssetRoot(
         const std::filesystem::path& assetRoot,
-        const std::filesystem::path& classificationRelativePath);
+        const std::filesystem::path& catalogRelativePath);
     [[nodiscard]] static TerrainTilesetMetadata loadFromDocument(const TilesetAssetDocument& document);
 
     [[nodiscard]] std::size_t getBaseVariantCount(TileType tileType) const noexcept;

@@ -61,7 +61,7 @@ struct JsonValue
 
     if (!input)
     {
-        throw std::runtime_error("Failed to open tileset classification file: " + path.string());
+        throw std::runtime_error("Failed to open tileset catalog file: " + path.string());
     }
 
     std::ostringstream buffer;
@@ -85,7 +85,7 @@ public:
 
         if (m_index != m_text.size())
         {
-            throw std::runtime_error("Unexpected trailing content in tileset classification");
+            throw std::runtime_error("Unexpected trailing content in tileset catalog");
         }
 
         return value;
@@ -96,7 +96,7 @@ private:
     {
         if (m_index >= m_text.size())
         {
-            throw std::runtime_error("Unexpected end of tileset classification");
+            throw std::runtime_error("Unexpected end of tileset catalog");
         }
 
         const char character = m_text[m_index];
@@ -139,7 +139,7 @@ private:
             return JsonValue{parseNumber()};
         }
 
-        throw std::runtime_error("Unexpected token in tileset classification");
+        throw std::runtime_error("Unexpected token in tileset catalog");
     }
 
     [[nodiscard]] JsonObject parseObject()
@@ -224,7 +224,7 @@ private:
 
             if (m_index >= m_text.size())
             {
-                throw std::runtime_error("Invalid escape sequence in tileset classification");
+                throw std::runtime_error("Invalid escape sequence in tileset catalog");
             }
 
             const char escaped = m_text[m_index++];
@@ -252,11 +252,11 @@ private:
                 value.push_back('\t');
                 break;
             default:
-                throw std::runtime_error("Unsupported escape sequence in tileset classification");
+                throw std::runtime_error("Unsupported escape sequence in tileset catalog");
             }
         }
 
-        throw std::runtime_error("Unterminated string in tileset classification");
+        throw std::runtime_error("Unterminated string in tileset catalog");
     }
 
     [[nodiscard]] double parseNumber()
@@ -270,7 +270,7 @@ private:
 
         if (m_index >= m_text.size() || !std::isdigit(static_cast<unsigned char>(m_text[m_index])))
         {
-            throw std::runtime_error("Invalid number in tileset classification");
+            throw std::runtime_error("Invalid number in tileset catalog");
         }
 
         while (m_index < m_text.size() && std::isdigit(static_cast<unsigned char>(m_text[m_index])))
@@ -284,7 +284,7 @@ private:
 
             if (m_index >= m_text.size() || !std::isdigit(static_cast<unsigned char>(m_text[m_index])))
             {
-                throw std::runtime_error("Invalid number in tileset classification");
+                throw std::runtime_error("Invalid number in tileset catalog");
             }
 
             while (m_index < m_text.size() && std::isdigit(static_cast<unsigned char>(m_text[m_index])))
@@ -302,7 +302,7 @@ private:
 
         if (m_text.compare(m_index, literalString.size(), literalString) != 0)
         {
-            throw std::runtime_error("Invalid literal in tileset classification");
+            throw std::runtime_error("Invalid literal in tileset catalog");
         }
 
         m_index += literalString.size();
@@ -320,7 +320,7 @@ private:
     {
         if (m_index >= m_text.size() || m_text[m_index] != expected)
         {
-            throw std::runtime_error("Unexpected token in tileset classification");
+            throw std::runtime_error("Unexpected token in tileset catalog");
         }
 
         ++m_index;
@@ -347,7 +347,7 @@ private:
 
     if (!object)
     {
-        throw std::runtime_error("Expected object in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected object in tileset catalog: " + std::string(context));
     }
 
     return *object;
@@ -359,7 +359,7 @@ private:
 
     if (!array)
     {
-        throw std::runtime_error("Expected array in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected array in tileset catalog: " + std::string(context));
     }
 
     return *array;
@@ -371,7 +371,7 @@ private:
 
     if (!stringValue)
     {
-        throw std::runtime_error("Expected string in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected string in tileset catalog: " + std::string(context));
     }
 
     return *stringValue;
@@ -383,7 +383,7 @@ private:
 
     if (!boolValue)
     {
-        throw std::runtime_error("Expected boolean in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected boolean in tileset catalog: " + std::string(context));
     }
 
     return *boolValue;
@@ -395,14 +395,14 @@ private:
 
     if (!numberValue)
     {
-        throw std::runtime_error("Expected integer in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected integer in tileset catalog: " + std::string(context));
     }
 
     const int integerValue = static_cast<int>(*numberValue);
 
     if (static_cast<double>(integerValue) != *numberValue)
     {
-        throw std::runtime_error("Expected integer in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected integer in tileset catalog: " + std::string(context));
     }
 
     return integerValue;
@@ -414,7 +414,7 @@ private:
 
     if (!numberValue)
     {
-        throw std::runtime_error("Expected number in tileset classification: " + std::string(context));
+        throw std::runtime_error("Expected number in tileset catalog: " + std::string(context));
     }
 
     return static_cast<float>(*numberValue);
@@ -430,7 +430,7 @@ private:
     if (fieldIt == object.end())
     {
         throw std::runtime_error(
-            "Missing field in tileset classification: " + std::string(context) + "." + std::string(fieldName));
+            "Missing field in tileset catalog: " + std::string(context) + "." + std::string(fieldName));
     }
 
     return fieldIt->second;
@@ -504,7 +504,7 @@ private:
     }
 
     throw std::runtime_error(
-        "Unsupported vegetation placement mode in tileset classification: " + std::string(context) + "." + std::string(fieldName));
+        "Unsupported vegetation placement mode in tileset catalog: " + std::string(context) + "." + std::string(fieldName));
 }
 
 [[nodiscard]] std::vector<std::string> parseTags(const JsonObject& object)
@@ -655,14 +655,14 @@ private:
         return tile;
     }
 
-    throw std::runtime_error("Unknown tile kind in tileset classification: " + kindValue);
+    throw std::runtime_error("Unknown tile kind in tileset catalog: " + kindValue);
 }
 
 [[nodiscard]] TilesetAssetDocument parseDocument(
-    const std::filesystem::path& classificationPath,
+    const std::filesystem::path& catalogPath,
     const std::filesystem::path& assetRoot)
 {
-    const JsonValue rootValue = JsonParser(readFileContents(classificationPath)).parse();
+    const JsonValue rootValue = JsonParser(readFileContents(catalogPath)).parse();
     const JsonObject& root = asObject(rootValue, "root");
 
     (void)asInt(getRequiredField(root, "schemaVersion", "root"), "root.schemaVersion");
@@ -691,7 +691,7 @@ private:
     const std::filesystem::path normalizedAssetRoot = assetRoot.lexically_normal();
     return {
         normalizedAssetRoot,
-        classificationPath.lexically_normal(),
+        catalogPath.lexically_normal(),
         (normalizedAssetRoot / metadata.source.image).lexically_normal(),
         std::move(metadata),
         std::move(tiles)};
@@ -699,26 +699,26 @@ private:
 
 } // namespace
 
-TilesetAssetDocument TilesetAssetDocument::loadFromFile(const std::filesystem::path& classificationPath)
+TilesetAssetDocument TilesetAssetDocument::loadFromFile(const std::filesystem::path& catalogPath)
 {
-    return parseDocument(classificationPath, classificationPath.parent_path());
+    return parseDocument(catalogPath, catalogPath.parent_path());
 }
 
 TilesetAssetDocument TilesetAssetDocument::loadFromAssetRoot(
     const std::filesystem::path& assetRoot,
-    const std::filesystem::path& classificationRelativePath)
+    const std::filesystem::path& catalogRelativePath)
 {
-    return parseDocument(assetRoot / classificationRelativePath, assetRoot);
+    return parseDocument(assetRoot / catalogRelativePath, assetRoot);
 }
 
 TilesetAssetDocument::TilesetAssetDocument(
     std::filesystem::path assetRoot,
-    std::filesystem::path classificationPath,
+    std::filesystem::path catalogPath,
     std::filesystem::path resolvedImagePath,
     TilesetAssetMetadata tileset,
     std::vector<TilesetAssetTile> tiles)
     : m_assetRoot(std::move(assetRoot))
-    , m_classificationPath(std::move(classificationPath))
+    , m_catalogPath(std::move(catalogPath))
     , m_resolvedImagePath(std::move(resolvedImagePath))
     , m_tileset(std::move(tileset))
     , m_tiles(std::move(tiles))
@@ -730,9 +730,9 @@ const std::filesystem::path& TilesetAssetDocument::getAssetRoot() const noexcept
     return m_assetRoot;
 }
 
-const std::filesystem::path& TilesetAssetDocument::getClassificationPath() const noexcept
+const std::filesystem::path& TilesetAssetDocument::getCatalogPath() const noexcept
 {
-    return m_classificationPath;
+    return m_catalogPath;
 }
 
 const std::filesystem::path& TilesetAssetDocument::getResolvedImagePath() const noexcept

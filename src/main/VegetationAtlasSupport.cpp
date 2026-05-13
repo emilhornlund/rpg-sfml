@@ -99,9 +99,9 @@ VegetationTilesetMetadata VegetationTilesetMetadata::loadFromFile(const std::fil
 
 VegetationTilesetMetadata VegetationTilesetMetadata::loadFromAssetRoot(
     const std::filesystem::path& assetRoot,
-    const std::filesystem::path& classificationRelativePath)
+    const std::filesystem::path& catalogRelativePath)
 {
-    return loadFromDocument(TilesetAssetDocument::loadFromAssetRoot(assetRoot, classificationRelativePath));
+    return loadFromDocument(TilesetAssetDocument::loadFromAssetRoot(assetRoot, catalogRelativePath));
 }
 
 VegetationTilesetMetadata VegetationTilesetMetadata::loadFromDocument(const TilesetAssetDocument& document)
@@ -187,7 +187,7 @@ VegetationTilesetMetadata VegetationTilesetMetadata::loadFromDocument(const Tile
 
     if (metadata.m_prototypes.empty())
     {
-        throw std::runtime_error("Missing vegetation prototypes in vegetation tileset classification");
+        throw std::runtime_error("Missing vegetation prototypes in vegetation tileset catalog");
     }
 
     return metadata;

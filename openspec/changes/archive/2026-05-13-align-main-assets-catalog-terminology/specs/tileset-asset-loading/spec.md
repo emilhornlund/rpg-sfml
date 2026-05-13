@@ -1,18 +1,14 @@
-## Purpose
+## MODIFIED Requirements
 
-Define the runtime boundary for loading wrapped tileset catalog documents and resolving their referenced metadata from staged assets.
-
-## Requirements
-
-### Requirement: Runtime loads wrapped tileset catalog documents from the staged asset root
+### Requirement: Runtime loads wrapped tileset classification documents from the staged asset root
 The runtime SHALL load wrapped tileset catalog documents from the staged executable asset root using the schema emitted by the asset toolchain, including `schemaVersion`, `tileset`, and `tiles`, instead of assuming a legacy flat file in the top-level asset directory.
 
-#### Scenario: Generated terrain catalog is loaded from staged assets
+#### Scenario: Generated terrain classification is loaded from staged assets
 - **WHEN** the runtime or an asset-dependent test requests the overworld terrain tileset document
 - **THEN** it resolves the staged catalog file from `assets/output/catalogs/overworld-terrain-tileset-catalog.json`
 - **AND** it parses the wrapped document successfully without depending on legacy top-level tile metadata fields
 
-#### Scenario: Additional staged catalogs use the same loading boundary
+#### Scenario: Additional staged classifications use the same loading boundary
 - **WHEN** the runtime adds another known tileset document such as the overworld vegetation tileset
 - **THEN** it loads that catalog through the same tileset asset loading boundary
 - **AND** it does not require a separate one-off file loader architecture
@@ -20,12 +16,12 @@ The runtime SHALL load wrapped tileset catalog documents from the staged executa
 ### Requirement: Runtime resolves tileset metadata relative to an asset root
 The runtime SHALL resolve tileset metadata, including the referenced image path and grid information, relative to a known runtime asset root so wrapped catalog documents can live in generated subdirectories while still referring to staged tileset images in the asset root.
 
-#### Scenario: Catalog image source resolves from wrapped metadata
+#### Scenario: Classification image source resolves from wrapped metadata
 - **WHEN** a loaded tileset catalog document references its tileset image through `tileset.source.image`
 - **THEN** the runtime resolves that image from the staged asset root
 - **AND** the resolution remains valid even when the catalog document is stored under `assets/output/catalogs/`
 
-### Requirement: Vegetation catalog loading preserves placement metadata
+### Requirement: Vegetation classification loading preserves placement metadata
 The runtime SHALL preserve vegetation anchor placement metadata from the staged vegetation catalog, including `placeOn` tile constraints, `biomes` weights, and `placementMode`, so vegetation placement can use the staged asset data as its source of truth.
 
 #### Scenario: Water vegetation metadata survives loading

@@ -69,7 +69,7 @@ constexpr std::uint32_t kDecorWeightDenominator = 32U;
         return TileType::Forest;
     }
 
-    throw std::runtime_error("Unknown terrain type in terrain tileset classification: " + value);
+    throw std::runtime_error("Unknown terrain type in terrain tileset catalog: " + value);
 }
 
 [[nodiscard]] TerrainAutotileRole parseAutotileRole(const std::string& value)
@@ -144,7 +144,7 @@ constexpr std::uint32_t kDecorWeightDenominator = 32U;
         return TerrainAutotileRole::BottomRight;
     }
 
-    throw std::runtime_error("Unknown autotile role in terrain tileset classification: " + value);
+    throw std::runtime_error("Unknown autotile role in terrain tileset catalog: " + value);
 }
 
 [[nodiscard]] constexpr std::array<TerrainAutotileRole, 14> getAllAutotileRoles() noexcept
@@ -185,7 +185,7 @@ void validateBaseVariants(const TerrainTilesetMetadata& metadata)
     {
         if (metadata.getBaseVariantCount(tileType) == 0)
         {
-            throw std::runtime_error("Missing required base variants in terrain tileset classification");
+            throw std::runtime_error("Missing required base variants in terrain tileset catalog");
         }
     }
 }
@@ -194,7 +194,7 @@ void validateTransitionEntries(const TerrainTilesetMetadata& metadata)
 {
     if (metadata.getWaterAnimationFrameCount() <= 0)
     {
-        throw std::runtime_error("Missing water animation frames in terrain tileset classification");
+        throw std::runtime_error("Missing water animation frames in terrain tileset catalog");
     }
 
     for (const auto& [sourceTileType, transitionTarget] : getSupportedTransitionPairs())
@@ -334,9 +334,9 @@ TerrainTilesetMetadata TerrainTilesetMetadata::loadFromFile(const std::filesyste
 
 TerrainTilesetMetadata TerrainTilesetMetadata::loadFromAssetRoot(
     const std::filesystem::path& assetRoot,
-    const std::filesystem::path& classificationRelativePath)
+    const std::filesystem::path& catalogRelativePath)
 {
-    return loadFromDocument(TilesetAssetDocument::loadFromAssetRoot(assetRoot, classificationRelativePath));
+    return loadFromDocument(TilesetAssetDocument::loadFromAssetRoot(assetRoot, catalogRelativePath));
 }
 
 TerrainTilesetMetadata TerrainTilesetMetadata::loadFromDocument(const TilesetAssetDocument& document)
@@ -439,21 +439,21 @@ const TerrainAtlasCell& TerrainTilesetMetadata::getTransitionCell(
 
     if (transitionIt == m_transitionCells.end())
     {
-        throw std::runtime_error("Missing terrain transition pair in terrain tileset classification");
+        throw std::runtime_error("Missing terrain transition pair in terrain tileset catalog");
     }
 
     const auto roleIt = transitionIt->second.find(role);
 
     if (roleIt == transitionIt->second.end())
     {
-        throw std::runtime_error("Missing autotile role in terrain tileset classification");
+        throw std::runtime_error("Missing autotile role in terrain tileset catalog");
     }
 
     const auto frameIt = roleIt->second.find(animationFrame);
 
     if (frameIt == roleIt->second.end())
     {
-        throw std::runtime_error("Missing animation frame in terrain tileset classification");
+        throw std::runtime_error("Missing animation frame in terrain tileset catalog");
     }
 
     return frameIt->second;

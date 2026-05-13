@@ -35,7 +35,7 @@ namespace
 {
     const rpg::detail::TilesetAssetDocument terrain = rpg::detail::TilesetAssetDocument::loadFromAssetRoot(
         assetRoot,
-        "output/classifications/overworld-terrain-tileset-classification.json");
+        "output/catalogs/overworld-terrain-tileset-catalog.json");
     bool foundGrassBase = false;
 
     for (const rpg::detail::TilesetAssetTile& tile : terrain.getTiles())
@@ -63,7 +63,7 @@ namespace
 {
     const rpg::detail::TilesetAssetDocument vegetation = rpg::detail::TilesetAssetDocument::loadFromAssetRoot(
         assetRoot,
-        "output/classifications/overworld-vegetation-tileset-classification.json");
+        "output/catalogs/overworld-vegetation-tileset-catalog.json");
     bool foundObjectTile = false;
     bool foundWaterLilyAnchor = false;
     bool foundPropAnchor = false;

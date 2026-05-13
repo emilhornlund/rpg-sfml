@@ -34,10 +34,10 @@
 namespace
 {
 
-[[nodiscard]] bool verifyMetadataLoading(const std::filesystem::path& classificationPath)
+[[nodiscard]] bool verifyMetadataLoading(const std::filesystem::path& catalogPath)
 {
     const rpg::detail::TerrainTilesetMetadata metadata =
-        rpg::detail::TerrainTilesetMetadata::loadFromFile(classificationPath);
+        rpg::detail::TerrainTilesetMetadata::loadFromFile(catalogPath);
 
     const rpg::detail::TerrainAtlasCell grassTop = metadata.getTransitionCell(
         rpg::TileType::Grass,
@@ -219,11 +219,11 @@ namespace
         && !noSourceTransitionTarget.has_value();
 }
 
-[[nodiscard]] bool verifyVariantAndAnimationSelection(const std::filesystem::path& classificationPath)
+[[nodiscard]] bool verifyVariantAndAnimationSelection(const std::filesystem::path& catalogPath)
 {
     constexpr std::uint32_t kWorldSeed = 0x12345678U;
     const rpg::detail::TerrainTilesetMetadata metadata =
-        rpg::detail::TerrainTilesetMetadata::loadFromFile(classificationPath);
+        rpg::detail::TerrainTilesetMetadata::loadFromFile(catalogPath);
     const rpg::TileCoordinates coordinates{12, -7};
     const std::size_t firstVariantIndex = rpg::detail::selectTerrainVariantIndex(
         kWorldSeed,
@@ -387,9 +387,9 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    const std::filesystem::path classificationPath = argv[1];
+    const std::filesystem::path catalogPath = argv[1];
 
-    if (!verifyMetadataLoading(classificationPath))
+    if (!verifyMetadataLoading(catalogPath))
     {
         return 1;
     }
@@ -399,7 +399,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    if (!verifyVariantAndAnimationSelection(classificationPath))
+    if (!verifyVariantAndAnimationSelection(catalogPath))
     {
         return 1;
     }
