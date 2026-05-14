@@ -4,6 +4,7 @@ rpg_resolve_vendored_sfml(RPG_TEST_SFML_INCLUDE_DIR RPG_TEST_SFML_LIB_DIR)
 
 add_executable(game_runtime_support_tests
     GameRuntimeSupportTests.cpp
+    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
 )
 add_executable(player_occlusion_silhouette_tests
     PlayerOcclusionSilhouetteTests.cpp
@@ -17,6 +18,7 @@ add_executable(game_asset_support_tests
 add_executable(game_render_batch_support_tests
     GameRenderBatchSupportTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
 )
@@ -25,6 +27,7 @@ add_executable(gameplay_module_types_tests
     GameplayModuleTypesTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
@@ -37,6 +40,7 @@ add_executable(overworld_runtime_tests
     OverworldRuntimeTests.cpp
     "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
+    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
     "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"

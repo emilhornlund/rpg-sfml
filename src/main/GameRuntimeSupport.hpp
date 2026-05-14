@@ -30,11 +30,9 @@
 #include <main/OverworldRuntime.hpp>
 
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -298,27 +296,10 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
     return debugOverlayState.isVisible;
 }
 
-[[nodiscard]] inline std::string buildDebugOverlayString(
+[[nodiscard]] std::string buildDebugOverlayString(
     const OverworldDebugSnapshot& debugSnapshot,
     const DebugOverlayRenderMetrics& renderMetrics,
-    const int displayedFramesPerSecond)
-{
-    std::ostringstream overlayStream;
-    overlayStream
-        << "FPS: " << displayedFramesPerSecond << '\n'
-        << "Retained chunks: " << debugSnapshot.retainedChunkCount << '\n'
-        << "Retained objects: " << debugSnapshot.retainedGeneratedContentCount << '\n'
-        << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
-        << "Visible tiles: " << debugSnapshot.visibleTileCount << '\n'
-        << "Visible content: " << debugSnapshot.visibleGeneratedContentCount << '\n'
-        << "Front occluders: " << renderMetrics.frontOccluderCount << '\n'
-        << "Occlusion candidates: " << renderMetrics.overlapQualifiedOcclusionCandidateCount << '\n'
-        << "Grid vertices: " << renderMetrics.gridVertexCount << '\n'
-        << "Terrain vertices: " << renderMetrics.terrainVertexCount << '\n'
-        << "Coordinates: (" << debugSnapshot.playerTileCoordinates.x << ", " << debugSnapshot.playerTileCoordinates.y << ")\n"
-        << "Zoom: " << debugSnapshot.zoomPercent << '%';
-    return overlayStream.str();
-}
+    const int displayedFramesPerSecond);
 
 [[nodiscard]] constexpr WindowFramePacingConfig makeWindowFramePacingConfig(
     const WindowFramePacingMode mode,
@@ -334,27 +315,9 @@ constexpr void toggleDebugOverlayVisibility(DebugOverlayState& debugOverlayState
     return makeWindowFramePacingConfig(WindowFramePacingMode::FramerateLimit, 60U);
 }
 
-[[nodiscard]] inline WorldPosition snapPositionToPixelGrid(
-    const WorldPosition& position,
-    const WorldSize& pixelStep) noexcept
-{
-    const float stepX = pixelStep.width > 0.0F ? pixelStep.width : 1.0F;
-    const float stepY = pixelStep.height > 0.0F ? pixelStep.height : 1.0F;
-
-    return {
-        std::round(position.x / stepX) * stepX,
-        std::round(position.y / stepY) * stepY};
-}
-
-[[nodiscard]] inline ViewFrame snapViewFrameToPixelGrid(
+[[nodiscard]] ViewFrame snapViewFrameToPixelGrid(
     const ViewFrame& frame,
-    const WorldSize& viewportSizeInPixels) noexcept
-{
-    const WorldSize pixelStep{
-        viewportSizeInPixels.width > 0.0F ? frame.size.width / viewportSizeInPixels.width : 1.0F,
-        viewportSizeInPixels.height > 0.0F ? frame.size.height / viewportSizeInPixels.height : 1.0F};
-    return {snapPositionToPixelGrid(frame.center, pixelStep), frame.size};
-}
+    const WorldSize& viewportSizeInPixels) noexcept;
 
 [[nodiscard]] constexpr std::array<OverlayRectangle, 4> getTileGridOverlayRectangles(
     const OverworldRenderTile& visibleTile,
@@ -516,52 +479,13 @@ struct OverworldRenderQueueEntry
     return lhs.stableId < rhs.stableId;
 }
 
-[[nodiscard]] inline std::vector<std::size_t> collectFrontGeneratedContentIndices(
-    const std::vector<OverworldRenderQueueEntry>& renderQueue)
-{
-    std::vector<std::size_t> generatedContentIndices;
-    bool passedPlayerMarker = false;
+[[nodiscard]] std::vector<std::size_t> collectFrontGeneratedContentIndices(
+    const std::vector<OverworldRenderQueueEntry>& renderQueue);
 
-    for (const OverworldRenderQueueEntry& entry : renderQueue)
-    {
-        if (entry.kind == OverworldRenderQueueEntryKind::PlayerMarker)
-        {
-            passedPlayerMarker = true;
-            continue;
-        }
-
-        if (passedPlayerMarker)
-        {
-            generatedContentIndices.push_back(entry.sourceIndex);
-        }
-    }
-
-    return generatedContentIndices;
-}
-
-[[nodiscard]] inline std::vector<std::size_t> collectOverlapQualifiedFrontGeneratedContentIndices(
+[[nodiscard]] std::vector<std::size_t> collectOverlapQualifiedFrontGeneratedContentIndices(
     const std::vector<std::size_t>& frontGeneratedContentIndices,
     const std::vector<OverworldRenderContent>& generatedContent,
-    const OverworldRenderMarker& playerMarker)
-{
-    std::vector<std::size_t> overlapQualifiedIndices;
-    const WorldRectangle playerBounds = getWorldRectangle(playerMarker);
-
-    for (const std::size_t index : frontGeneratedContentIndices)
-    {
-        if (index >= generatedContent.size())
-        {
-            continue;
-        }
-
-        if (doWorldRectanglesIntersect(playerBounds, getWorldRectangle(generatedContent[index])))
-        {
-            overlapQualifiedIndices.push_back(index);
-        }
-    }
-
-    return overlapQualifiedIndices;
-}
+    const OverworldRenderMarker& playerMarker);
 
 } // namespace rpg::detail
 
