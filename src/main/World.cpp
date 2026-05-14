@@ -225,7 +225,7 @@ ChunkCoordinates World::getChunkCoordinates(const TileCoordinates& coordinates) 
 
 ChunkMetadata World::getChunkMetadata(const ChunkCoordinates& coordinates) const
 {
-    return ensureChunkRetained(coordinates).metadata;
+    return getChunkMetadataRef(coordinates);
 }
 
 ChunkMetadata World::getChunkMetadata(const TileCoordinates& coordinates) const
@@ -233,14 +233,34 @@ ChunkMetadata World::getChunkMetadata(const TileCoordinates& coordinates) const
     return getChunkMetadata(getChunkCoordinates(coordinates));
 }
 
+const ChunkMetadata& World::getChunkMetadataRef(const ChunkCoordinates& coordinates) const
+{
+    return ensureChunkRetained(coordinates).metadata;
+}
+
+const ChunkMetadata& World::getChunkMetadataRef(const TileCoordinates& coordinates) const
+{
+    return getChunkMetadataRef(getChunkCoordinates(coordinates));
+}
+
 ChunkContent World::getChunkContent(const ChunkCoordinates& coordinates) const
 {
-    return ensureChunkRetained(coordinates).content;
+    return getChunkContentRef(coordinates);
 }
 
 ChunkContent World::getChunkContent(const TileCoordinates& coordinates) const
 {
     return getChunkContent(getChunkCoordinates(coordinates));
+}
+
+const ChunkContent& World::getChunkContentRef(const ChunkCoordinates& coordinates) const
+{
+    return ensureChunkRetained(coordinates).content;
+}
+
+const ChunkContent& World::getChunkContentRef(const TileCoordinates& coordinates) const
+{
+    return getChunkContentRef(getChunkCoordinates(coordinates));
 }
 
 std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) const

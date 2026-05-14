@@ -278,42 +278,94 @@ public:
     [[nodiscard]] ChunkCoordinates getChunkCoordinates(const TileCoordinates& coordinates) const noexcept;
 
     /**
-     * @brief Read retained metadata for a generated chunk.
+     * @brief Create an owned metadata snapshot for a generated chunk.
      *
      * Missing chunks are generated on demand and retained before the metadata
-     * is returned.
+     * is copied into the returned snapshot.
      *
      * @param coordinates Chunk coordinates to inspect.
-     * @return Retained metadata for the chunk.
+     * @return Owned metadata snapshot for the chunk.
      */
     [[nodiscard]] ChunkMetadata getChunkMetadata(const ChunkCoordinates& coordinates) const;
 
     /**
-     * @brief Read retained metadata for the chunk that owns a tile.
+     * @brief Create an owned metadata snapshot for the chunk that owns a tile.
      *
      * @param coordinates Tile coordinates used to resolve the owning chunk.
-     * @return Retained metadata for the owning chunk.
+     * @return Owned metadata snapshot for the owning chunk.
      */
     [[nodiscard]] ChunkMetadata getChunkMetadata(const TileCoordinates& coordinates) const;
 
     /**
-     * @brief Read retained content for a generated chunk.
+     * @brief Read retained metadata for a generated chunk without copying.
      *
-     * Missing chunks are generated on demand and retained before the content is
-     * returned.
+     * Missing chunks are generated on demand and retained before the reference
+     * is returned. The returned reference remains valid only while the owning
+     * world instance stays alive and retains the addressed chunk. Do not keep
+     * the reference across calls that can evict chunks, such as
+     * updateRetentionWindow().
      *
      * @param coordinates Chunk coordinates to inspect.
-     * @return Deterministic retained content for the chunk.
+     * @return Read-only reference to the retained metadata for the chunk.
+     */
+    [[nodiscard]] const ChunkMetadata& getChunkMetadataRef(const ChunkCoordinates& coordinates) const;
+
+    /**
+     * @brief Read retained metadata for the chunk that owns a tile without copying.
+     *
+     * The returned reference follows the same lifetime rules as the
+     * chunk-coordinate overload and becomes invalid when the owning chunk is
+     * evicted or the world is destroyed.
+     *
+     * @param coordinates Tile coordinates used to resolve the owning chunk.
+     * @return Read-only reference to the retained metadata for the owning chunk.
+     */
+    [[nodiscard]] const ChunkMetadata& getChunkMetadataRef(const TileCoordinates& coordinates) const;
+
+    /**
+     * @brief Create an owned content snapshot for a generated chunk.
+     *
+     * Missing chunks are generated on demand and retained before the content is
+     * copied into the returned snapshot.
+     *
+     * @param coordinates Chunk coordinates to inspect.
+     * @return Owned deterministic content snapshot for the chunk.
      */
     [[nodiscard]] ChunkContent getChunkContent(const ChunkCoordinates& coordinates) const;
 
     /**
-     * @brief Read retained content for the chunk that owns a tile.
+     * @brief Create an owned content snapshot for the chunk that owns a tile.
      *
      * @param coordinates Tile coordinates used to resolve the owning chunk.
-     * @return Deterministic retained content for the owning chunk.
+     * @return Owned deterministic content snapshot for the owning chunk.
      */
     [[nodiscard]] ChunkContent getChunkContent(const TileCoordinates& coordinates) const;
+
+    /**
+     * @brief Read retained content for a generated chunk without copying.
+     *
+     * Missing chunks are generated on demand and retained before the reference
+     * is returned. The returned reference remains valid only while the owning
+     * world instance stays alive and retains the addressed chunk. Do not keep
+     * the reference across calls that can evict chunks, such as
+     * updateRetentionWindow().
+     *
+     * @param coordinates Chunk coordinates to inspect.
+     * @return Read-only reference to the retained content for the chunk.
+     */
+    [[nodiscard]] const ChunkContent& getChunkContentRef(const ChunkCoordinates& coordinates) const;
+
+    /**
+     * @brief Read retained content for the chunk that owns a tile without copying.
+     *
+     * The returned reference follows the same lifetime rules as the
+     * chunk-coordinate overload and becomes invalid when the owning chunk is
+     * evicted or the world is destroyed.
+     *
+     * @param coordinates Tile coordinates used to resolve the owning chunk.
+     * @return Read-only reference to the retained content for the owning chunk.
+     */
+    [[nodiscard]] const ChunkContent& getChunkContentRef(const TileCoordinates& coordinates) const;
 
     /**
      * @brief Enumerate the visible world tiles for a camera frame.

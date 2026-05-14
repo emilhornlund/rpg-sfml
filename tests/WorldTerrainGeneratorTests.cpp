@@ -431,6 +431,29 @@ struct CardinalNeighborMask
         && areEqual(firstMetadata, secondMetadata);
 }
 
+[[nodiscard]] bool verifyBorrowedMetadataQueriesExposeRetainedChunkData()
+{
+    const rpg::WorldConfig config{.seed = 0x13572468U, .widthInTiles = 36, .heightInTiles = 20, .tileSize = 20.0F};
+    const rpg::ChunkCoordinates farChunk{9, -7};
+    const rpg::TileCoordinates tileInFarChunk{
+        farChunk.x * rpg::detail::getChunkSizeInTiles() + 3,
+        farChunk.y * rpg::detail::getChunkSizeInTiles() + 5};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+
+    const rpg::ChunkMetadata& firstMetadata = world.getChunkMetadataRef(farChunk);
+    const std::size_t generatedAfterMetadataQuery = rpg::detail::getGeneratedChunkCount();
+    const rpg::ChunkMetadata& repeatedMetadata = world.getChunkMetadataRef(tileInFarChunk);
+    const rpg::ChunkMetadata snapshotMetadata = world.getChunkMetadata(farChunk);
+
+    return generatedAfterMetadataQuery > generatedAfterConstruction
+        && rpg::detail::getGeneratedChunkCount() == generatedAfterMetadataQuery
+        && &firstMetadata == &repeatedMetadata
+        && areEqual(firstMetadata, repeatedMetadata)
+        && areEqual(firstMetadata, snapshotMetadata);
+}
+
 [[nodiscard]] bool verifyContentQueriesGenerateAndReuseWorldCache()
 {
     const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
@@ -455,6 +478,29 @@ struct CardinalNeighborMask
 
     return rpg::detail::getGeneratedChunkCount() == generatedAfterContentQuery
         && areEqual(firstContent, secondContent);
+}
+
+[[nodiscard]] bool verifyBorrowedContentQueriesExposeRetainedChunkData()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::ChunkCoordinates farChunk{9, -7};
+    const rpg::TileCoordinates tileInFarChunk{
+        farChunk.x * rpg::detail::getChunkSizeInTiles() + 3,
+        farChunk.y * rpg::detail::getChunkSizeInTiles() + 5};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::World world(config);
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+
+    const rpg::ChunkContent& firstContent = world.getChunkContentRef(farChunk);
+    const std::size_t generatedAfterContentQuery = rpg::detail::getGeneratedChunkCount();
+    const rpg::ChunkContent& repeatedContent = world.getChunkContentRef(tileInFarChunk);
+    const rpg::ChunkContent snapshotContent = world.getChunkContent(farChunk);
+
+    return generatedAfterContentQuery > generatedAfterConstruction
+        && rpg::detail::getGeneratedChunkCount() == generatedAfterContentQuery
+        && &firstContent == &repeatedContent
+        && areEqual(firstContent, repeatedContent)
+        && areEqual(firstContent, snapshotContent);
 }
 
 [[nodiscard]] bool verifyMissingChunkLoadsReuseRetainedGenerationHelpers()
@@ -685,7 +731,16 @@ struct CardinalNeighborMask
     }
 
     const rpg::ChunkCoordinates retainedChunk = world.getChunkCoordinates(firstVisibleTiles.front().coordinates);
+    const rpg::ChunkMetadata retainedMetadata = world.getChunkMetadata(retainedChunk);
     const rpg::ChunkContent retainedContent = world.getChunkContent(retainedChunk);
+    const rpg::ChunkMetadata& retainedMetadataRef = world.getChunkMetadataRef(retainedChunk);
+    const rpg::ChunkContent& retainedContentRef = world.getChunkContentRef(retainedChunk);
+
+    if (!areEqual(retainedMetadata, retainedMetadataRef) || !areEqual(retainedContent, retainedContentRef))
+    {
+        return false;
+    }
+
     const std::size_t retainedChunkCount = world.getRetainedChunkCount();
     const std::size_t retainedContentCount = world.getRetainedGeneratedContentCount();
     const std::size_t generatedAfterFirstWindow = rpg::detail::getGeneratedChunkCount();
@@ -705,11 +760,13 @@ struct CardinalNeighborMask
     }
 
     const std::size_t generatedBeforeReload = rpg::detail::getGeneratedChunkCount();
-    const rpg::ChunkContent reloadedContent = world.getChunkContent(retainedChunk);
+    const rpg::ChunkMetadata& reloadedMetadataRef = world.getChunkMetadataRef(retainedChunk);
+    const rpg::ChunkContent& reloadedContentRef = world.getChunkContentRef(retainedChunk);
 
     return generatedBeforeReload == generatedAfterFirstWindow
         && rpg::detail::getGeneratedChunkCount() > generatedBeforeReload
-        && areEqual(retainedContent, reloadedContent);
+        && areEqual(retainedMetadata, reloadedMetadataRef)
+        && areEqual(retainedContent, reloadedContentRef);
 }
 
 [[nodiscard]] bool verifyVisibleQueriesStillWorkWithChunkUnloading()
@@ -1165,7 +1222,17 @@ int main()
         return 1;
     }
 
+    if (!verifyBorrowedMetadataQueriesExposeRetainedChunkData())
+    {
+        return 1;
+    }
+
     if (!verifyContentQueriesGenerateAndReuseWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyBorrowedContentQueriesExposeRetainedChunkData())
     {
         return 1;
     }
