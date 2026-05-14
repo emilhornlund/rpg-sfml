@@ -30,6 +30,7 @@
 #include "WorldTerrainGenerator.hpp"
 
 #include <cmath>
+#include <memory>
 #include <utility>
 
 namespace rpg
@@ -172,8 +173,9 @@ World::World()
 World::World(const WorldConfig& config)
 {
     m_state.config = config;
-    const detail::TerrainGenerator terrainGenerator{m_state.config};
-    m_state.spawnTile = terrainGenerator.generateSpawnTile();
+    m_state.terrainGenerator = std::make_shared<detail::TerrainGenerator>(m_state.config);
+    m_state.worldContent = std::make_shared<detail::WorldContent>(m_state.config);
+    m_state.spawnTile = m_state.terrainGenerator->generateSpawnTile();
 }
 
 World::~World() = default;
@@ -368,11 +370,9 @@ World::State::RetainedChunkData& World::ensureChunkRetained(const ChunkCoordinat
         return chunkIt->second;
     }
 
-    const detail::TerrainGenerator terrainGenerator{m_state.config};
-    detail::GeneratedChunkData chunkData = terrainGenerator.generateChunk(coordinates.x, coordinates.y);
-    const detail::WorldContent worldContent{m_state.config};
+    detail::GeneratedChunkData chunkData = m_state.terrainGenerator->generateChunk(coordinates.x, coordinates.y);
     State::RetainedChunkData retainedChunk;
-    retainedChunk.content = worldContent.generateChunkContent(coordinates, chunkData.metadata, chunkData.tiles);
+    retainedChunk.content = m_state.worldContent->generateChunkContent(coordinates, chunkData.metadata, chunkData.tiles);
     retainedChunk.tiles = std::move(chunkData.tiles);
     retainedChunk.metadata = std::move(chunkData.metadata);
     const auto insertedChunk = m_state.chunks.emplace(chunkKey, std::move(retainedChunk));

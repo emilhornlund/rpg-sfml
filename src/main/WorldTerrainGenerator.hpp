@@ -84,6 +84,10 @@ private:
 
 void resetGeneratedChunkCount() noexcept;
 
+[[nodiscard]] std::size_t getTerrainGeneratorConstructionCount() noexcept;
+
+void resetTerrainGeneratorConstructionCount() noexcept;
+
 [[nodiscard]] bool isTraversableTileType(TileType tileType) noexcept;
 
 } // namespace detail

@@ -26,6 +26,7 @@
 
 #include "BiomeSampler.hpp"
 #include "GameAssetSupport.hpp"
+#include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <main/World.hpp>
@@ -454,6 +455,59 @@ struct CardinalNeighborMask
 
     return rpg::detail::getGeneratedChunkCount() == generatedAfterContentQuery
         && areEqual(firstContent, secondContent);
+}
+
+[[nodiscard]] bool verifyMissingChunkLoadsReuseRetainedGenerationHelpers()
+{
+    const rpg::WorldConfig config{.seed = 0x12345678U, .widthInTiles = 40, .heightInTiles = 24, .tileSize = 24.0F};
+    const rpg::ChunkCoordinates firstChunk{9, -7};
+    const rpg::ChunkCoordinates secondChunk{10, -7};
+    const rpg::TileCoordinates tileInFirstChunk{
+        firstChunk.x * rpg::detail::getChunkSizeInTiles() + 3,
+        firstChunk.y * rpg::detail::getChunkSizeInTiles() + 5};
+    rpg::detail::resetGeneratedChunkCount();
+    rpg::detail::resetTerrainGeneratorConstructionCount();
+    rpg::detail::resetWorldContentConstructionCount();
+    rpg::World world(config);
+    const std::size_t generatedAfterConstruction = rpg::detail::getGeneratedChunkCount();
+    const std::size_t terrainGeneratorConstructionsAfterConstruction =
+        rpg::detail::getTerrainGeneratorConstructionCount();
+    const std::size_t worldContentConstructionsAfterConstruction =
+        rpg::detail::getWorldContentConstructionCount();
+
+    if (terrainGeneratorConstructionsAfterConstruction != 1 || worldContentConstructionsAfterConstruction != 1)
+    {
+        return false;
+    }
+
+    const rpg::ChunkContent firstContent = world.getChunkContent(firstChunk);
+    const std::size_t generatedAfterFirstChunk = rpg::detail::getGeneratedChunkCount();
+
+    if (generatedAfterFirstChunk <= generatedAfterConstruction
+        || rpg::detail::getTerrainGeneratorConstructionCount() != terrainGeneratorConstructionsAfterConstruction
+        || rpg::detail::getWorldContentConstructionCount() != worldContentConstructionsAfterConstruction)
+    {
+        return false;
+    }
+
+    const rpg::ChunkContent secondContent = world.getChunkContent(secondChunk);
+    const std::size_t generatedAfterSecondChunk = rpg::detail::getGeneratedChunkCount();
+
+    if (generatedAfterSecondChunk <= generatedAfterFirstChunk
+        || secondContent.chunkCoordinates.x != secondChunk.x
+        || secondContent.chunkCoordinates.y != secondChunk.y
+        || rpg::detail::getTerrainGeneratorConstructionCount() != terrainGeneratorConstructionsAfterConstruction
+        || rpg::detail::getWorldContentConstructionCount() != worldContentConstructionsAfterConstruction)
+    {
+        return false;
+    }
+
+    (void)world.getTileType(tileInFirstChunk);
+    const rpg::ChunkContent repeatedFirstContent = world.getChunkContent(firstChunk);
+
+    return rpg::detail::getTerrainGeneratorConstructionCount() == terrainGeneratorConstructionsAfterConstruction
+        && rpg::detail::getWorldContentConstructionCount() == worldContentConstructionsAfterConstruction
+        && areEqual(firstContent, repeatedFirstContent);
 }
 
 [[nodiscard]] bool verifyChunkContentRecords()
@@ -1112,6 +1166,11 @@ int main()
     }
 
     if (!verifyContentQueriesGenerateAndReuseWorldCache())
+    {
+        return 1;
+    }
+
+    if (!verifyMissingChunkLoadsReuseRetainedGenerationHelpers())
     {
         return 1;
     }

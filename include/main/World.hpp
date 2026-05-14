@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,6 +42,12 @@
  */
 namespace rpg
 {
+
+namespace detail
+{
+class TerrainGenerator;
+class WorldContent;
+} // namespace detail
 
 /**
  * @brief Configuration inputs for deterministic overworld generation.
@@ -400,6 +407,8 @@ private:
 
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
+        std::shared_ptr<const detail::TerrainGenerator> terrainGenerator;
+        std::shared_ptr<const detail::WorldContent> worldContent;
         mutable std::map<std::pair<int, int>, RetainedChunkData> chunks;
         mutable std::size_t retainedGeneratedContentCount = 0;
         mutable RetentionWindow retentionWindow;

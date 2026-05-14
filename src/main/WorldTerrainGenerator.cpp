@@ -46,6 +46,7 @@ namespace
 {
 
 std::size_t g_generatedChunkCount = 0;
+std::size_t g_terrainGeneratorConstructionCount = 0;
 constexpr int kTerrainCleanupPaddingInTiles = getChunkSizeInTiles();
 constexpr std::array<TileCoordinates, 4> kCardinalNeighborOffsets = {{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}};
 constexpr std::array<TileCoordinates, 8> kAllNeighborOffsets = {{{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}}};
@@ -569,6 +570,7 @@ void cleanupUnsupportedTerrainShapes(
 TerrainGenerator::TerrainGenerator(const WorldConfig& config) noexcept
     : m_config(config)
 {
+    ++g_terrainGeneratorConstructionCount;
 }
 
 GeneratedWorldData TerrainGenerator::generateWorld() const
@@ -641,6 +643,16 @@ std::size_t getGeneratedChunkCount() noexcept
 void resetGeneratedChunkCount() noexcept
 {
     g_generatedChunkCount = 0;
+}
+
+std::size_t getTerrainGeneratorConstructionCount() noexcept
+{
+    return g_terrainGeneratorConstructionCount;
+}
+
+void resetTerrainGeneratorConstructionCount() noexcept
+{
+    g_terrainGeneratorConstructionCount = 0;
 }
 
 bool isTraversableTileType(const TileType tileType) noexcept

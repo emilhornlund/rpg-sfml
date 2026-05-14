@@ -46,6 +46,8 @@ namespace detail
 namespace
 {
 
+std::size_t g_worldContentConstructionCount = 0;
+
 [[nodiscard]] std::uint64_t mixRecordId(std::uint64_t seed, const std::uint64_t value) noexcept
 {
     constexpr std::uint64_t kGoldenRatio = 0x9E3779B97F4A7C15ULL;
@@ -594,6 +596,17 @@ WorldContent::WorldContent(const WorldConfig& config) noexcept
     : m_worldSeed(config.seed)
     , m_tileSize(config.tileSize)
 {
+    ++g_worldContentConstructionCount;
+}
+
+std::size_t getWorldContentConstructionCount() noexcept
+{
+    return g_worldContentConstructionCount;
+}
+
+void resetWorldContentConstructionCount() noexcept
+{
+    g_worldContentConstructionCount = 0;
 }
 
 ChunkContent WorldContent::generateChunkContent(

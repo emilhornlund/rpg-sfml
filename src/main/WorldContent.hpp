@@ -29,6 +29,7 @@
 
 #include <main/World.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -53,6 +54,10 @@ private:
 };
 
 [[nodiscard]] int getWorldContentVisibilityOverscanInTiles();
+
+[[nodiscard]] std::size_t getWorldContentConstructionCount() noexcept;
+
+void resetWorldContentConstructionCount() noexcept;
 
 } // namespace detail
 } // namespace rpg
