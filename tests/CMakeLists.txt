@@ -2,194 +2,171 @@ include(VendoredSFML)
 
 rpg_resolve_vendored_sfml(RPG_TEST_SFML_INCLUDE_DIR RPG_TEST_SFML_LIB_DIR)
 
-add_executable(game_runtime_support_tests
-    GameRuntimeSupportTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
-)
-add_executable(player_occlusion_silhouette_tests
-    PlayerOcclusionSilhouetteTests.cpp
-)
-add_executable(game_asset_support_tests
-    GameAssetSupportTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
-)
-add_executable(game_render_batch_support_tests
-    GameRenderBatchSupportTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-)
+function(rpg_add_test_executable target)
+    set(options)
+    set(oneValueArgs BUILD_RPATH TEST_ENVIRONMENT)
+    set(multiValueArgs SOURCES INCLUDE_DIRS COMPILE_DEFINITIONS LINK_LIBRARIES TEST_ARGS)
+    cmake_parse_arguments(RPG_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-add_executable(gameplay_module_types_tests
-    GameplayModuleTypesTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
-)
-add_executable(overworld_runtime_tests
-    OverworldRuntimeTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
-)
-add_executable(overworld_vertical_slice_tests
-    OverworldVerticalSliceTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
-)
-add_executable(world_terrain_generator_tests
-    WorldTerrainGeneratorTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
-)
-add_executable(terrain_autotile_support_tests
-    TerrainAutotileSupportTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-)
-add_executable(tileset_asset_loader_tests
-    TilesetAssetLoaderTests.cpp
-    "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
-)
+    if(NOT RPG_TEST_SOURCES)
+        message(FATAL_ERROR "rpg_add_test_executable(${target}) requires SOURCES")
+    endif()
 
-target_compile_features(game_runtime_support_tests PRIVATE cxx_std_20)
-target_compile_features(player_occlusion_silhouette_tests PRIVATE cxx_std_20)
-target_compile_features(game_asset_support_tests PRIVATE cxx_std_20)
-target_compile_features(game_render_batch_support_tests PRIVATE cxx_std_20)
-target_compile_features(gameplay_module_types_tests PRIVATE cxx_std_20)
-target_compile_features(overworld_runtime_tests PRIVATE cxx_std_20)
-target_compile_features(overworld_vertical_slice_tests PRIVATE cxx_std_20)
-target_compile_features(world_terrain_generator_tests PRIVATE cxx_std_20)
-target_compile_features(terrain_autotile_support_tests PRIVATE cxx_std_20)
-target_compile_features(tileset_asset_loader_tests PRIVATE cxx_std_20)
+    set(rpg_test_include_dirs
+        "${PROJECT_SOURCE_DIR}/include"
+        "${PROJECT_SOURCE_DIR}/src/main"
+    )
+    if(RPG_TEST_INCLUDE_DIRS)
+        set(rpg_test_include_dirs ${RPG_TEST_INCLUDE_DIRS})
+    endif()
 
-target_include_directories(game_runtime_support_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(player_occlusion_silhouette_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(game_asset_support_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(game_render_batch_support_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(gameplay_module_types_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(overworld_runtime_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(overworld_vertical_slice_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-)
-target_include_directories(world_terrain_generator_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(terrain_autotile_support_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
-target_include_directories(tileset_asset_loader_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}/include"
-    "${PROJECT_SOURCE_DIR}/src/main"
-)
+    add_executable(${target} ${RPG_TEST_SOURCES})
+    target_compile_features(${target} PRIVATE cxx_std_20)
+    target_include_directories(${target} PRIVATE ${rpg_test_include_dirs})
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(game_runtime_support_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(player_occlusion_silhouette_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(game_asset_support_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(game_render_batch_support_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(gameplay_module_types_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(overworld_runtime_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(overworld_vertical_slice_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(world_terrain_generator_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(terrain_autotile_support_tests PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(tileset_asset_loader_tests PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
 
-target_compile_definitions(gameplay_module_types_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
-target_compile_definitions(overworld_runtime_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
-target_compile_definitions(overworld_vertical_slice_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
-target_compile_definitions(world_terrain_generator_tests PRIVATE RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets")
+    if(RPG_TEST_COMPILE_DEFINITIONS)
+        target_compile_definitions(${target} PRIVATE ${RPG_TEST_COMPILE_DEFINITIONS})
+    endif()
 
-target_link_libraries(game_render_batch_support_tests PRIVATE SFML::Graphics)
-set_target_properties(game_render_batch_support_tests PROPERTIES
-    BUILD_RPATH "${RPG_TEST_SFML_LIB_DIR}"
+    if(RPG_TEST_LINK_LIBRARIES)
+        target_link_libraries(${target} PRIVATE ${RPG_TEST_LINK_LIBRARIES})
+    endif()
+
+    if(RPG_TEST_BUILD_RPATH)
+        set_target_properties(${target} PROPERTIES
+            BUILD_RPATH "${RPG_TEST_BUILD_RPATH}"
+        )
+    endif()
+
+    add_test(NAME ${target} COMMAND ${target} ${RPG_TEST_TEST_ARGS})
+
+    if(RPG_TEST_TEST_ENVIRONMENT)
+        set_tests_properties(${target} PROPERTIES
+            ENVIRONMENT "${RPG_TEST_TEST_ENVIRONMENT}"
+        )
+    endif()
+endfunction()
+
+rpg_add_test_executable(game_runtime_support_tests
+    SOURCES
+        GameRuntimeSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
 )
-
-target_link_libraries(player_occlusion_silhouette_tests PRIVATE SFML::Graphics)
-set_target_properties(player_occlusion_silhouette_tests PROPERTIES
-    BUILD_RPATH "${RPG_TEST_SFML_LIB_DIR}"
+rpg_add_test_executable(player_occlusion_silhouette_tests
+    SOURCES
+        PlayerOcclusionSilhouetteTests.cpp
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
 )
-
-add_test(NAME game_runtime_support_tests COMMAND game_runtime_support_tests)
-add_test(NAME player_occlusion_silhouette_tests COMMAND player_occlusion_silhouette_tests)
-set_tests_properties(player_occlusion_silhouette_tests PROPERTIES
-    ENVIRONMENT "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
-)
-add_test(
-    NAME game_render_batch_support_tests
-    COMMAND game_render_batch_support_tests
+rpg_add_test_executable(game_asset_support_tests
+    SOURCES
+        GameAssetSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+    TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets"
 )
-set_tests_properties(game_render_batch_support_tests PROPERTIES
-    ENVIRONMENT "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
-)
-add_test(
-    NAME game_asset_support_tests
-    COMMAND game_asset_support_tests
+rpg_add_test_executable(game_render_batch_support_tests
+    SOURCES
+        GameRenderBatchSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
 )
-add_test(NAME gameplay_module_types_tests COMMAND gameplay_module_types_tests)
-add_test(NAME overworld_runtime_tests COMMAND overworld_runtime_tests)
-add_test(NAME overworld_vertical_slice_tests COMMAND overworld_vertical_slice_tests)
-add_test(NAME world_terrain_generator_tests COMMAND world_terrain_generator_tests)
-add_test(
-    NAME terrain_autotile_support_tests
-    COMMAND terrain_autotile_support_tests
+rpg_add_test_executable(gameplay_module_types_tests
+    SOURCES
+        GameplayModuleTypesTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
+    COMPILE_DEFINITIONS
+        RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets"
+)
+rpg_add_test_executable(overworld_runtime_tests
+    SOURCES
+        OverworldRuntimeTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/OverworldRuntime.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
+    COMPILE_DEFINITIONS
+        RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets"
+)
+rpg_add_test_executable(overworld_vertical_slice_tests
+    SOURCES
+        OverworldVerticalSliceTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Camera.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/Player.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
+    INCLUDE_DIRS
+        "${PROJECT_SOURCE_DIR}/include"
+    COMPILE_DEFINITIONS
+        RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets"
+)
+rpg_add_test_executable(world_terrain_generator_tests
+    SOURCES
+        WorldTerrainGeneratorTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/BiomeSampler.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/World.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldContent.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/WorldTerrainGenerator.cpp"
+    COMPILE_DEFINITIONS
+        RPG_DEFAULT_ASSET_ROOT_PATH="${PROJECT_SOURCE_DIR}/assets"
+)
+rpg_add_test_executable(terrain_autotile_support_tests
+    SOURCES
+        TerrainAutotileSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets/output/catalogs/overworld-terrain-tileset-catalog.json"
 )
-add_test(
-    NAME tileset_asset_loader_tests
-    COMMAND tileset_asset_loader_tests
+rpg_add_test_executable(tileset_asset_loader_tests
+    SOURCES
+        TilesetAssetLoaderTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets"
 )
+
 add_test(
     NAME main_handoff_check
     COMMAND ${CMAKE_COMMAND}
