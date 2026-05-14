@@ -91,6 +91,17 @@ rpg_add_test_executable(game_render_batch_support_tests
     TEST_ENVIRONMENT
         "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
 )
+rpg_add_test_executable(game_render_support_tests
+    SOURCES
+        GameRenderSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
 rpg_add_test_executable(gameplay_module_types_tests
     SOURCES
         GameplayModuleTypesTests.cpp

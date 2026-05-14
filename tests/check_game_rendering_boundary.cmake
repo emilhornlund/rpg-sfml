@@ -21,6 +21,18 @@ if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.setView")
     message(FATAL_ERROR "Game.cpp does not apply camera framing to the render window")
 endif()
 
+if(NOT GAME_CPP_CONTENT MATCHES "\"GameRenderSupport\\.hpp\"")
+    message(FATAL_ERROR "Game.cpp does not route rendering through shared render support helpers")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "executeViewFramedRender")
+    message(FATAL_ERROR "Game.cpp does not route world rendering through the view-framed render helper")
+endif()
+
+if(NOT GAME_CPP_CONTENT MATCHES "detail::drawPlayerMarker")
+    message(FATAL_ERROR "Game.cpp does not route player marker rendering through shared render support helpers")
+endif()
+
 if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw")
     message(FATAL_ERROR "Game.cpp does not draw overworld content")
 endif()
@@ -71,22 +83,4 @@ endif()
 
 if(NOT GAME_CPP_CONTENT MATCHES "for \\(const std::size_t index : overlapQualifiedOcclusionCandidateIndices\\)")
     message(FATAL_ERROR "Game.cpp does not render the occluder mask from overlap-qualified occlusion candidates")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.x"
-    OR NOT GAME_CPP_CONTENT MATCHES "renderMarker\\.position\\.y"
-    OR NOT GAME_CPP_CONTENT MATCHES "renderSnapshot\\.markers")
-    message(FATAL_ERROR "Game.cpp does not position player rendering from the overworld render snapshot")
-endif()
-
-string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.setView(view);" VIEW_INDEX)
-string(FIND "${GAME_CPP_CONTENT}" "playerSprite.setTextureRect" PLAYER_RECT_INDEX)
-string(FIND "${GAME_CPP_CONTENT}" "m_impl->window.draw(playerSprite);" PLAYER_DRAW_INDEX)
-
-if(PLAYER_RECT_INDEX EQUAL -1)
-    message(FATAL_ERROR "Game.cpp does not select player sprite frames from snapshot metadata")
-endif()
-
-if(VIEW_INDEX EQUAL -1 OR PLAYER_DRAW_INDEX EQUAL -1 OR VIEW_INDEX GREATER PLAYER_DRAW_INDEX)
-    message(FATAL_ERROR "Game.cpp does not apply camera framing before drawing the player sprite")
 endif()

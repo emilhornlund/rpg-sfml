@@ -90,6 +90,23 @@ bool verifyFramePacingConfiguration()
         && fallbackConfig.framerateLimit == 60U;
 }
 
+bool verifyViewFramedRenderOrder()
+{
+    std::vector<std::string> phases;
+
+    rpg::detail::executeViewFramedRender(
+        [&phases]()
+        {
+            phases.emplace_back("view");
+        },
+        [&phases]()
+        {
+            phases.emplace_back("world");
+        });
+
+    return phases == std::vector<std::string>{"view", "world"};
+}
+
 bool verifyOverworldRenderPassOrder()
 {
     std::vector<std::string> phases;
@@ -513,6 +530,11 @@ int main()
     }
 
     if (!verifyFramePacingConfiguration())
+    {
+        return 1;
+    }
+
+    if (!verifyViewFramedRenderOrder())
     {
         return 1;
     }

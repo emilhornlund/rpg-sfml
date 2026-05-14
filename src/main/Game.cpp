@@ -29,6 +29,7 @@
 
 #include "GameAssetSupport.hpp"
 #include "GameRenderBatchSupport.hpp"
+#include "GameRenderSupport.hpp"
 #include "GameRuntimeSupport.hpp"
 #include "PlayerOcclusionSilhouetteSupport.hpp"
 
@@ -65,7 +66,6 @@ namespace rpg
 constexpr unsigned int kWindowWidth = 1280;
 constexpr unsigned int kWindowHeight = 720;
 constexpr int kVegetationTilesetCellSize = 16;
-constexpr int kPlayerSpritesheetCellSize = 48;
 const sf::Color kBackgroundColor(24, 24, 27);
 const sf::Color kGridOverlayColor(255, 255, 255, 96);
 const sf::Color kDebugOverlayBackgroundColor(0, 0, 0, 160);
@@ -179,32 +179,6 @@ constexpr unsigned int kOcclusionRenderSurfaceScaleDivisor = 2U;
     return detail::loadVegetationTilesetMetadata(detail::getAssetRootPath());
 }
 
-[[nodiscard]] int getPlayerSpritesheetRow(const PlayerFacingDirection facingDirection) noexcept
-{
-    switch (facingDirection)
-    {
-    case PlayerFacingDirection::Down:
-        return 0;
-    case PlayerFacingDirection::Left:
-        return 1;
-    case PlayerFacingDirection::Right:
-        return 2;
-    case PlayerFacingDirection::Up:
-        return 3;
-    }
-
-    return 0;
-}
-
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept
-{
-    const int frameIndex = std::clamp(renderMarker.animationFrameIndex, 0, 2);
-    const int rowIndex = getPlayerSpritesheetRow(renderMarker.facingDirection);
-    return {
-        {frameIndex * kPlayerSpritesheetCellSize, rowIndex * kPlayerSpritesheetCellSize},
-        {kPlayerSpritesheetCellSize, kPlayerSpritesheetCellSize}};
-}
-
 [[nodiscard]] sf::IntRect getVegetationTilesetRect(const detail::VegetationAtlasCell& cell) noexcept
 {
     return {
@@ -287,29 +261,9 @@ void drawVegetationContent(
     }
 }
 
-void drawPlayerMarker(
-    sf::RenderTarget& target,
-    sf::Sprite& sprite,
-    const OverworldRenderMarker& renderMarker)
-{
-    const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
-    const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
-    sprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
-    sprite.setScale({scaleX, scaleY});
-    sprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
-    sprite.setPosition({renderMarker.position.x, renderMarker.position.y});
-    target.draw(sprite);
-}
-
-void applyViewFrame(sf::View& view, const ViewFrame& frame)
-{
-    view.setCenter({frame.center.x, frame.center.y});
-    view.setSize({frame.size.width, frame.size.height});
-}
-
 void updateScreenSpaceOverlayView(sf::View& overlayView, const sf::Vector2u size)
 {
-    applyViewFrame(overlayView, detail::makeScreenSpaceViewFrame(size.x, size.y));
+    detail::applyViewFrame(overlayView, detail::makeScreenSpaceViewFrame(size.x, size.y));
 }
 
 class Game::Impl
@@ -486,8 +440,7 @@ void Game::render()
     const OverworldRenderSnapshot& renderSnapshot = m_impl->overworldRuntime.getRenderSnapshot();
     const OverworldDebugSnapshot& debugSnapshot = m_impl->overworldRuntime.getDebugSnapshot();
     sf::View view;
-    applyViewFrame(view, renderSnapshot.cameraFrame);
-    m_impl->window.setView(view);
+    detail::applyViewFrame(view, renderSnapshot.cameraFrame);
 
     const std::uint32_t worldGenerationSeed = m_impl->overworldRuntime.getWorldGenerationSeed();
     const float worldTileSize = renderSnapshot.visibleTiles.empty() ? 16.0F : renderSnapshot.visibleTiles.front().size.width;
@@ -548,41 +501,43 @@ void Game::render()
         terrainVertexArray.getVertexCount(),
         tileGridVertexArray.getVertexCount()};
 
-    detail::executeOverworldRenderPasses(
+    detail::executeViewFramedRender(
         [&]()
         {
-            m_impl->window.draw(terrainVertexArray, terrainRenderStates);
+            m_impl->window.setView(view);
         },
         [&]()
         {
-            for (const detail::OverworldRenderQueueEntry& entry : renderQueue)
-            {
-                if (entry.kind == detail::OverworldRenderQueueEntryKind::GeneratedContent)
+            detail::executeOverworldRenderPasses(
+                [&]()
                 {
-                    drawVegetationContent(
-                        m_impl->window,
-                        vegetationSprite,
-                        m_impl->vegetationTilesetMetadata,
-                        renderSnapshot.generatedContent[entry.sourceIndex],
-                        worldTileSize);
-                    continue;
-                }
+                    m_impl->window.draw(terrainVertexArray, terrainRenderStates);
+                },
+                [&]()
+                {
+                    for (const detail::OverworldRenderQueueEntry& entry : renderQueue)
+                    {
+                        if (entry.kind == detail::OverworldRenderQueueEntryKind::GeneratedContent)
+                        {
+                            drawVegetationContent(
+                                m_impl->window,
+                                vegetationSprite,
+                                m_impl->vegetationTilesetMetadata,
+                                renderSnapshot.generatedContent[entry.sourceIndex],
+                                worldTileSize);
+                            continue;
+                        }
 
-                const OverworldRenderMarker& renderMarker = renderSnapshot.markers[entry.sourceIndex];
-                const float scaleX = renderMarker.size.width / static_cast<float>(kPlayerSpritesheetCellSize);
-                const float scaleY = renderMarker.size.height / static_cast<float>(kPlayerSpritesheetCellSize);
-                playerSprite.setTextureRect(getPlayerSpritesheetRect(renderMarker));
-                playerSprite.setScale({scaleX, scaleY});
-                playerSprite.setOrigin({renderMarker.origin.x / scaleX, renderMarker.origin.y / scaleY});
-                playerSprite.setPosition({renderMarker.position.x, renderMarker.position.y});
-                m_impl->window.draw(playerSprite);
-            }
-        },
-        [&]()
-        {
-            m_impl->window.draw(tileGridVertexArray);
-        },
-        detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
+                        const OverworldRenderMarker& renderMarker = renderSnapshot.markers[entry.sourceIndex];
+                        detail::drawPlayerMarker(m_impl->window, playerSprite, renderMarker);
+                    }
+                },
+                [&]()
+                {
+                    m_impl->window.draw(tileGridVertexArray);
+                },
+                detail::shouldRenderTileGridOverlay(m_impl->debugViewState));
+        });
 
     if (playerMarkerIt != renderSnapshot.markers.end() && !overlapQualifiedOcclusionCandidateIndices.empty())
     {
@@ -596,7 +551,7 @@ void Game::render()
         m_impl->playerOcclusionMaskTexture.clear(sf::Color::Transparent);
         m_impl->occluderMaskTexture.clear(sf::Color::Transparent);
 
-        drawPlayerMarker(m_impl->playerOcclusionMaskTexture, playerSprite, *playerMarkerIt);
+        detail::drawPlayerMarker(m_impl->playerOcclusionMaskTexture, playerSprite, *playerMarkerIt);
 
         for (const std::size_t index : overlapQualifiedOcclusionCandidateIndices)
         {

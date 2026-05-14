@@ -8,6 +8,7 @@ add_executable(main
     Camera.cpp
     Game.cpp
     GameRenderBatchSupport.cpp
+    GameRenderSupport.cpp
     GameRuntimeSupport.cpp
     OverworldRuntime.cpp
     Player.cpp

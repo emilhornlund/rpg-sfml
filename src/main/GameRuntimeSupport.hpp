@@ -402,6 +402,15 @@ void executeFrame(
     std::forward<RenderFn>(render)();
 }
 
+template <typename ApplyViewFn, typename RenderWorldFn>
+void executeViewFramedRender(
+    ApplyViewFn&& applyView,
+    RenderWorldFn&& renderWorld)
+{
+    std::forward<ApplyViewFn>(applyView)();
+    std::forward<RenderWorldFn>(renderWorld)();
+}
+
 template <typename RenderTerrainFn, typename RenderObjectsFn, typename RenderTileGridFn>
 void executeOverworldRenderPasses(
     RenderTerrainFn&& renderTerrain,
