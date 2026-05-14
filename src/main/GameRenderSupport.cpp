@@ -35,6 +35,7 @@ namespace
 {
 
 constexpr int kPlayerSpritesheetCellSize = 48;
+constexpr int kVegetationTilesetCellSize = 16;
 
 [[nodiscard]] int getPlayerSpritesheetRow(const PlayerFacingDirection facingDirection) noexcept
 {
@@ -54,6 +55,13 @@ constexpr int kPlayerSpritesheetCellSize = 48;
 }
 
 } // namespace
+
+[[nodiscard]] sf::IntRect getVegetationTilesetRect(const VegetationAtlasCell& cell) noexcept
+{
+    return {
+        {cell.tileX * kVegetationTilesetCellSize, cell.tileY * kVegetationTilesetCellSize},
+        {kVegetationTilesetCellSize, kVegetationTilesetCellSize}};
+}
 
 sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept
 {
@@ -78,6 +86,29 @@ void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const Overwo
 {
     configurePlayerMarkerSprite(sprite, renderMarker);
     target.draw(sprite);
+}
+
+void drawVegetationContent(
+    sf::RenderTarget& target,
+    sf::Sprite& vegetationSprite,
+    const VegetationTilesetMetadata& vegetationTilesetMetadata,
+    const OverworldRenderContent& renderContent,
+    const float worldTileSize)
+{
+    const VegetationPrototype& prototype = vegetationTilesetMetadata.getPrototypeById(renderContent.prototypeId);
+
+    for (const VegetationAtlasPart& part : prototype.parts)
+    {
+        const float scaleX = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+        const float scaleY = worldTileSize / static_cast<float>(kVegetationTilesetCellSize);
+        vegetationSprite.setTextureRect(getVegetationTilesetRect(part.cell));
+        vegetationSprite.setScale({scaleX, scaleY});
+        vegetationSprite.setOrigin({8.0F, 8.0F});
+        vegetationSprite.setPosition({
+            renderContent.position.x + static_cast<float>(part.offsetX) * worldTileSize,
+            renderContent.position.y + static_cast<float>(part.offsetY) * worldTileSize});
+        target.draw(vegetationSprite);
+    }
 }
 
 void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept

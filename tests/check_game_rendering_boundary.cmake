@@ -17,40 +17,16 @@ if(GAME_CPP_CONTENT MATCHES "m_impl->world\\.")
     message(FATAL_ERROR "Game.cpp should not derive render state directly from World")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.setView")
-    message(FATAL_ERROR "Game.cpp does not apply camera framing to the render window")
+if(NOT GAME_CPP_CONTENT MATCHES "m_impl->overworldRuntime\\.getDebugSnapshot\\(\\)")
+    message(FATAL_ERROR "Game.cpp does not read a debug snapshot from the overworld runtime")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "\"GameRenderSupport\\.hpp\"")
-    message(FATAL_ERROR "Game.cpp does not route rendering through shared render support helpers")
+if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.clear")
+    message(FATAL_ERROR "Game.cpp does not begin frame rendering through a shell-owned window clear")
 endif()
 
-if(NOT GAME_CPP_CONTENT MATCHES "executeViewFramedRender")
-    message(FATAL_ERROR "Game.cpp does not route world rendering through the view-framed render helper")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "detail::drawPlayerMarker")
-    message(FATAL_ERROR "Game.cpp does not route player marker rendering through shared render support helpers")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw")
-    message(FATAL_ERROR "Game.cpp does not draw overworld content")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "sf::Texture")
-    message(FATAL_ERROR "Game.cpp does not own an SFML texture for terrain rendering")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "loadFromFile")
-    message(FATAL_ERROR "Game.cpp does not load the terrain tileset asset")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "buildTerrainVertexArray")
-    message(FATAL_ERROR "Game.cpp does not build batched terrain geometry")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "buildTileGridVertexArray")
-    message(FATAL_ERROR "Game.cpp does not build batched tile-grid geometry")
+if(NOT GAME_CPP_CONTENT MATCHES "m_impl->window\\.display")
+    message(FATAL_ERROR "Game.cpp does not present the rendered frame through the shell-owned window")
 endif()
 
 if(GAME_CPP_CONTENT MATCHES "m_impl->window\\.draw\\(tileSprite\\);")
@@ -67,20 +43,4 @@ endif()
 
 if(GAME_CPP_CONTENT MATCHES "getPlayerMarkerPlacement")
     message(FATAL_ERROR "Game.cpp should not derive player marker placement directly")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "collectOverlapQualifiedFrontGeneratedContentIndices")
-    message(FATAL_ERROR "Game.cpp does not derive overlap-qualified occlusion candidates")
-endif()
-
-if(GAME_CPP_CONTENT MATCHES "if \\(playerMarkerIt != renderSnapshot\\.markers\\.end\\(\\) && !frontOccluderIndices\\.empty\\(\\)\\)")
-    message(FATAL_ERROR "Game.cpp still gates the occlusion pass on broad front-occluder presence")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "if \\(playerMarkerIt != renderSnapshot\\.markers\\.end\\(\\) && !overlapQualifiedOcclusionCandidateIndices\\.empty\\(\\)\\)")
-    message(FATAL_ERROR "Game.cpp does not gate the occlusion pass on overlap-qualified occlusion candidates")
-endif()
-
-if(NOT GAME_CPP_CONTENT MATCHES "for \\(const std::size_t index : overlapQualifiedOcclusionCandidateIndices\\)")
-    message(FATAL_ERROR "Game.cpp does not render the occluder mask from overlap-qualified occlusion candidates")
 endif()

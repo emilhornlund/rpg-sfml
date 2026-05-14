@@ -1,5 +1,5 @@
 /**
- * @file GameRenderSupport.hpp
+ * @file GameOcclusionCompositeSupport.hpp
  *
  * MIT License
  *
@@ -24,35 +24,49 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_GAME_RENDER_SUPPORT_HPP
-#define RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#ifndef RPG_MAIN_GAME_OCCLUSION_COMPOSITE_SUPPORT_HPP
+#define RPG_MAIN_GAME_OCCLUSION_COMPOSITE_SUPPORT_HPP
 
 #include "GameAssetSupport.hpp"
-#include "GameRuntimeSupport.hpp"
 
-#include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/RenderTexture.hpp>
+#include <SFML/Graphics/Shader.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/View.hpp>
+
+#include <cstddef>
+#include <vector>
 
 namespace rpg::detail
 {
 
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept;
+struct PlayerOcclusionCompositeRuntime
+{
+    sf::RenderTexture playerMaskTexture;
+    sf::RenderTexture occluderMaskTexture;
+};
 
-void configurePlayerMarkerSprite(sf::Sprite& sprite, const OverworldRenderMarker& renderMarker) noexcept;
+[[nodiscard]] sf::Vector2u makeOcclusionRenderSurfaceSize(sf::Vector2u outputSize) noexcept;
 
-void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const OverworldRenderMarker& renderMarker);
+void ensureRenderTextureSize(sf::RenderTexture& renderTexture, sf::Vector2u size);
 
-void drawVegetationContent(
-    sf::RenderTarget& target,
+void configureOcclusionCompositeSprite(sf::Sprite& sprite, sf::Vector2u outputSize);
+
+void drawPlayerOcclusionComposite(
+    sf::RenderTarget& outputTarget,
+    PlayerOcclusionCompositeRuntime& runtime,
+    sf::Shader& playerOcclusionShader,
+    const sf::View& worldView,
+    const sf::View& overlayView,
+    sf::Sprite& playerSprite,
     sf::Sprite& vegetationSprite,
     const VegetationTilesetMetadata& vegetationTilesetMetadata,
-    const OverworldRenderContent& renderContent,
+    const std::vector<OverworldRenderContent>& generatedContent,
+    const OverworldRenderMarker& playerMarker,
+    const std::vector<std::size_t>& overlapQualifiedOcclusionCandidateIndices,
     float worldTileSize);
-
-void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept;
 
 } // namespace rpg::detail
 
-#endif // RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#endif // RPG_MAIN_GAME_OCCLUSION_COMPOSITE_SUPPORT_HPP

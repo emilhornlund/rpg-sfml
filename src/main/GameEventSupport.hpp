@@ -1,5 +1,5 @@
 /**
- * @file GameRenderSupport.hpp
+ * @file GameEventSupport.hpp
  *
  * MIT License
  *
@@ -24,35 +24,33 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_GAME_RENDER_SUPPORT_HPP
-#define RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#ifndef RPG_MAIN_GAME_EVENT_SUPPORT_HPP
+#define RPG_MAIN_GAME_EVENT_SUPPORT_HPP
 
-#include "GameAssetSupport.hpp"
+#include "GameDebugOverlaySupport.hpp"
 #include "GameRuntimeSupport.hpp"
 
-#include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/View.hpp>
+#include <SFML/Window/Event.hpp>
 
 namespace rpg::detail
 {
 
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept;
+struct GameEventRuntimeState
+{
+    sf::View& overlayView;
+    OverworldDirectionalInput& directionalInput;
+    OverworldInput::DebugViewState& debugViewState;
+    DebugOverlayRuntime& debugOverlayRuntime;
+};
 
-void configurePlayerMarkerSprite(sf::Sprite& sprite, const OverworldRenderMarker& renderMarker) noexcept;
+void updateScreenSpaceOverlayView(sf::View& overlayView, sf::Vector2u size);
 
-void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const OverworldRenderMarker& renderMarker);
+[[nodiscard]] RuntimeEvent applyGameEvent(const sf::Event& event, GameEventRuntimeState runtimeState) noexcept;
 
-void drawVegetationContent(
-    sf::RenderTarget& target,
-    sf::Sprite& vegetationSprite,
-    const VegetationTilesetMetadata& vegetationTilesetMetadata,
-    const OverworldRenderContent& renderContent,
-    float worldTileSize);
-
-void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept;
+[[nodiscard]] bool processGameEvents(sf::RenderWindow& window, GameEventRuntimeState runtimeState);
 
 } // namespace rpg::detail
 
-#endif // RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#endif // RPG_MAIN_GAME_EVENT_SUPPORT_HPP

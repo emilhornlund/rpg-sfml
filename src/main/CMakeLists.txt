@@ -7,8 +7,14 @@ add_executable(main
     BiomeSampler.cpp
     Camera.cpp
     Game.cpp
+    GameDebugOverlaySupport.cpp
+    GameEventSupport.cpp
+    GameOcclusionCompositeSupport.cpp
     GameRenderBatchSupport.cpp
+    GameRenderPlanSupport.cpp
     GameRenderSupport.cpp
+    GameResourceBootstrapSupport.cpp
+    GameSceneRenderSupport.cpp
     GameRuntimeSupport.cpp
     OverworldRuntime.cpp
     Player.cpp

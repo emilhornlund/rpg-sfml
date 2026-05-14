@@ -1,5 +1,5 @@
 /**
- * @file GameRenderSupport.hpp
+ * @file GameRenderPlanSupport.hpp
  *
  * MIT License
  *
@@ -24,35 +24,37 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_GAME_RENDER_SUPPORT_HPP
-#define RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#ifndef RPG_MAIN_GAME_RENDER_PLAN_SUPPORT_HPP
+#define RPG_MAIN_GAME_RENDER_PLAN_SUPPORT_HPP
 
-#include "GameAssetSupport.hpp"
 #include "GameRuntimeSupport.hpp"
 
-#include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/View.hpp>
+#include <cstddef>
+#include <optional>
+#include <vector>
 
 namespace rpg::detail
 {
 
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept;
+struct OverworldRenderPlan
+{
+    std::vector<OverworldRenderQueueEntry> renderQueue;
+    std::optional<std::size_t> playerMarkerIndex;
+    std::vector<std::size_t> frontOccluderIndices;
+    std::vector<std::size_t> overlapQualifiedOcclusionCandidateIndices;
+    DebugOverlayRenderMetrics debugOverlayRenderMetrics;
+};
 
-void configurePlayerMarkerSprite(sf::Sprite& sprite, const OverworldRenderMarker& renderMarker) noexcept;
+[[nodiscard]] std::vector<OverworldRenderQueueEntry> buildOverworldRenderQueue(
+    const OverworldRenderSnapshot& renderSnapshot);
 
-void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const OverworldRenderMarker& renderMarker);
+[[nodiscard]] std::optional<std::size_t> findPlayerMarkerIndex(const OverworldRenderSnapshot& renderSnapshot) noexcept;
 
-void drawVegetationContent(
-    sf::RenderTarget& target,
-    sf::Sprite& vegetationSprite,
-    const VegetationTilesetMetadata& vegetationTilesetMetadata,
-    const OverworldRenderContent& renderContent,
-    float worldTileSize);
-
-void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept;
+[[nodiscard]] OverworldRenderPlan buildOverworldRenderPlan(
+    const OverworldRenderSnapshot& renderSnapshot,
+    std::size_t terrainVertexCount,
+    std::size_t gridVertexCount);
 
 } // namespace rpg::detail
 
-#endif // RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#endif // RPG_MAIN_GAME_RENDER_PLAN_SUPPORT_HPP

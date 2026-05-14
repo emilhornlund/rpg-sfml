@@ -1,5 +1,5 @@
 /**
- * @file GameRenderSupport.hpp
+ * @file GameResourceBootstrapSupportTests.cpp
  *
  * MIT License
  *
@@ -24,35 +24,38 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_GAME_RENDER_SUPPORT_HPP
-#define RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#include "GameResourceBootstrapSupport.hpp"
 
-#include "GameAssetSupport.hpp"
-#include "GameRuntimeSupport.hpp"
+#include <filesystem>
 
-#include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/View.hpp>
-
-namespace rpg::detail
+namespace
 {
 
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept;
+[[nodiscard]] bool verifyGameRenderResourcesLoad(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::GameRenderResources resources = rpg::detail::loadGameRenderResources(assetRoot);
 
-void configurePlayerMarkerSprite(sf::Sprite& sprite, const OverworldRenderMarker& renderMarker) noexcept;
+    return resources.terrainTileset.getSize().x > 0U
+        && resources.terrainTileset.getSize().y > 0U
+        && !resources.terrainTileset.isSmooth()
+        && resources.terrainTilesetMetadata.getBaseVariantCount(rpg::TileType::Grass) == 5
+        && resources.vegetationTileset.getSize().x > 0U
+        && resources.vegetationTileset.getSize().y > 0U
+        && !resources.vegetationTileset.isSmooth()
+        && resources.vegetationTilesetMetadata.getPrototypeCount() == 25
+        && resources.playerSpritesheet.getSize().x > 0U
+        && resources.playerSpritesheet.getSize().y > 0U
+        && !resources.playerSpritesheet.isSmooth();
+}
 
-void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const OverworldRenderMarker& renderMarker);
+} // namespace
 
-void drawVegetationContent(
-    sf::RenderTarget& target,
-    sf::Sprite& vegetationSprite,
-    const VegetationTilesetMetadata& vegetationTilesetMetadata,
-    const OverworldRenderContent& renderContent,
-    float worldTileSize);
+int main(int argc, char** argv)
+{
+    if (argc != 2)
+    {
+        return 1;
+    }
 
-void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept;
-
-} // namespace rpg::detail
-
-#endif // RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+    return verifyGameRenderResourcesLoad(argv[1]) ? 0 : 1;
+}

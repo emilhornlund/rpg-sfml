@@ -1,5 +1,5 @@
 /**
- * @file GameRenderSupport.hpp
+ * @file GameResourceBootstrapSupport.hpp
  *
  * MIT License
  *
@@ -24,35 +24,33 @@
  * THE SOFTWARE.
  */
 
-#ifndef RPG_MAIN_GAME_RENDER_SUPPORT_HPP
-#define RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#ifndef RPG_MAIN_GAME_RESOURCE_BOOTSTRAP_SUPPORT_HPP
+#define RPG_MAIN_GAME_RESOURCE_BOOTSTRAP_SUPPORT_HPP
 
 #include "GameAssetSupport.hpp"
-#include "GameRuntimeSupport.hpp"
 
-#include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/View.hpp>
+#include <SFML/Graphics/Shader.hpp>
+#include <SFML/Graphics/Texture.hpp>
+
+#include <filesystem>
 
 namespace rpg::detail
 {
 
-[[nodiscard]] sf::IntRect getPlayerSpritesheetRect(const OverworldRenderMarker& renderMarker) noexcept;
+struct GameRenderResources
+{
+    sf::Texture terrainTileset;
+    TerrainTilesetMetadata terrainTilesetMetadata;
+    sf::Texture vegetationTileset;
+    VegetationTilesetMetadata vegetationTilesetMetadata;
+    sf::Texture playerSpritesheet;
+    sf::Shader playerOcclusionShader;
+};
 
-void configurePlayerMarkerSprite(sf::Sprite& sprite, const OverworldRenderMarker& renderMarker) noexcept;
+[[nodiscard]] GameRenderResources loadGameRenderResources(const std::filesystem::path& assetRoot);
 
-void drawPlayerMarker(sf::RenderTarget& target, sf::Sprite& sprite, const OverworldRenderMarker& renderMarker);
-
-void drawVegetationContent(
-    sf::RenderTarget& target,
-    sf::Sprite& vegetationSprite,
-    const VegetationTilesetMetadata& vegetationTilesetMetadata,
-    const OverworldRenderContent& renderContent,
-    float worldTileSize);
-
-void applyViewFrame(sf::View& view, const ViewFrame& frame) noexcept;
+[[nodiscard]] GameRenderResources loadGameRenderResources();
 
 } // namespace rpg::detail
 
-#endif // RPG_MAIN_GAME_RENDER_SUPPORT_HPP
+#endif // RPG_MAIN_GAME_RESOURCE_BOOTSTRAP_SUPPORT_HPP

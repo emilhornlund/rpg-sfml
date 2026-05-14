@@ -75,6 +75,97 @@ rpg_add_test_executable(game_asset_support_tests
     TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets"
 )
+rpg_add_test_executable(game_debug_overlay_support_tests
+    SOURCES
+        GameDebugOverlaySupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameDebugOverlaySupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ARGS
+        "${PROJECT_SOURCE_DIR}/assets"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
+rpg_add_test_executable(game_event_support_tests
+    SOURCES
+        GameEventSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameEventSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
+rpg_add_test_executable(game_resource_bootstrap_support_tests
+    SOURCES
+        GameResourceBootstrapSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameResourceBootstrapSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ARGS
+        "${PROJECT_SOURCE_DIR}/assets"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
+rpg_add_test_executable(game_occlusion_composite_support_tests
+    SOURCES
+        GameOcclusionCompositeSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameOcclusionCompositeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
+rpg_add_test_executable(game_scene_render_support_tests
+    SOURCES
+        GameSceneRenderSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameResourceBootstrapSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameSceneRenderSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ARGS
+        "${PROJECT_SOURCE_DIR}/assets"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
+rpg_add_test_executable(game_render_plan_support_tests
+    SOURCES
+        GameRenderPlanSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/GameRenderPlanSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+    LINK_LIBRARIES
+        SFML::Graphics
+    BUILD_RPATH
+        "${RPG_TEST_SFML_LIB_DIR}"
+    TEST_ENVIRONMENT
+        "LD_LIBRARY_PATH=${RPG_TEST_SFML_LIB_DIR}"
+)
 rpg_add_test_executable(game_render_batch_support_tests
     SOURCES
         GameRenderBatchSupportTests.cpp
@@ -95,6 +186,8 @@ rpg_add_test_executable(game_render_support_tests
     SOURCES
         GameRenderSupportTests.cpp
         "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
     LINK_LIBRARIES
         SFML::Graphics
     BUILD_RPATH
@@ -189,6 +282,36 @@ add_test(
     COMMAND ${CMAKE_COMMAND}
         -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_module_boundary.cmake"
+)
+add_test(
+    NAME game_debug_overlay_boundary_check
+    COMMAND ${CMAKE_COMMAND}
+        -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_debug_overlay_boundary.cmake"
+)
+add_test(
+    NAME game_runtime_shell_boundary_check
+    COMMAND ${CMAKE_COMMAND}
+        -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_runtime_shell_boundary.cmake"
+)
+add_test(
+    NAME game_render_plan_boundary_check
+    COMMAND ${CMAKE_COMMAND}
+        -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_render_plan_boundary.cmake"
+)
+add_test(
+    NAME game_occlusion_composite_boundary_check
+    COMMAND ${CMAKE_COMMAND}
+        -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_occlusion_composite_boundary.cmake"
+)
+add_test(
+    NAME game_scene_render_boundary_check
+    COMMAND ${CMAKE_COMMAND}
+        -DGAME_CPP=${PROJECT_SOURCE_DIR}/src/main/Game.cpp
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/check_game_scene_render_boundary.cmake"
 )
 add_test(
     NAME game_rendering_boundary_check
