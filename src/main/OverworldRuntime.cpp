@@ -186,7 +186,6 @@ void OverworldRuntime::refreshRenderSnapshot()
     m_debugSnapshot.zoomPercent = m_camera.getZoomPercent();
     m_debugSnapshot.retainedChunkCount = m_world.getRetainedChunkCount();
     m_debugSnapshot.retainedGeneratedContentCount = m_world.getRetainedGeneratedContentCount();
-    m_debugSnapshot.renderedGeneratedContentCount = m_renderSnapshot.generatedContent.size();
     m_debugSnapshot.visibleTileCount = m_renderSnapshot.visibleTiles.size();
     m_debugSnapshot.visibleGeneratedContentCount = m_renderSnapshot.generatedContent.size();
 }

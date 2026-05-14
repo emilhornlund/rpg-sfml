@@ -305,7 +305,6 @@ bool verifyDebugOverlayStringFormatting()
         150,
         17,
         42,
-        9,
         256,
         11};
     const rpg::detail::DebugOverlayRenderMetrics renderMetrics{
@@ -318,7 +317,6 @@ bool verifyDebugOverlayStringFormatting()
         == "FPS: 144\n"
            "Retained chunks: 17\n"
            "Retained objects: 42\n"
-           "Rendered objects: 9\n"
            "Visible tiles: 256\n"
            "Visible content: 11\n"
            "Front occluders: 3\n"

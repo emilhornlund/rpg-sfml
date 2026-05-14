@@ -244,7 +244,6 @@ bool verifyDebugOverlayUsesOptimizedGridVertexMetrics()
         150,
         17,
         42,
-        9,
         visibleTiles.size(),
         11};
     const rpg::detail::DebugOverlayRenderMetrics enabledRenderMetrics{

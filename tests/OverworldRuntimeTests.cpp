@@ -26,9 +26,13 @@
 
 #include <main/OverworldRuntime.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <map>
 #include <optional>
+#include <queue>
+#include <utility>
 
 namespace
 {
@@ -72,6 +76,96 @@ constexpr float kFloatTolerance = 0.001F;
     return {
         static_cast<float>(to.x - from.x),
         static_cast<float>(to.y - from.y)};
+}
+
+[[nodiscard]] std::pair<int, int> makeTileKey(const rpg::TileCoordinates& coordinates) noexcept
+{
+    return {coordinates.x, coordinates.y};
+}
+
+[[nodiscard]] rpg::TileCoordinates makeTileCoordinates(const std::pair<int, int>& key) noexcept
+{
+    return {key.first, key.second};
+}
+
+[[nodiscard]] std::optional<std::vector<rpg::TileCoordinates>> findTraversablePathWithMinimumLength(
+    const rpg::World& world,
+    const rpg::TileCoordinates& start,
+    const int minimumLength,
+    const int maximumLength)
+{
+    if (!world.isTraversable(start) || minimumLength < 0 || maximumLength < minimumLength)
+    {
+        return std::nullopt;
+    }
+
+    constexpr std::array<rpg::TileCoordinates, 4> kOffsets = {{
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1},
+    }};
+
+    const std::pair<int, int> startKey = makeTileKey(start);
+    std::queue<std::pair<int, int>> frontier;
+    std::map<std::pair<int, int>, std::pair<int, int>> parents;
+    std::map<std::pair<int, int>, int> stepsFromStart;
+    frontier.push(startKey);
+    parents.emplace(startKey, startKey);
+    stepsFromStart.emplace(startKey, 0);
+
+    while (!frontier.empty())
+    {
+        const std::pair<int, int> currentKey = frontier.front();
+        frontier.pop();
+        const int stepCount = stepsFromStart.at(currentKey);
+
+        if (stepCount >= minimumLength)
+        {
+            std::vector<rpg::TileCoordinates> path;
+            std::pair<int, int> pathKey = currentKey;
+
+            while (pathKey != startKey)
+            {
+                path.push_back(makeTileCoordinates(pathKey));
+                pathKey = parents.at(pathKey);
+            }
+
+            std::reverse(path.begin(), path.end());
+            return path;
+        }
+
+        if (stepCount >= maximumLength)
+        {
+            continue;
+        }
+
+        const rpg::TileCoordinates current = makeTileCoordinates(currentKey);
+
+        for (const rpg::TileCoordinates& offset : kOffsets)
+        {
+            const rpg::TileCoordinates candidate{current.x + offset.x, current.y + offset.y};
+
+            if (std::max(std::abs(candidate.x - start.x), std::abs(candidate.y - start.y)) > maximumLength
+                || !world.isTraversable(candidate))
+            {
+                continue;
+            }
+
+            const std::pair<int, int> candidateKey = makeTileKey(candidate);
+
+            if (stepsFromStart.contains(candidateKey))
+            {
+                continue;
+            }
+
+            parents.emplace(candidateKey, currentKey);
+            stepsFromStart.emplace(candidateKey, stepCount + 1);
+            frontier.push(candidateKey);
+        }
+    }
+
+    return std::nullopt;
 }
 
 [[nodiscard]] bool containsVisibleTile(
@@ -502,9 +596,59 @@ constexpr float kFloatTolerance = 0.001F;
         && debugSnapshot.zoomPercent == 150
         && debugSnapshot.retainedChunkCount == world.getRetainedChunkCount()
         && debugSnapshot.retainedGeneratedContentCount == world.getRetainedGeneratedContentCount()
-        && debugSnapshot.renderedGeneratedContentCount == visibleContent.size()
         && debugSnapshot.visibleTileCount == visibleTiles.size()
         && debugSnapshot.visibleGeneratedContentCount == visibleContent.size();
+}
+
+[[nodiscard]] bool verifyDebugSnapshotReflectsCacheStateAfterRetentionPruning()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    rpg::Player player;
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
+    const std::optional<std::vector<rpg::TileCoordinates>> path = findTraversablePathWithMinimumLength(
+        world,
+        spawnTile,
+        96,
+        256);
+
+    if (!path.has_value())
+    {
+        return false;
+    }
+
+    const float stepSeconds = world.getTileSize() / player.getMovementSpeed();
+    runtime.initialize({320.0F, 224.0F});
+
+    rpg::TileCoordinates currentTile = spawnTile;
+    std::size_t maximumRetainedGeneratedContentCount = runtime.getDebugSnapshot().retainedGeneratedContentCount;
+
+    for (const rpg::TileCoordinates& nextTile : *path)
+    {
+        runtime.update(
+            stepSeconds,
+            {
+                movementIntentForTiles(currentTile, nextTile),
+                {320.0F, 224.0F}});
+        currentTile = nextTile;
+
+        const rpg::OverworldDebugSnapshot& debugSnapshot = runtime.getDebugSnapshot();
+        maximumRetainedGeneratedContentCount = std::max(
+            maximumRetainedGeneratedContentCount,
+            debugSnapshot.retainedGeneratedContentCount);
+
+        if (debugSnapshot.retainedGeneratedContentCount >= maximumRetainedGeneratedContentCount)
+        {
+            continue;
+        }
+
+        const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+        rpg::World verificationWorld;
+        const std::vector<rpg::VisibleWorldContent> visibleContent = verificationWorld.getVisibleContent(renderSnapshot.cameraFrame);
+        return debugSnapshot.visibleGeneratedContentCount == visibleContent.size();
+    }
+
+    return false;
 }
 
 } // namespace
@@ -562,6 +706,11 @@ int main()
     }
 
     if (!verifyDebugSnapshotPublishesOverlayData())
+    {
+        return 1;
+    }
+
+    if (!verifyDebugSnapshotReflectsCacheStateAfterRetentionPruning())
     {
         return 1;
     }

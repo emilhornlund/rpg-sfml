@@ -58,7 +58,6 @@ std::string buildDebugOverlayString(
         << "FPS: " << displayedFramesPerSecond << '\n'
         << "Retained chunks: " << debugSnapshot.retainedChunkCount << '\n'
         << "Retained objects: " << debugSnapshot.retainedGeneratedContentCount << '\n'
-        << "Rendered objects: " << debugSnapshot.renderedGeneratedContentCount << '\n'
         << "Visible tiles: " << debugSnapshot.visibleTileCount << '\n'
         << "Visible content: " << debugSnapshot.visibleGeneratedContentCount << '\n'
         << "Front occluders: " << renderMetrics.frontOccluderCount << '\n'
