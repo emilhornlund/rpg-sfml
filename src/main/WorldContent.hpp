@@ -44,7 +44,7 @@ class WorldContent
 public:
     WorldContent(
         const WorldConfig& config,
-        const TileCoordinates& spawnTile,
+        std::shared_ptr<const RoadNetwork> roadNetwork,
         std::shared_ptr<const TerrainGenerator> terrainGenerator) noexcept;
 
     [[nodiscard]] ChunkContent generateChunkContent(
@@ -55,7 +55,7 @@ public:
 private:
     std::uint32_t m_worldSeed;
     float m_tileSize;
-    TileCoordinates m_spawnTile{0, 0};
+    std::shared_ptr<const RoadNetwork> m_roadNetwork;
     std::shared_ptr<const TerrainGenerator> m_terrainGenerator;
 };
 

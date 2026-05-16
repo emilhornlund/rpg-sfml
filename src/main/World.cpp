@@ -26,7 +26,7 @@
 
 #include <main/World.hpp>
 
-#include "RoadOverlayWorldSupport.hpp"
+#include "RoadNetworkSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -177,9 +177,11 @@ World::World(const WorldConfig& config)
     m_state.config = config;
     m_state.terrainGenerator = std::make_shared<detail::TerrainGenerator>(m_state.config);
     m_state.spawnTile = m_state.terrainGenerator->generateSpawnTile();
+    m_state.roadNetwork = std::make_shared<detail::RoadNetwork>(
+        detail::buildRoadNetwork(m_state.spawnTile, m_state.config.seed));
     m_state.worldContent = std::make_shared<detail::WorldContent>(
         m_state.config,
-        m_state.spawnTile,
+        m_state.roadNetwork,
         m_state.terrainGenerator);
 }
 
@@ -230,8 +232,7 @@ bool World::hasRoadOverlay(const TileCoordinates& coordinates) const
     return detail::hasPublishedRoadOverlayAt(
         coordinates,
         getTileType(coordinates),
-        m_state.spawnTile,
-        m_state.config.seed,
+        *m_state.roadNetwork,
         getTileTypeAtCoordinates);
 }
 
@@ -380,8 +381,7 @@ std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFra
                     if (!detail::hasPublishedRoadOverlayAt(
                             worldCoordinates,
                             tileType,
-                            m_state.spawnTile,
-                            m_state.config.seed,
+                            *m_state.roadNetwork,
                             getTileTypeAtCoordinates))
                     {
                         continue;

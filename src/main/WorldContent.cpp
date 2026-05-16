@@ -26,7 +26,7 @@
 
 #include "WorldContent.hpp"
 #include "GameAssetSupport.hpp"
-#include "RoadOverlayWorldSupport.hpp"
+#include "RoadNetworkSupport.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <algorithm>
@@ -596,11 +596,11 @@ int getWorldContentVisibilityOverscanInTiles()
 
 WorldContent::WorldContent(
     const WorldConfig& config,
-    const TileCoordinates& spawnTile,
+    std::shared_ptr<const RoadNetwork> roadNetwork,
     std::shared_ptr<const TerrainGenerator> terrainGenerator) noexcept
     : m_worldSeed(config.seed)
     , m_tileSize(config.tileSize)
-    , m_spawnTile(spawnTile)
+    , m_roadNetwork(std::move(roadNetwork))
     , m_terrainGenerator(std::move(terrainGenerator))
 {
     ++g_worldContentConstructionCount;
@@ -688,7 +688,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
             {
                 continue;
             }
@@ -750,7 +750,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
             {
                 continue;
             }
@@ -797,7 +797,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
             {
                 continue;
             }

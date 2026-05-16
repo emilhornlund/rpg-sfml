@@ -26,7 +26,7 @@
 
 #include "BiomeSampler.hpp"
 #include "GameAssetSupport.hpp"
-#include "RoadOverlayWorldSupport.hpp"
+#include "RoadNetworkSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -117,6 +117,64 @@ constexpr float kFloatTolerance = 0.001F;
         && areEqual(lhs.instances, rhs.instances);
 }
 
+[[nodiscard]] bool areEqual(const rpg::detail::RoadNode& lhs, const rpg::detail::RoadNode& rhs) noexcept
+{
+    return lhs.coordinates.x == rhs.coordinates.x
+        && lhs.coordinates.y == rhs.coordinates.y
+        && lhs.kind == rhs.kind;
+}
+
+[[nodiscard]] bool areEqual(const rpg::detail::RoadSegment& lhs, const rpg::detail::RoadSegment& rhs) noexcept
+{
+    if (lhs.fromNodeIndex != rhs.fromNodeIndex
+        || lhs.toNodeIndex != rhs.toNodeIndex
+        || lhs.polyline.size() != rhs.polyline.size())
+    {
+        return false;
+    }
+
+    for (std::size_t pointIndex = 0U; pointIndex < lhs.polyline.size(); ++pointIndex)
+    {
+        if (lhs.polyline[pointIndex].x != rhs.polyline[pointIndex].x
+            || lhs.polyline[pointIndex].y != rhs.polyline[pointIndex].y)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+[[nodiscard]] bool areEqual(const rpg::detail::RoadNetwork& lhs, const rpg::detail::RoadNetwork& rhs) noexcept
+{
+    if (lhs.spawnTile.x != rhs.spawnTile.x
+        || lhs.spawnTile.y != rhs.spawnTile.y
+        || lhs.seed != rhs.seed
+        || lhs.nodes.size() != rhs.nodes.size()
+        || lhs.segments.size() != rhs.segments.size())
+    {
+        return false;
+    }
+
+    for (std::size_t nodeIndex = 0U; nodeIndex < lhs.nodes.size(); ++nodeIndex)
+    {
+        if (!areEqual(lhs.nodes[nodeIndex], rhs.nodes[nodeIndex]))
+        {
+            return false;
+        }
+    }
+
+    for (std::size_t segmentIndex = 0U; segmentIndex < lhs.segments.size(); ++segmentIndex)
+    {
+        if (!areEqual(lhs.segments[segmentIndex], rhs.segments[segmentIndex]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 [[nodiscard]] bool containsVisibleContent(
     const std::vector<rpg::VisibleWorldContent>& visibleContent,
     const rpg::ContentInstance& instance) noexcept
@@ -161,6 +219,122 @@ constexpr float kFloatTolerance = 0.001F;
     }
 
     return false;
+}
+
+[[nodiscard]] std::size_t countRoadNodesOfKind(
+    const rpg::detail::RoadNetwork& network,
+    const rpg::detail::RoadNodeKind kind) noexcept
+{
+    return static_cast<std::size_t>(std::count_if(
+        network.nodes.begin(),
+        network.nodes.end(),
+        [kind](const rpg::detail::RoadNode& node)
+        {
+            return node.kind == kind;
+        }));
+}
+
+[[nodiscard]] std::size_t getRoadNodeConnectionCount(
+    const rpg::detail::RoadNetwork& network,
+    const std::size_t nodeIndex) noexcept
+{
+    std::size_t connectionCount = 0U;
+
+    for (const rpg::detail::RoadSegment& segment : network.segments)
+    {
+        if (segment.fromNodeIndex == nodeIndex || segment.toNodeIndex == nodeIndex)
+        {
+            ++connectionCount;
+        }
+    }
+
+    return connectionCount;
+}
+
+[[nodiscard]] bool doesRoadNetworkContainLoop(
+    const rpg::detail::RoadNetwork& network) noexcept
+{
+    if (network.nodes.empty())
+    {
+        return false;
+    }
+
+    std::vector<std::vector<std::size_t>> adjacency(network.nodes.size());
+
+    for (const rpg::detail::RoadSegment& segment : network.segments)
+    {
+        adjacency[segment.fromNodeIndex].push_back(segment.toNodeIndex);
+        adjacency[segment.toNodeIndex].push_back(segment.fromNodeIndex);
+    }
+
+    std::vector<bool> visited(network.nodes.size(), false);
+    const auto visit = [&adjacency, &visited](const auto& self, const std::size_t nodeIndex, const std::size_t parentIndex) -> bool
+    {
+        visited[nodeIndex] = true;
+
+        for (const std::size_t neighborIndex : adjacency[nodeIndex])
+        {
+            if (!visited[neighborIndex])
+            {
+                if (self(self, neighborIndex, nodeIndex))
+                {
+                    return true;
+                }
+            }
+            else if (neighborIndex != parentIndex)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    return visit(visit, 0U, network.nodes.size());
+}
+
+[[nodiscard]] bool isRoadNetworkFullyConnected(
+    const rpg::detail::RoadNetwork& network) noexcept
+{
+    if (network.nodes.empty())
+    {
+        return false;
+    }
+
+    std::vector<bool> visited(network.nodes.size(), false);
+    std::vector<std::size_t> stack{0U};
+    visited[0U] = true;
+
+    while (!stack.empty())
+    {
+        const std::size_t nodeIndex = stack.back();
+        stack.pop_back();
+
+        for (const rpg::detail::RoadSegment& segment : network.segments)
+        {
+            std::optional<std::size_t> nextNodeIndex;
+
+            if (segment.fromNodeIndex == nodeIndex && !visited[segment.toNodeIndex])
+            {
+                nextNodeIndex = segment.toNodeIndex;
+            }
+            else if (segment.toNodeIndex == nodeIndex && !visited[segment.fromNodeIndex])
+            {
+                nextNodeIndex = segment.fromNodeIndex;
+            }
+
+            if (nextNodeIndex.has_value())
+            {
+                visited[*nextNodeIndex] = true;
+                stack.push_back(*nextNodeIndex);
+            }
+        }
+    }
+
+    return std::all_of(visited.begin(), visited.end(), [](const bool value)
+    {
+        return value;
+    });
 }
 
 [[nodiscard]] bool isInBounds(const rpg::TileCoordinates& coordinates, const rpg::WorldConfig& config) noexcept
@@ -339,61 +513,73 @@ struct CardinalNeighborMask
     return !anyGroundContentOccupiesRoad(world, visibleContent);
 }
 
-[[nodiscard]] bool verifyVisibleRoadOverlaysSuppressClippedSingleTileEndCaps()
+[[nodiscard]] bool verifyVisibleRoadOverlaysPreserveTopologyBackedEndpoints()
 {
     rpg::World world;
+    const rpg::detail::RoadNetwork network =
+        rpg::detail::buildRoadNetwork(world.getSpawnTile(), world.getGenerationSeed());
+    const rpg::TileCoordinates endpoint = network.nodes.back().coordinates;
     const rpg::ViewFrame frame{
-        world.getTileCenter({0, -46}),
+        world.getTileCenter(endpoint),
         {world.getTileSize() * 8.0F, world.getTileSize() * 8.0F}};
     const std::vector<rpg::VisibleWorldRoadOverlay> visibleRoadOverlays = world.getVisibleRoadOverlays(frame);
 
-    return !containsVisibleRoadOverlay(visibleRoadOverlays, {0, -46})
-        && !world.hasRoadOverlay({0, -46})
-        && world.hasRoadOverlay({0, -45})
-        && world.hasRoadOverlay({1, -45})
-        && containsVisibleRoadOverlay(visibleRoadOverlays, {0, -45})
-        && containsVisibleRoadOverlay(visibleRoadOverlays, {1, -45});
+    return world.hasRoadOverlay(endpoint)
+        && containsVisibleRoadOverlay(visibleRoadOverlays, endpoint)
+        && !world.hasRoadOverlay({endpoint.x, endpoint.y - 2});
 }
 
-[[nodiscard]] bool verifySharedRoadOverlaySupportPublishesWidenedDeterministicBands()
+[[nodiscard]] bool verifyRoadNetworkGenerationIsDeterministic()
 {
     constexpr std::uint32_t kSeed = 0x00C0FFEEU;
     constexpr rpg::TileCoordinates kSpawnTile{0, 0};
-    constexpr rpg::TileType kSurface = rpg::TileType::Grass;
+    const rpg::detail::RoadNetwork firstNetwork = rpg::detail::buildRoadNetwork(kSpawnTile, kSeed);
+    const rpg::detail::RoadNetwork secondNetwork = rpg::detail::buildRoadNetwork(kSpawnTile, kSeed);
+    return areEqual(firstNetwork, secondNetwork);
+}
 
-    if (!rpg::detail::hasRoadOverlayAt({8, 0}, kSurface, kSpawnTile, kSeed)
-        || !rpg::detail::hasRoadOverlayAt({8, 1}, kSurface, kSpawnTile, kSeed)
-        || !rpg::detail::hasRoadOverlayAt({0, 8}, kSurface, kSpawnTile, kSeed)
-        || !rpg::detail::hasRoadOverlayAt({1, 8}, kSurface, kSpawnTile, kSeed))
+[[nodiscard]] bool verifyRoadNetworkConnectsSpawnAndSupportsDeterministicLayouts()
+{
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    constexpr std::array<std::uint32_t, 3> kSeeds = {{
+        0x00C0FFEEU,
+        0x12345678U,
+        0x13572468U,
+    }};
+
+    bool foundLoop = false;
+    bool foundBranch = false;
+    bool foundNonLoop = false;
+
+    for (const std::uint32_t seed : kSeeds)
     {
-        return false;
-    }
+        const rpg::detail::RoadNetwork network = rpg::detail::buildRoadNetwork(kSpawnTile, seed);
 
-    bool foundHorizontalWidening = false;
-    bool foundVerticalWidening = false;
-
-    for (int offset = 8; offset <= 24; ++offset)
-    {
-        const bool horizontalUpper = rpg::detail::hasRoadOverlayAt({offset, -1}, kSurface, kSpawnTile, kSeed);
-        const bool horizontalLower = rpg::detail::hasRoadOverlayAt({offset, 2}, kSurface, kSpawnTile, kSeed);
-        foundHorizontalWidening = foundHorizontalWidening || horizontalUpper || horizontalLower;
-
-        const bool verticalLeft = rpg::detail::hasRoadOverlayAt({-1, offset}, kSurface, kSpawnTile, kSeed);
-        const bool verticalRight = rpg::detail::hasRoadOverlayAt({2, offset}, kSurface, kSpawnTile, kSeed);
-        foundVerticalWidening = foundVerticalWidening || verticalLeft || verticalRight;
-
-        if (horizontalUpper && horizontalLower)
+        if (network.nodes.empty()
+            || network.nodes.front().kind != rpg::detail::RoadNodeKind::Spawn
+            || network.nodes.front().coordinates.x != kSpawnTile.x
+            || network.nodes.front().coordinates.y != kSpawnTile.y
+            || countRoadNodesOfKind(network, rpg::detail::RoadNodeKind::Destination) < 3U
+            || getRoadNodeConnectionCount(network, 0U) == 0U
+            || !isRoadNetworkFullyConnected(network))
         {
             return false;
         }
 
-        if (verticalLeft && verticalRight)
-        {
-            return false;
-        }
+        foundBranch = foundBranch || std::any_of(
+            network.nodes.begin(),
+            network.nodes.end(),
+            [&network](const rpg::detail::RoadNode& node)
+            {
+                const std::size_t nodeIndex = static_cast<std::size_t>(&node - network.nodes.data());
+                return node.kind == rpg::detail::RoadNodeKind::Junction
+                    && getRoadNodeConnectionCount(network, nodeIndex) >= 3U;
+            });
+        foundLoop = foundLoop || doesRoadNetworkContainLoop(network);
+        foundNonLoop = foundNonLoop || !doesRoadNetworkContainLoop(network);
     }
 
-    return foundHorizontalWidening && foundVerticalWidening;
+    return foundBranch && foundLoop && foundNonLoop;
 }
 
 [[nodiscard]] bool verifySharedRoadOverlaySupportAvoidsSingleTileNotches()
@@ -1371,12 +1557,17 @@ int main()
         return 1;
     }
 
-    if (!verifyVisibleRoadOverlaysSuppressClippedSingleTileEndCaps())
+    if (!verifyVisibleRoadOverlaysPreserveTopologyBackedEndpoints())
     {
         return 1;
     }
 
-    if (!verifySharedRoadOverlaySupportPublishesWidenedDeterministicBands())
+    if (!verifyRoadNetworkGenerationIsDeterministic())
+    {
+        return 1;
+    }
+
+    if (!verifyRoadNetworkConnectsSpawnAndSupportsDeterministicLayouts())
     {
         return 1;
     }

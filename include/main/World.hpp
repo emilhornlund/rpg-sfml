@@ -45,6 +45,7 @@ namespace rpg
 
 namespace detail
 {
+class RoadNetwork;
 class TerrainGenerator;
 class WorldContent;
 } // namespace detail
@@ -485,6 +486,7 @@ private:
 
         WorldConfig config;
         TileCoordinates spawnTile{0, 0};
+        std::shared_ptr<const detail::RoadNetwork> roadNetwork;
         std::shared_ptr<const detail::TerrainGenerator> terrainGenerator;
         std::shared_ptr<const detail::WorldContent> worldContent;
         mutable std::map<std::pair<int, int>, RetainedChunkData> chunks;
