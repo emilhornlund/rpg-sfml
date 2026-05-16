@@ -120,6 +120,7 @@ namespace
 {
     const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::loadGroundOverlayTilesetMetadata(assetRoot);
     const rpg::detail::RoadOverlayAtlasCell baseVariant = metadata.getBaseVariant(0);
+    const rpg::detail::RoadOverlayAtlasCell decorVariant = metadata.getDecorVariant(0);
     const rpg::detail::RoadOverlayAtlasCell grassTop = metadata.getTransitionCell(
         rpg::TileType::Grass,
         rpg::detail::RoadOverlayAutotileRole::Top);
@@ -127,9 +128,12 @@ namespace
         rpg::TileType::Forest,
         rpg::detail::RoadOverlayAutotileRole::OuterTopLeft);
 
-    return metadata.getBaseVariantCount() == 24
+    return metadata.getBaseVariantCount() == 4
         && baseVariant.tileX == 0
         && baseVariant.tileY == 0
+        && metadata.getDecorVariantCount() == 20
+        && decorVariant.tileX == 4
+        && decorVariant.tileY == 0
         && grassTop.tileX == 6
         && grassTop.tileY == 2
         && forestOuterTopLeft.tileX == 0

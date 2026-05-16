@@ -42,7 +42,8 @@ namespace
         && resources.groundOverlayTileset.getSize().x > 0U
         && resources.groundOverlayTileset.getSize().y > 0U
         && !resources.groundOverlayTileset.isSmooth()
-        && resources.groundOverlayTilesetMetadata.getBaseVariantCount() == 24
+        && resources.groundOverlayTilesetMetadata.getBaseVariantCount() == 4
+        && resources.groundOverlayTilesetMetadata.getDecorVariantCount() == 20
         && resources.vegetationTileset.getSize().x > 0U
         && resources.vegetationTileset.getSize().y > 0U
         && !resources.vegetationTileset.isSmooth()

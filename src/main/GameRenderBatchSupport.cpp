@@ -43,6 +43,11 @@ namespace
 constexpr int kTerrainTilesetCellSize = 16;
 constexpr int kRoadOverlayTilesetCellSize = 16;
 constexpr std::size_t kVerticesPerQuad = 6U;
+constexpr std::uint32_t kRoadOverlayBaseVariantHashSalt = 0xA5F13C9DU;
+constexpr std::uint32_t kRoadOverlayDecorRollHashSalt = 0x5C2D91EBU;
+constexpr std::uint32_t kRoadOverlayDecorVariantHashSalt = 0xC97F4A1DU;
+constexpr std::uint32_t kRoadOverlayDecorWeightNumerator = 1U;
+constexpr std::uint32_t kRoadOverlayDecorWeightDenominator = 8U;
 
 struct VisibleTileGridBounds
 {
@@ -172,9 +177,10 @@ using VisibleRoadOverlaySurfaceMap = std::unordered_map<std::uint64_t, TileType>
 [[nodiscard]] std::uint32_t hashRoadOverlaySelection(
     const std::uint32_t seed,
     const TileCoordinates& coordinates,
-    const TileType surfaceTileType) noexcept
+    const TileType surfaceTileType,
+    const std::uint32_t salt) noexcept
 {
-    std::uint32_t value = seed ^ 0xA5F13C9DU;
+    std::uint32_t value = seed ^ salt;
     value ^= static_cast<std::uint32_t>(coordinates.x) * 73856093U;
     value ^= static_cast<std::uint32_t>(coordinates.y) * 19349663U;
     value ^= static_cast<std::uint32_t>(getRoadOverlaySurfacePriority(surfaceTileType)) * 83492791U;
@@ -182,6 +188,53 @@ using VisibleRoadOverlaySurfaceMap = std::unordered_map<std::uint64_t, TileType>
     value *= 1274126177U;
     value ^= value >> 16U;
     return value;
+}
+
+struct RoadOverlayAppearanceSelection
+{
+    bool useDecor = false;
+    std::size_t variantIndex = 0U;
+};
+
+[[nodiscard]] std::size_t selectRoadOverlayVariantIndex(
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType surfaceTileType,
+    const std::size_t variantCount,
+    const std::uint32_t salt) noexcept
+{
+    if (variantCount == 0U)
+    {
+        return 0U;
+    }
+
+    return static_cast<std::size_t>(hashRoadOverlaySelection(seed, coordinates, surfaceTileType, salt) % variantCount);
+}
+
+[[nodiscard]] RoadOverlayAppearanceSelection selectRoadOverlayAppearanceSelection(
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType surfaceTileType,
+    const std::size_t baseVariantCount,
+    const std::size_t decorVariantCount) noexcept
+{
+    RoadOverlayAppearanceSelection selection;
+
+    if (baseVariantCount == 0U)
+    {
+        return selection;
+    }
+
+    selection.useDecor = decorVariantCount > 0U
+        && (hashRoadOverlaySelection(seed, coordinates, surfaceTileType, kRoadOverlayDecorRollHashSalt)
+            % kRoadOverlayDecorWeightDenominator) < kRoadOverlayDecorWeightNumerator;
+    selection.variantIndex = selectRoadOverlayVariantIndex(
+        seed,
+        coordinates,
+        surfaceTileType,
+        selection.useDecor ? decorVariantCount : baseVariantCount,
+        selection.useDecor ? kRoadOverlayDecorVariantHashSalt : kRoadOverlayBaseVariantHashSalt);
+    return selection;
 }
 
 [[nodiscard]] std::optional<RoadOverlayAutotileRole> resolveRoadOverlayRole(
@@ -261,6 +314,26 @@ using VisibleRoadOverlaySurfaceMap = std::unordered_map<std::uint64_t, TileType>
         return RoadOverlayAutotileRole::BottomRight;
     }
 
+    if (!north && !east && !south && southWest && west && northWest)
+    {
+        return RoadOverlayAutotileRole::Right;
+    }
+
+    if (!north && northEast && east && southEast && !south && !west)
+    {
+        return RoadOverlayAutotileRole::Left;
+    }
+
+    if (!north && !east && southEast && south && southWest && !west)
+    {
+        return RoadOverlayAutotileRole::Top;
+    }
+
+    if (north && northEast && !east && !south && !west && northWest)
+    {
+        return RoadOverlayAutotileRole::Bottom;
+    }
+
     return std::nullopt;
 }
 
@@ -274,12 +347,15 @@ using VisibleRoadOverlaySurfaceMap = std::unordered_map<std::uint64_t, TileType>
 
     if (!role.has_value())
     {
-        const std::size_t baseVariantIndex = metadata.getBaseVariantCount() == 0
-            ? 0U
-            : static_cast<std::size_t>(
-                  hashRoadOverlaySelection(seed, roadOverlay.coordinates, roadOverlay.surfaceTileType)
-                  % metadata.getBaseVariantCount());
-        return metadata.getBaseVariant(baseVariantIndex);
+        const RoadOverlayAppearanceSelection selection = selectRoadOverlayAppearanceSelection(
+            seed,
+            roadOverlay.coordinates,
+            roadOverlay.surfaceTileType,
+            metadata.getBaseVariantCount(),
+            metadata.getDecorVariantCount());
+        return selection.useDecor
+            ? metadata.getDecorVariant(selection.variantIndex)
+            : metadata.getBaseVariant(selection.variantIndex);
     }
 
     return metadata.getTransitionCell(roadOverlay.surfaceTileType, *role);

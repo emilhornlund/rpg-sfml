@@ -32,12 +32,16 @@ namespace
 [[nodiscard]] bool verifyMetadataLoads(const char* path)
 {
     const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::RoadOverlayTilesetMetadata::loadFromFile(path);
+    const rpg::detail::RoadOverlayAtlasCell decorVariant = metadata.getDecorVariant(3);
     const rpg::detail::RoadOverlayAtlasCell sandRight = metadata.getTransitionCell(
         rpg::TileType::Sand,
         rpg::detail::RoadOverlayAutotileRole::Right);
-    return metadata.getBaseVariantCount() == 24
-        && metadata.getBaseVariant(4).tileX == 4
-        && metadata.getBaseVariant(4).tileY == 0
+    return metadata.getBaseVariantCount() == 4
+        && metadata.getBaseVariant(0).tileX == 0
+        && metadata.getBaseVariant(0).tileY == 0
+        && metadata.getDecorVariantCount() == 20
+        && decorVariant.tileX == 7
+        && decorVariant.tileY == 0
         && sandRight.tileX == 7
         && sandRight.tileY == 5;
 }

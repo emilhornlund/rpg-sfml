@@ -26,6 +26,7 @@
 
 #include <main/World.hpp>
 
+#include "RoadOverlayWorldSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -164,29 +165,6 @@ struct WorldBounds
         && bottom >= bounds.top;
 }
 
-[[nodiscard]] constexpr bool supportsRoadOverlaySurface(const TileType tileType) noexcept
-{
-    return tileType == TileType::Grass || tileType == TileType::Sand || tileType == TileType::Forest;
-}
-
-[[nodiscard]] bool hasRoadOverlayAt(
-    const TileCoordinates& coordinates,
-    const TileType tileType,
-    const TileCoordinates& spawnTile) noexcept
-{
-    if (!supportsRoadOverlaySurface(tileType))
-    {
-        return false;
-    }
-
-    constexpr int kRoadHalfLengthInTiles = 48;
-    const int deltaX = coordinates.x - spawnTile.x;
-    const int deltaY = coordinates.y - spawnTile.y;
-    const bool horizontalRoad = deltaY == 0 && std::abs(deltaX) <= kRoadHalfLengthInTiles;
-    const bool verticalRoad = deltaX == 0 && std::abs(deltaY) <= kRoadHalfLengthInTiles;
-    return horizontalRoad || verticalRoad;
-}
-
 } // namespace
 
 World::World()
@@ -199,7 +177,10 @@ World::World(const WorldConfig& config)
     m_state.config = config;
     m_state.terrainGenerator = std::make_shared<detail::TerrainGenerator>(m_state.config);
     m_state.spawnTile = m_state.terrainGenerator->generateSpawnTile();
-    m_state.worldContent = std::make_shared<detail::WorldContent>(m_state.config, m_state.spawnTile);
+    m_state.worldContent = std::make_shared<detail::WorldContent>(
+        m_state.config,
+        m_state.spawnTile,
+        m_state.terrainGenerator);
 }
 
 World::~World() = default;
@@ -242,7 +223,16 @@ TileType World::getTileType(const TileCoordinates& coordinates) const
 
 bool World::hasRoadOverlay(const TileCoordinates& coordinates) const
 {
-    return hasRoadOverlayAt(coordinates, getTileType(coordinates), m_state.spawnTile);
+    const auto getTileTypeAtCoordinates = [this](const TileCoordinates& tileCoordinates)
+    {
+        return getTileType(tileCoordinates);
+    };
+    return detail::hasPublishedRoadOverlayAt(
+        coordinates,
+        getTileType(coordinates),
+        m_state.spawnTile,
+        m_state.config.seed,
+        getTileTypeAtCoordinates);
 }
 
 ChunkCoordinates World::getChunkCoordinates(const TileCoordinates& coordinates) const noexcept
@@ -382,7 +372,17 @@ std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFra
 
                     const TileType tileType = chunk.tiles[toIndex({localX, localY}, chunkSizeInTiles)];
 
-                    if (!hasRoadOverlayAt(worldCoordinates, tileType, m_state.spawnTile))
+                    const auto getTileTypeAtCoordinates = [this](const TileCoordinates& tileCoordinates)
+                    {
+                        return getTileType(tileCoordinates);
+                    };
+
+                    if (!detail::hasPublishedRoadOverlayAt(
+                            worldCoordinates,
+                            tileType,
+                            m_state.spawnTile,
+                            m_state.config.seed,
+                            getTileTypeAtCoordinates))
                     {
                         continue;
                     }

@@ -1,8 +1,4 @@
-## Purpose
-
-Define how deterministic overworld road overlays are derived, resolved, and rendered within the overworld runtime boundary.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: World publishes deterministic road overlay tiles
 The overworld runtime SHALL derive dirt-road overlay membership from world-owned deterministic data instead of from render-time heuristics or per-frame random selection. The same world seed and world-space coordinates SHALL produce the same road-covered tile coordinates across repeated frames and repeated launches. The published road shape SHALL render roads at least two tiles wide, allow deterministic three-tile widening segments, and keep the same occupancy results for world queries and world-content placement rules.
@@ -44,11 +40,3 @@ The game shell SHALL render each visible road overlay tile by selecting from sta
 - **WHEN** a deterministic road endpoint or local widening produces an occupancy pattern whose neighboring tiles resolve to coordinated edge and corner roles
 - **THEN** the renderer composes the visible road motif from those per-tile transition selections
 - **AND** the result does not require a dedicated single-tile end-cap role in the staged overlay metadata
-
-### Requirement: Road overlays render as a ground-detail pass between terrain and sorted content
-The game shell SHALL render visible road overlays as a dedicated batched ground-detail layer above terrain and below generated content and gameplay markers.
-
-#### Scenario: Road overlays appear beneath vegetation and player markers
-- **WHEN** an overworld frame contains both visible road overlays and renderable generated content or player markers
-- **THEN** the road overlay layer is drawn after terrain
-- **AND** the road overlay layer is drawn before vegetation content and player markers

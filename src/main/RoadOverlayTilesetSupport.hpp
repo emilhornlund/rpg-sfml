@@ -74,10 +74,13 @@ public:
 
     [[nodiscard]] std::size_t getBaseVariantCount() const noexcept;
     [[nodiscard]] const RoadOverlayAtlasCell& getBaseVariant(std::size_t variantIndex) const;
+    [[nodiscard]] std::size_t getDecorVariantCount() const noexcept;
+    [[nodiscard]] const RoadOverlayAtlasCell& getDecorVariant(std::size_t variantIndex) const;
     [[nodiscard]] const RoadOverlayAtlasCell& getTransitionCell(TileType surfaceType, RoadOverlayAutotileRole role) const;
 
 private:
     std::vector<RoadOverlayAtlasCell> m_baseVariants;
+    std::vector<RoadOverlayAtlasCell> m_decorVariants;
     std::map<TileType, std::map<RoadOverlayAutotileRole, RoadOverlayAtlasCell>> m_transitionCells;
 };
 

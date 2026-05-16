@@ -26,6 +26,7 @@
 
 #include "WorldContent.hpp"
 #include "GameAssetSupport.hpp"
+#include "RoadOverlayWorldSupport.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <algorithm>
@@ -34,6 +35,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <limits>
+#include <map>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
@@ -148,29 +150,6 @@ std::size_t g_worldContentConstructionCount = 0;
     return {
         (static_cast<float>(coordinates.x) + 0.5F) * tileSize,
         (static_cast<float>(coordinates.y) + 0.5F) * tileSize};
-}
-
-[[nodiscard]] constexpr bool supportsRoadOverlaySurface(const TileType tileType) noexcept
-{
-    return tileType == TileType::Grass || tileType == TileType::Sand || tileType == TileType::Forest;
-}
-
-[[nodiscard]] bool hasRoadOverlayAt(
-    const TileCoordinates& coordinates,
-    const TileType tileType,
-    const TileCoordinates& spawnTile) noexcept
-{
-    if (!supportsRoadOverlaySurface(tileType))
-    {
-        return false;
-    }
-
-    constexpr int kRoadHalfLengthInTiles = 48;
-    const int deltaX = coordinates.x - spawnTile.x;
-    const int deltaY = coordinates.y - spawnTile.y;
-    const bool horizontalRoad = deltaY == 0 && std::abs(deltaX) <= kRoadHalfLengthInTiles;
-    const bool verticalRoad = deltaX == 0 && std::abs(deltaY) <= kRoadHalfLengthInTiles;
-    return horizontalRoad || verticalRoad;
 }
 
 struct PrototypeDescriptor
@@ -615,10 +594,14 @@ int getWorldContentVisibilityOverscanInTiles()
     return std::max(metadata.getMaxPrototypeWidthInTiles(), metadata.getMaxPrototypeHeightInTiles());
 }
 
-WorldContent::WorldContent(const WorldConfig& config, const TileCoordinates& spawnTile) noexcept
+WorldContent::WorldContent(
+    const WorldConfig& config,
+    const TileCoordinates& spawnTile,
+    std::shared_ptr<const TerrainGenerator> terrainGenerator) noexcept
     : m_worldSeed(config.seed)
     , m_tileSize(config.tileSize)
     , m_spawnTile(spawnTile)
+    , m_terrainGenerator(std::move(terrainGenerator))
 {
     ++g_worldContentConstructionCount;
 }
@@ -646,6 +629,29 @@ ChunkContent WorldContent::generateChunkContent(
     {
         return content;
     }
+
+    std::map<std::pair<int, int>, std::vector<TileType>> roadTileLookupCache;
+    roadTileLookupCache.emplace(std::make_pair(chunkCoordinates.x, chunkCoordinates.y), tiles);
+    const auto getRoadTileType = [this, &roadTileLookupCache](const TileCoordinates& coordinates)
+    {
+        const ChunkCoordinates tileChunkCoordinates{
+            getChunkCoordinate(coordinates.x),
+            getChunkCoordinate(coordinates.y)};
+        const auto chunkKey = std::make_pair(tileChunkCoordinates.x, tileChunkCoordinates.y);
+        auto chunkIt = roadTileLookupCache.find(chunkKey);
+
+        if (chunkIt == roadTileLookupCache.end())
+        {
+            chunkIt = roadTileLookupCache.emplace(
+                chunkKey,
+                m_terrainGenerator->generateChunk(tileChunkCoordinates.x, tileChunkCoordinates.y).tiles).first;
+        }
+
+        const TileCoordinates localCoordinates{
+            getChunkLocalCoordinate(coordinates.x),
+            getChunkLocalCoordinate(coordinates.y)};
+        return chunkIt->second[static_cast<std::size_t>(localCoordinates.y * getChunkSizeInTiles() + localCoordinates.x)];
+    };
 
     std::vector<TileCoordinates> occupiedSparseAnchors;
     const int chunkMinX = chunkCoordinates.x * getChunkSizeInTiles();
@@ -678,6 +684,11 @@ ChunkContent WorldContent::generateChunkContent(
                 getPrototypePool(tileType, VegetationPlacementMode::TreeSparse);
 
             if (prototypePool.empty())
+            {
+                continue;
+            }
+
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
             {
                 continue;
             }
@@ -739,6 +750,11 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
+            {
+                continue;
+            }
+
             const float chance = getPropPlacementChance(m_worldSeed, anchorTile, tileType);
             const std::uint32_t placementSalt = getPropPlacementSalt(tileType);
             const float placementRoll = toUnitFloat(m_worldSeed ^ placementSalt, anchorTile.x, anchorTile.y);
@@ -781,7 +797,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasRoadOverlayAt(anchorTile, tileType, m_spawnTile))
+            if (hasPublishedRoadOverlayAt(anchorTile, tileType, m_spawnTile, m_worldSeed, getRoadTileType))
             {
                 continue;
             }

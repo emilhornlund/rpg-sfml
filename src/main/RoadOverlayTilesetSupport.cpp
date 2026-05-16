@@ -186,6 +186,12 @@ RoadOverlayTilesetMetadata RoadOverlayTilesetMetadata::loadFromDocument(const Ti
             continue;
         }
 
+        if (tile.overlay->overlayClass == "decor")
+        {
+            metadata.m_decorVariants.push_back(cell);
+            continue;
+        }
+
         if (tile.overlay->overlayClass != "transition")
         {
             continue;
@@ -217,6 +223,21 @@ const RoadOverlayAtlasCell& RoadOverlayTilesetMetadata::getBaseVariant(const std
     }
 
     return m_baseVariants[variantIndex % m_baseVariants.size()];
+}
+
+std::size_t RoadOverlayTilesetMetadata::getDecorVariantCount() const noexcept
+{
+    return m_decorVariants.size();
+}
+
+const RoadOverlayAtlasCell& RoadOverlayTilesetMetadata::getDecorVariant(const std::size_t variantIndex) const
+{
+    if (m_decorVariants.empty())
+    {
+        throw std::runtime_error("Missing road overlay decor variants in overlay tileset metadata");
+    }
+
+    return m_decorVariants[variantIndex % m_decorVariants.size()];
 }
 
 const RoadOverlayAtlasCell& RoadOverlayTilesetMetadata::getTransitionCell(

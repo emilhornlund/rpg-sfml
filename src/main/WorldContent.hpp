@@ -31,6 +31,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace rpg
@@ -41,7 +42,10 @@ namespace detail
 class WorldContent
 {
 public:
-    WorldContent(const WorldConfig& config, const TileCoordinates& spawnTile) noexcept;
+    WorldContent(
+        const WorldConfig& config,
+        const TileCoordinates& spawnTile,
+        std::shared_ptr<const TerrainGenerator> terrainGenerator) noexcept;
 
     [[nodiscard]] ChunkContent generateChunkContent(
         const ChunkCoordinates& chunkCoordinates,
@@ -52,6 +56,7 @@ private:
     std::uint32_t m_worldSeed;
     float m_tileSize;
     TileCoordinates m_spawnTile{0, 0};
+    std::shared_ptr<const TerrainGenerator> m_terrainGenerator;
 };
 
 [[nodiscard]] int getWorldContentVisibilityOverscanInTiles();

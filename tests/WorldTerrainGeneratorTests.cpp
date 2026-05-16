@@ -26,6 +26,7 @@
 
 #include "BiomeSampler.hpp"
 #include "GameAssetSupport.hpp"
+#include "RoadOverlayWorldSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -36,6 +37,7 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 namespace
@@ -130,6 +132,21 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
+[[nodiscard]] bool containsVisibleRoadOverlay(
+    const std::vector<rpg::VisibleWorldRoadOverlay>& visibleRoadOverlays,
+    const rpg::TileCoordinates& coordinates) noexcept
+{
+    for (const rpg::VisibleWorldRoadOverlay& roadOverlay : visibleRoadOverlays)
+    {
+        if (roadOverlay.coordinates.x == coordinates.x && roadOverlay.coordinates.y == coordinates.y)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [[nodiscard]] bool anyGroundContentOccupiesRoad(
     const rpg::World& world,
     const std::vector<rpg::VisibleWorldContent>& visibleContent) noexcept
@@ -170,6 +187,59 @@ constexpr float kFloatTolerance = 0.001F;
             && tiles[toIndex(candidate, config.widthInTiles)] == tileType)
         {
             return true;
+        }
+    }
+
+    return false;
+}
+
+template <std::size_t kHeight>
+[[nodiscard]] bool containsRoadOverlayPattern(
+    const std::uint32_t seed,
+    const std::array<std::string_view, kHeight>& pattern)
+{
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    constexpr rpg::TileType kSurface = rpg::TileType::Grass;
+    constexpr int kRoadSearchLimit = 52;
+    const int patternWidth = static_cast<int>(pattern[0].size());
+
+    for (const std::string_view row : pattern)
+    {
+        if (static_cast<int>(row.size()) != patternWidth)
+        {
+            return false;
+        }
+    }
+
+    for (int originY = -kRoadSearchLimit; originY <= kRoadSearchLimit; ++originY)
+    {
+        for (int originX = -kRoadSearchLimit; originX <= kRoadSearchLimit; ++originX)
+        {
+            bool matchesPattern = true;
+
+            for (std::size_t rowIndex = 0U; rowIndex < pattern.size() && matchesPattern; ++rowIndex)
+            {
+                for (int columnIndex = 0; columnIndex < patternWidth; ++columnIndex)
+                {
+                    const bool expectedRoad = pattern[rowIndex][static_cast<std::size_t>(columnIndex)] == '#';
+                    const bool hasRoad = rpg::detail::hasRoadOverlayAt(
+                        {originX + columnIndex, originY + static_cast<int>(rowIndex)},
+                        kSurface,
+                        kSpawnTile,
+                        seed);
+
+                    if (hasRoad != expectedRoad)
+                    {
+                        matchesPattern = false;
+                        break;
+                    }
+                }
+            }
+
+            if (matchesPattern)
+            {
+                return true;
+            }
         }
     }
 
@@ -267,6 +337,89 @@ struct CardinalNeighborMask
     world.updateRetentionWindow(frame);
     const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(frame);
     return !anyGroundContentOccupiesRoad(world, visibleContent);
+}
+
+[[nodiscard]] bool verifyVisibleRoadOverlaysSuppressClippedSingleTileEndCaps()
+{
+    rpg::World world;
+    const rpg::ViewFrame frame{
+        world.getTileCenter({0, -46}),
+        {world.getTileSize() * 8.0F, world.getTileSize() * 8.0F}};
+    const std::vector<rpg::VisibleWorldRoadOverlay> visibleRoadOverlays = world.getVisibleRoadOverlays(frame);
+
+    return !containsVisibleRoadOverlay(visibleRoadOverlays, {0, -46})
+        && !world.hasRoadOverlay({0, -46})
+        && world.hasRoadOverlay({0, -45})
+        && world.hasRoadOverlay({1, -45})
+        && containsVisibleRoadOverlay(visibleRoadOverlays, {0, -45})
+        && containsVisibleRoadOverlay(visibleRoadOverlays, {1, -45});
+}
+
+[[nodiscard]] bool verifySharedRoadOverlaySupportPublishesWidenedDeterministicBands()
+{
+    constexpr std::uint32_t kSeed = 0x00C0FFEEU;
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    constexpr rpg::TileType kSurface = rpg::TileType::Grass;
+
+    if (!rpg::detail::hasRoadOverlayAt({8, 0}, kSurface, kSpawnTile, kSeed)
+        || !rpg::detail::hasRoadOverlayAt({8, 1}, kSurface, kSpawnTile, kSeed)
+        || !rpg::detail::hasRoadOverlayAt({0, 8}, kSurface, kSpawnTile, kSeed)
+        || !rpg::detail::hasRoadOverlayAt({1, 8}, kSurface, kSpawnTile, kSeed))
+    {
+        return false;
+    }
+
+    bool foundHorizontalWidening = false;
+    bool foundVerticalWidening = false;
+
+    for (int offset = 8; offset <= 24; ++offset)
+    {
+        const bool horizontalUpper = rpg::detail::hasRoadOverlayAt({offset, -1}, kSurface, kSpawnTile, kSeed);
+        const bool horizontalLower = rpg::detail::hasRoadOverlayAt({offset, 2}, kSurface, kSpawnTile, kSeed);
+        foundHorizontalWidening = foundHorizontalWidening || horizontalUpper || horizontalLower;
+
+        const bool verticalLeft = rpg::detail::hasRoadOverlayAt({-1, offset}, kSurface, kSpawnTile, kSeed);
+        const bool verticalRight = rpg::detail::hasRoadOverlayAt({2, offset}, kSurface, kSpawnTile, kSeed);
+        foundVerticalWidening = foundVerticalWidening || verticalLeft || verticalRight;
+
+        if (horizontalUpper && horizontalLower)
+        {
+            return false;
+        }
+
+        if (verticalLeft && verticalRight)
+        {
+            return false;
+        }
+    }
+
+    return foundHorizontalWidening && foundVerticalWidening;
+}
+
+[[nodiscard]] bool verifySharedRoadOverlaySupportAvoidsSingleTileNotches()
+{
+    constexpr std::array<std::uint32_t, 3> kSeeds = {{
+        0x00C0FFEEU,
+        0x12345678U,
+        0x13572468U,
+    }};
+    constexpr std::array<std::string_view, 2> kDownwardNotch = {"###", ".#."};
+    constexpr std::array<std::string_view, 2> kUpwardNotch = {".#.", "###"};
+    constexpr std::array<std::string_view, 3> kRightFacingNotch = {"#.", "##", "#."};
+    constexpr std::array<std::string_view, 3> kLeftFacingNotch = {".#", "##", ".#"};
+
+    for (const std::uint32_t seed : kSeeds)
+    {
+        if (containsRoadOverlayPattern(seed, kDownwardNotch)
+            || containsRoadOverlayPattern(seed, kUpwardNotch)
+            || containsRoadOverlayPattern(seed, kRightFacingNotch)
+            || containsRoadOverlayPattern(seed, kLeftFacingNotch))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 [[nodiscard]] bool verifyOriginAnchoredSpawnSelection()
@@ -1214,6 +1367,21 @@ int main()
     }
 
     if (!verifyGroundContentAvoidsRoadCoveredTiles())
+    {
+        return 1;
+    }
+
+    if (!verifyVisibleRoadOverlaysSuppressClippedSingleTileEndCaps())
+    {
+        return 1;
+    }
+
+    if (!verifySharedRoadOverlaySupportPublishesWidenedDeterministicBands())
+    {
+        return 1;
+    }
+
+    if (!verifySharedRoadOverlaySupportAvoidsSingleTileNotches())
     {
         return 1;
     }
