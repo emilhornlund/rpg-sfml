@@ -25,6 +25,14 @@ The vegetation system SHALL apply biome-sensitive placement rules using explicit
 - **THEN** grass regions admit fewer placements overall than forest regions
 - **AND** the density difference is achieved through placement-mode-driven rules rather than a single shared non-tree pass
 
+### Requirement: Ground vegetation placement respects road-covered tiles
+Deterministic ground vegetation placement SHALL treat road-covered tiles as ineligible anchor tiles for ground-dense vegetation so visible roads remain readable.
+
+#### Scenario: Ground cover is suppressed on roads
+- **WHEN** deterministic ground vegetation sampling evaluates a tile covered by a road overlay
+- **THEN** the runtime does not place ground-dense vegetation on that tile
+- **AND** the suppression remains deterministic for the same world seed and world-space coordinates
+
 ### Requirement: Vegetation instances are anchored to world tiles and retain prototype geometry
 The vegetation system SHALL publish vegetation instances as data-only records anchored at deterministic world tiles, with stable identity, prototype selection, world-space placement, and geometry derived from vegetation metadata rather than flattened ad hoc per-tile records.
 

@@ -88,6 +88,16 @@ struct VisibleWorldTile
 };
 
 /**
+ * @brief Render-facing data for a visible overworld road overlay tile.
+ */
+struct VisibleWorldRoadOverlay
+{
+    TileCoordinates coordinates{0, 0};
+    TileType surfaceTileType = TileType::Grass;
+    WorldPosition center{0.0F, 0.0F};
+};
+
+/**
  * @brief Chunk coordinates in the streaming overworld grid.
  */
 struct ChunkCoordinates
@@ -270,6 +280,14 @@ public:
     [[nodiscard]] TileType getTileType(const TileCoordinates& coordinates) const;
 
     /**
+     * @brief Check whether a tile is covered by a deterministic road overlay.
+     *
+     * @param coordinates Tile coordinates to inspect.
+     * @return True when the tile should render a road overlay.
+     */
+    [[nodiscard]] bool hasRoadOverlay(const TileCoordinates& coordinates) const;
+
+    /**
      * @brief Convert a tile coordinate to the chunk that owns it.
      *
      * @param coordinates Absolute tile coordinates.
@@ -378,6 +396,14 @@ public:
      * @return Render-facing data for the visible world tiles.
      */
     [[nodiscard]] std::vector<VisibleWorldTile> getVisibleTiles(const ViewFrame& frame) const;
+
+    /**
+     * @brief Enumerate visible road overlays for a camera frame.
+     *
+     * @param frame Camera frame used to determine visible road overlays.
+     * @return Render-facing data for the visible road overlay tiles.
+     */
+    [[nodiscard]] std::vector<VisibleWorldRoadOverlay> getVisibleRoadOverlays(const ViewFrame& frame) const;
 
     /**
      * @brief Enumerate visible generated content for a camera frame.

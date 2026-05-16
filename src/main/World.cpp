@@ -29,6 +29,7 @@
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <utility>
@@ -163,6 +164,29 @@ struct WorldBounds
         && bottom >= bounds.top;
 }
 
+[[nodiscard]] constexpr bool supportsRoadOverlaySurface(const TileType tileType) noexcept
+{
+    return tileType == TileType::Grass || tileType == TileType::Sand || tileType == TileType::Forest;
+}
+
+[[nodiscard]] bool hasRoadOverlayAt(
+    const TileCoordinates& coordinates,
+    const TileType tileType,
+    const TileCoordinates& spawnTile) noexcept
+{
+    if (!supportsRoadOverlaySurface(tileType))
+    {
+        return false;
+    }
+
+    constexpr int kRoadHalfLengthInTiles = 48;
+    const int deltaX = coordinates.x - spawnTile.x;
+    const int deltaY = coordinates.y - spawnTile.y;
+    const bool horizontalRoad = deltaY == 0 && std::abs(deltaX) <= kRoadHalfLengthInTiles;
+    const bool verticalRoad = deltaX == 0 && std::abs(deltaY) <= kRoadHalfLengthInTiles;
+    return horizontalRoad || verticalRoad;
+}
+
 } // namespace
 
 World::World()
@@ -174,8 +198,8 @@ World::World(const WorldConfig& config)
 {
     m_state.config = config;
     m_state.terrainGenerator = std::make_shared<detail::TerrainGenerator>(m_state.config);
-    m_state.worldContent = std::make_shared<detail::WorldContent>(m_state.config);
     m_state.spawnTile = m_state.terrainGenerator->generateSpawnTile();
+    m_state.worldContent = std::make_shared<detail::WorldContent>(m_state.config, m_state.spawnTile);
 }
 
 World::~World() = default;
@@ -214,6 +238,11 @@ TileType World::getTileType(const TileCoordinates& coordinates) const
 {
     const State::RetainedChunkData& chunk = ensureChunkRetained(getChunkCoordinates(coordinates));
     return chunk.tiles[toIndex(toChunkLocalCoordinates(coordinates), detail::getChunkSizeInTiles())];
+}
+
+bool World::hasRoadOverlay(const TileCoordinates& coordinates) const
+{
+    return hasRoadOverlayAt(coordinates, getTileType(coordinates), m_state.spawnTile);
 }
 
 ChunkCoordinates World::getChunkCoordinates(const TileCoordinates& coordinates) const noexcept
@@ -312,6 +341,62 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
     }
 
     return visibleTiles;
+}
+
+std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFrame& frame) const
+{
+    std::vector<VisibleWorldRoadOverlay> visibleRoadOverlays;
+
+    const VisibleTileBounds bounds = getVisibleTileBounds(m_state.config.tileSize, frame);
+
+    if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
+    {
+        return visibleRoadOverlays;
+    }
+
+    const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
+    const int chunkSizeInTiles = detail::getChunkSizeInTiles();
+
+    for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
+    {
+        for (int chunkX = chunkBounds.minX; chunkX <= chunkBounds.maxX; ++chunkX)
+        {
+            const State::RetainedChunkData& chunk = ensureChunkRetained({chunkX, chunkY});
+
+            for (int localY = 0; localY < chunkSizeInTiles; ++localY)
+            {
+                for (int localX = 0; localX < chunkSizeInTiles; ++localX)
+                {
+                    const TileCoordinates worldCoordinates = detail::getWorldTileCoordinates(
+                        chunkX,
+                        chunkY,
+                        {localX, localY});
+
+                    if (worldCoordinates.x < bounds.minX
+                        || worldCoordinates.x > bounds.maxX
+                        || worldCoordinates.y < bounds.minY
+                        || worldCoordinates.y > bounds.maxY)
+                    {
+                        continue;
+                    }
+
+                    const TileType tileType = chunk.tiles[toIndex({localX, localY}, chunkSizeInTiles)];
+
+                    if (!hasRoadOverlayAt(worldCoordinates, tileType, m_state.spawnTile))
+                    {
+                        continue;
+                    }
+
+                    visibleRoadOverlays.push_back({
+                        worldCoordinates,
+                        tileType,
+                        getTileCenter(worldCoordinates)});
+                }
+            }
+        }
+    }
+
+    return visibleRoadOverlays;
 }
 
 std::vector<VisibleWorldContent> World::getVisibleContent(const ViewFrame& frame) const

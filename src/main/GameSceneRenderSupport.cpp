@@ -51,6 +51,11 @@ OverworldSceneRenderFrame buildOverworldSceneRenderFrame(
         terrainAnimationElapsedSeconds,
         worldGenerationSeed);
     renderFrame.terrainRenderStates.texture = &renderResources.terrainTileset;
+    renderFrame.roadOverlayVertexArray = buildRoadOverlayVertexArray(
+        renderResources.groundOverlayTilesetMetadata,
+        renderSnapshot,
+        worldGenerationSeed);
+    renderFrame.roadOverlayRenderStates.texture = &renderResources.groundOverlayTileset;
 
     if (renderTileGridOverlay)
     {
@@ -79,6 +84,7 @@ void renderOverworldScene(
                 [&]()
                 {
                     renderTarget.draw(renderFrame.terrainVertexArray, renderFrame.terrainRenderStates);
+                    renderTarget.draw(renderFrame.roadOverlayVertexArray, renderFrame.roadOverlayRenderStates);
                 },
                 [&]()
                 {

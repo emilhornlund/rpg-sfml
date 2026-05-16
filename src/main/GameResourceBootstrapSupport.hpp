@@ -41,6 +41,8 @@ struct GameRenderResources
 {
     sf::Texture terrainTileset;
     TerrainTilesetMetadata terrainTilesetMetadata;
+    sf::Texture groundOverlayTileset;
+    RoadOverlayTilesetMetadata groundOverlayTilesetMetadata;
     sf::Texture vegetationTileset;
     VegetationTilesetMetadata vegetationTilesetMetadata;
     sf::Texture playerSpritesheet;

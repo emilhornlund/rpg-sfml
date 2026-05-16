@@ -41,6 +41,7 @@ namespace
 {
 
 constexpr int kTerrainTilesetCellSize = 16;
+constexpr int kRoadOverlayTilesetCellSize = 16;
 constexpr std::size_t kVerticesPerQuad = 6U;
 
 struct VisibleTileGridBounds
@@ -64,6 +65,13 @@ struct VisibleTileGridBounds
         {kTerrainTilesetCellSize, kTerrainTilesetCellSize}};
 }
 
+[[nodiscard]] sf::IntRect getRoadOverlayTilesetRect(const RoadOverlayAtlasCell& cell) noexcept
+{
+    return {
+        {cell.tileX * kRoadOverlayTilesetCellSize, cell.tileY * kRoadOverlayTilesetCellSize},
+        {kRoadOverlayTilesetCellSize, kRoadOverlayTilesetCellSize}};
+}
+
 [[nodiscard]] std::uint64_t packTileCoordinates(const int x, const int y) noexcept
 {
     return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(x)) << 32U)
@@ -71,6 +79,7 @@ struct VisibleTileGridBounds
 }
 
 using VisibleTileTypeMap = std::unordered_map<std::uint64_t, TileType>;
+using VisibleRoadOverlaySurfaceMap = std::unordered_map<std::uint64_t, TileType>;
 
 [[nodiscard]] VisibleTileTypeMap buildVisibleTileTypeMap(const OverworldRenderSnapshot& renderSnapshot)
 {
@@ -85,6 +94,21 @@ using VisibleTileTypeMap = std::unordered_map<std::uint64_t, TileType>;
     }
 
     return visibleTileTypes;
+}
+
+[[nodiscard]] VisibleRoadOverlaySurfaceMap buildVisibleRoadOverlaySurfaceMap(const OverworldRenderSnapshot& renderSnapshot)
+{
+    VisibleRoadOverlaySurfaceMap visibleRoadOverlaySurfaces;
+    visibleRoadOverlaySurfaces.reserve(renderSnapshot.visibleRoadOverlays.size());
+
+    for (const OverworldRenderRoadOverlay& roadOverlay : renderSnapshot.visibleRoadOverlays)
+    {
+        visibleRoadOverlaySurfaces.emplace(
+            packTileCoordinates(roadOverlay.coordinates.x, roadOverlay.coordinates.y),
+            roadOverlay.surfaceTileType);
+    }
+
+    return visibleRoadOverlaySurfaces;
 }
 
 [[nodiscard]] std::array<TileType, 8> getNeighborTileTypes(
@@ -106,6 +130,159 @@ using VisibleTileTypeMap = std::unordered_map<std::uint64_t, TileType>;
         getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y + 1),
         getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y),
         getTileTypeOrCurrent(visibleTile.coordinates.x - 1, visibleTile.coordinates.y - 1)};
+}
+
+[[nodiscard]] std::array<bool, 8> getNeighborRoadOverlayOccupancy(
+    const VisibleRoadOverlaySurfaceMap& visibleRoadOverlaySurfaces,
+    const OverworldRenderRoadOverlay& roadOverlay) noexcept
+{
+    const auto hasRoadOverlay = [&visibleRoadOverlaySurfaces](const int x, const int y) noexcept
+    {
+        return visibleRoadOverlaySurfaces.contains(packTileCoordinates(x, y));
+    };
+
+    return {
+        hasRoadOverlay(roadOverlay.coordinates.x, roadOverlay.coordinates.y - 1),
+        hasRoadOverlay(roadOverlay.coordinates.x + 1, roadOverlay.coordinates.y - 1),
+        hasRoadOverlay(roadOverlay.coordinates.x + 1, roadOverlay.coordinates.y),
+        hasRoadOverlay(roadOverlay.coordinates.x + 1, roadOverlay.coordinates.y + 1),
+        hasRoadOverlay(roadOverlay.coordinates.x, roadOverlay.coordinates.y + 1),
+        hasRoadOverlay(roadOverlay.coordinates.x - 1, roadOverlay.coordinates.y + 1),
+        hasRoadOverlay(roadOverlay.coordinates.x - 1, roadOverlay.coordinates.y),
+        hasRoadOverlay(roadOverlay.coordinates.x - 1, roadOverlay.coordinates.y - 1)};
+}
+
+[[nodiscard]] int getRoadOverlaySurfacePriority(const TileType tileType) noexcept
+{
+    switch (tileType)
+    {
+    case TileType::Grass:
+        return 1;
+    case TileType::Forest:
+        return 2;
+    case TileType::Sand:
+        return 3;
+    case TileType::Water:
+        return 0;
+    }
+
+    return 0;
+}
+
+[[nodiscard]] std::uint32_t hashRoadOverlaySelection(
+    const std::uint32_t seed,
+    const TileCoordinates& coordinates,
+    const TileType surfaceTileType) noexcept
+{
+    std::uint32_t value = seed ^ 0xA5F13C9DU;
+    value ^= static_cast<std::uint32_t>(coordinates.x) * 73856093U;
+    value ^= static_cast<std::uint32_t>(coordinates.y) * 19349663U;
+    value ^= static_cast<std::uint32_t>(getRoadOverlaySurfacePriority(surfaceTileType)) * 83492791U;
+    value ^= value >> 13U;
+    value *= 1274126177U;
+    value ^= value >> 16U;
+    return value;
+}
+
+[[nodiscard]] std::optional<RoadOverlayAutotileRole> resolveRoadOverlayRole(
+    const std::array<bool, 8>& occupancy) noexcept
+{
+    const bool north = occupancy[0];
+    const bool northEast = occupancy[1];
+    const bool east = occupancy[2];
+    const bool southEast = occupancy[3];
+    const bool south = occupancy[4];
+    const bool southWest = occupancy[5];
+    const bool west = occupancy[6];
+    const bool northWest = occupancy[7];
+
+    if (north && east && south && west)
+    {
+        if (!northWest)
+        {
+            return RoadOverlayAutotileRole::OuterTopLeft;
+        }
+
+        if (!northEast)
+        {
+            return RoadOverlayAutotileRole::OuterTopRight;
+        }
+
+        if (!southWest)
+        {
+            return RoadOverlayAutotileRole::OuterBottomLeft;
+        }
+
+        if (!southEast)
+        {
+            return RoadOverlayAutotileRole::OuterBottomRight;
+        }
+
+        return std::nullopt;
+    }
+
+    if (!north && east && south && west)
+    {
+        return RoadOverlayAutotileRole::Top;
+    }
+
+    if (!south && north && east && west)
+    {
+        return RoadOverlayAutotileRole::Bottom;
+    }
+
+    if (!west && north && east && south)
+    {
+        return RoadOverlayAutotileRole::Left;
+    }
+
+    if (!east && north && south && west)
+    {
+        return RoadOverlayAutotileRole::Right;
+    }
+
+    if (!north && !west && east && south)
+    {
+        return RoadOverlayAutotileRole::TopLeft;
+    }
+
+    if (!north && !east && west && south)
+    {
+        return RoadOverlayAutotileRole::TopRight;
+    }
+
+    if (!south && !west && north && east)
+    {
+        return RoadOverlayAutotileRole::BottomLeft;
+    }
+
+    if (!south && !east && north && west)
+    {
+        return RoadOverlayAutotileRole::BottomRight;
+    }
+
+    return std::nullopt;
+}
+
+[[nodiscard]] RoadOverlayAtlasCell selectRoadOverlayAtlasCell(
+    const RoadOverlayTilesetMetadata& metadata,
+    const OverworldRenderRoadOverlay& roadOverlay,
+    const std::array<bool, 8>& occupancy,
+    const std::uint32_t seed)
+{
+    const std::optional<RoadOverlayAutotileRole> role = resolveRoadOverlayRole(occupancy);
+
+    if (!role.has_value())
+    {
+        const std::size_t baseVariantIndex = metadata.getBaseVariantCount() == 0
+            ? 0U
+            : static_cast<std::size_t>(
+                  hashRoadOverlaySelection(seed, roadOverlay.coordinates, roadOverlay.surfaceTileType)
+                  % metadata.getBaseVariantCount());
+        return metadata.getBaseVariant(baseVariantIndex);
+    }
+
+    return metadata.getTransitionCell(roadOverlay.surfaceTileType, *role);
 }
 
 void setTexturedQuadVertices(
@@ -294,6 +471,40 @@ sf::VertexArray buildTerrainVertexArray(
     }
 
     return terrainVertexArray;
+}
+
+sf::VertexArray buildRoadOverlayVertexArray(
+    const RoadOverlayTilesetMetadata& roadOverlayTilesetMetadata,
+    const OverworldRenderSnapshot& renderSnapshot,
+    const std::uint32_t seed)
+{
+    sf::VertexArray roadOverlayVertexArray(sf::PrimitiveType::Triangles);
+
+    if (renderSnapshot.visibleRoadOverlays.empty())
+    {
+        return roadOverlayVertexArray;
+    }
+
+    roadOverlayVertexArray.resize(renderSnapshot.visibleRoadOverlays.size() * kVerticesPerQuad);
+    const VisibleRoadOverlaySurfaceMap visibleRoadOverlaySurfaces = buildVisibleRoadOverlaySurfaceMap(renderSnapshot);
+    std::size_t vertexIndex = 0U;
+
+    for (const OverworldRenderRoadOverlay& roadOverlay : renderSnapshot.visibleRoadOverlays)
+    {
+        const sf::IntRect textureRect = getRoadOverlayTilesetRect(selectRoadOverlayAtlasCell(
+            roadOverlayTilesetMetadata,
+            roadOverlay,
+            getNeighborRoadOverlayOccupancy(visibleRoadOverlaySurfaces, roadOverlay),
+            seed));
+        const float left = roadOverlay.position.x - roadOverlay.origin.x;
+        const float top = roadOverlay.position.y - roadOverlay.origin.y;
+        const float right = left + roadOverlay.size.width;
+        const float bottom = top + roadOverlay.size.height;
+        setTexturedQuadVertices(roadOverlayVertexArray, vertexIndex, left, top, right, bottom, textureRect);
+        vertexIndex += kVerticesPerQuad;
+    }
+
+    return roadOverlayVertexArray;
 }
 
 sf::VertexArray buildTileGridVertexArray(

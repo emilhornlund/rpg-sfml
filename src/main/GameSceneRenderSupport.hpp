@@ -44,7 +44,9 @@ namespace rpg::detail
 
 struct OverworldSceneRenderFrame
 {
-    OverworldSceneRenderFrame(const sf::Texture& vegetationTileset, const sf::Texture& playerSpritesheet)
+    OverworldSceneRenderFrame(
+        const sf::Texture& vegetationTileset,
+        const sf::Texture& playerSpritesheet)
         : vegetationSprite(vegetationTileset)
         , playerSprite(playerSpritesheet)
     {
@@ -54,6 +56,8 @@ struct OverworldSceneRenderFrame
     const VegetationTilesetMetadata* vegetationTilesetMetadata = nullptr;
     sf::VertexArray terrainVertexArray{sf::PrimitiveType::Triangles};
     sf::RenderStates terrainRenderStates;
+    sf::VertexArray roadOverlayVertexArray{sf::PrimitiveType::Triangles};
+    sf::RenderStates roadOverlayRenderStates;
     sf::Sprite vegetationSprite;
     sf::Sprite playerSprite;
     sf::VertexArray tileGridVertexArray{sf::PrimitiveType::Triangles};

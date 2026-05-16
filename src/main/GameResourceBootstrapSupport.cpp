@@ -72,6 +72,9 @@ GameRenderResources loadGameRenderResources(const std::filesystem::path& assetRo
     const TilesetAssetDocument terrainDocument = TilesetAssetDocument::loadFromAssetRoot(
         assetRoot,
         std::filesystem::path(kTilesetCatalogDirectory) / kTerrainTilesetCatalogFilename);
+    const TilesetAssetDocument groundOverlayDocument = TilesetAssetDocument::loadFromAssetRoot(
+        assetRoot,
+        std::filesystem::path(kTilesetCatalogDirectory) / kGroundOverlayTilesetCatalogFilename);
     const TilesetAssetDocument vegetationDocument = TilesetAssetDocument::loadFromAssetRoot(
         assetRoot,
         std::filesystem::path(kTilesetCatalogDirectory) / kVegetationTilesetCatalogFilename);
@@ -79,6 +82,8 @@ GameRenderResources loadGameRenderResources(const std::filesystem::path& assetRo
     return {
         loadTilesetTexture(terrainDocument, "overworld terrain tileset"),
         TerrainTilesetMetadata::loadFromDocument(terrainDocument),
+        loadTilesetTexture(groundOverlayDocument, "overworld ground overlay tileset"),
+        RoadOverlayTilesetMetadata::loadFromDocument(groundOverlayDocument),
         loadTilesetTexture(vegetationDocument, "overworld vegetation tileset"),
         VegetationTilesetMetadata::loadFromDocument(vegetationDocument),
         loadPlayerSpritesheet(assetRoot),

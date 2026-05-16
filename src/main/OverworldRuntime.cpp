@@ -58,6 +58,18 @@ namespace
         visibleTile.center};
 }
 
+[[nodiscard]] constexpr OverworldRenderRoadOverlay makeRenderRoadOverlay(
+    const VisibleWorldRoadOverlay& visibleRoadOverlay,
+    const float tileSize) noexcept
+{
+    return {
+        visibleRoadOverlay.coordinates,
+        visibleRoadOverlay.surfaceTileType,
+        {tileSize, tileSize},
+        {tileSize * 0.5F, tileSize * 0.5F},
+        visibleRoadOverlay.center};
+}
+
 [[nodiscard]] OverworldRenderMarker makePlayerRenderMarker(
     const detail::PlayerSpritePlacement& placement,
     const Player& player) noexcept
@@ -164,6 +176,16 @@ void OverworldRuntime::refreshRenderSnapshot()
     for (const VisibleWorldTile& visibleTile : visibleTiles)
     {
         m_renderSnapshot.visibleTiles.push_back(makeRenderTile(visibleTile, tileSize));
+    }
+
+    const std::vector<VisibleWorldRoadOverlay> visibleRoadOverlays =
+        m_world.getVisibleRoadOverlays(m_renderSnapshot.cameraFrame);
+    m_renderSnapshot.visibleRoadOverlays.clear();
+    m_renderSnapshot.visibleRoadOverlays.reserve(visibleRoadOverlays.size());
+
+    for (const VisibleWorldRoadOverlay& visibleRoadOverlay : visibleRoadOverlays)
+    {
+        m_renderSnapshot.visibleRoadOverlays.push_back(makeRenderRoadOverlay(visibleRoadOverlay, tileSize));
     }
 
     const std::vector<VisibleWorldContent> visibleContent = m_world.getVisibleContent(m_renderSnapshot.cameraFrame);

@@ -42,6 +42,8 @@ namespace
             == assetRoot / "output/spritesheets/player-walking-spritesheet.png"
         && rpg::detail::getTerrainTilesetCatalogPath(assetRoot)
             == assetRoot / "output/catalogs/overworld-terrain-tileset-catalog.json"
+        && rpg::detail::getGroundOverlayTilesetCatalogPath(assetRoot)
+            == assetRoot / "output/catalogs/overworld-ground-overlay-tileset-catalog.json"
         && rpg::detail::getVegetationTilesetCatalogPath(assetRoot)
             == assetRoot / "output/catalogs/overworld-vegetation-tileset-catalog.json"
         && rpg::detail::getDebugOverlayFontPath(assetRoot) == assetRoot / "output/fonts/PixelOperator8.ttf";
@@ -114,6 +116,26 @@ namespace
         && containsBiomeWeight(waterLily, "water", 0.25F);
 }
 
+[[nodiscard]] bool verifyGroundOverlayMetadataLoading(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::loadGroundOverlayTilesetMetadata(assetRoot);
+    const rpg::detail::RoadOverlayAtlasCell baseVariant = metadata.getBaseVariant(0);
+    const rpg::detail::RoadOverlayAtlasCell grassTop = metadata.getTransitionCell(
+        rpg::TileType::Grass,
+        rpg::detail::RoadOverlayAutotileRole::Top);
+    const rpg::detail::RoadOverlayAtlasCell forestOuterTopLeft = metadata.getTransitionCell(
+        rpg::TileType::Forest,
+        rpg::detail::RoadOverlayAutotileRole::OuterTopLeft);
+
+    return metadata.getBaseVariantCount() == 24
+        && baseVariant.tileX == 0
+        && baseVariant.tileY == 0
+        && grassTop.tileX == 6
+        && grassTop.tileY == 2
+        && forestOuterTopLeft.tileX == 0
+        && forestOuterTopLeft.tileY == 4;
+}
+
 [[nodiscard]] bool verifyDebugOverlayFontPresence(const std::filesystem::path& assetRoot)
 {
     const std::filesystem::path fontPath = rpg::detail::getDebugOverlayFontPath(assetRoot);
@@ -143,6 +165,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifyVegetationMetadataLoading(argv[1]))
+    {
+        return 1;
+    }
+
+    if (!verifyGroundOverlayMetadataLoading(argv[1]))
     {
         return 1;
     }

@@ -87,6 +87,26 @@ namespace
         {(static_cast<float>(x) + 0.5F) * 16.0F, (static_cast<float>(y) + 0.5F) * 16.0F}};
 }
 
+[[nodiscard]] rpg::OverworldRenderRoadOverlay makeVisibleRoadOverlay(
+    const int x,
+    const int y,
+    const rpg::TileType surfaceTileType) noexcept
+{
+    return {
+        {x, y},
+        surfaceTileType,
+        {16.0F, 16.0F},
+        {8.0F, 8.0F},
+        {(static_cast<float>(x) + 0.5F) * 16.0F, (static_cast<float>(y) + 0.5F) * 16.0F}};
+}
+
+[[nodiscard]] sf::IntRect makeRoadOverlayTilesetRect(const rpg::detail::RoadOverlayAtlasCell& cell) noexcept
+{
+    return {
+        {cell.tileX * 16, cell.tileY * 16},
+        {16, 16}};
+}
+
 bool verifyTerrainBatchUsesExpectedGeometry(const std::filesystem::path& assetRoot)
 {
     const rpg::detail::TerrainTilesetMetadata metadata = rpg::detail::loadTerrainTilesetMetadata(assetRoot);
@@ -171,6 +191,84 @@ bool verifyTileGridBatchUsesOverlayRectangles()
             overlayRectangles[3].position.x + overlayRectangles[3].size.width,
             overlayRectangles[3].position.y,
             gridColor);
+}
+
+bool verifyRoadOverlayBatchUsesExpectedGeometry(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::loadGroundOverlayTilesetMetadata(assetRoot);
+    rpg::OverworldRenderSnapshot renderSnapshot;
+    renderSnapshot.visibleRoadOverlays = {
+        makeVisibleRoadOverlay(0, 0, rpg::TileType::Grass),
+        makeVisibleRoadOverlay(-1, 0, rpg::TileType::Grass),
+        makeVisibleRoadOverlay(1, 0, rpg::TileType::Grass),
+        makeVisibleRoadOverlay(0, 1, rpg::TileType::Grass)};
+
+    const sf::VertexArray roadOverlayVertexArray = rpg::detail::buildRoadOverlayVertexArray(metadata, renderSnapshot, 1337U);
+    const sf::IntRect textureRect =
+        makeRoadOverlayTilesetRect(metadata.getTransitionCell(rpg::TileType::Grass, rpg::detail::RoadOverlayAutotileRole::Top));
+
+    return roadOverlayVertexArray.getPrimitiveType() == sf::PrimitiveType::Triangles
+        && roadOverlayVertexArray.getVertexCount() == renderSnapshot.visibleRoadOverlays.size() * 6U
+        && matchesTexturedVertex(
+            roadOverlayVertexArray[0],
+            0.0F,
+            0.0F,
+            sf::Color::White,
+            static_cast<float>(textureRect.position.x),
+            static_cast<float>(textureRect.position.y))
+        && matchesTexturedVertex(
+            roadOverlayVertexArray[1],
+            0.0F,
+            16.0F,
+            sf::Color::White,
+            static_cast<float>(textureRect.position.x),
+            static_cast<float>(textureRect.position.y + textureRect.size.y))
+        && matchesTexturedVertex(
+            roadOverlayVertexArray[2],
+            16.0F,
+            16.0F,
+            sf::Color::White,
+            static_cast<float>(textureRect.position.x + textureRect.size.x),
+            static_cast<float>(textureRect.position.y + textureRect.size.y));
+}
+
+bool verifyRoadOverlayBatchUsesSurfaceSpecificTransitions(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::loadGroundOverlayTilesetMetadata(assetRoot);
+    const auto matchesSurfaceTopTransition = [&metadata](const rpg::TileType surfaceTileType)
+    {
+        rpg::OverworldRenderSnapshot renderSnapshot;
+        renderSnapshot.visibleRoadOverlays = {
+            makeVisibleRoadOverlay(0, 0, surfaceTileType),
+            makeVisibleRoadOverlay(-1, 0, surfaceTileType),
+            makeVisibleRoadOverlay(1, 0, surfaceTileType),
+            makeVisibleRoadOverlay(0, 1, surfaceTileType)};
+
+        const sf::VertexArray roadOverlayVertexArray =
+            rpg::detail::buildRoadOverlayVertexArray(metadata, renderSnapshot, 1337U);
+        const sf::IntRect textureRect = makeRoadOverlayTilesetRect(
+            metadata.getTransitionCell(surfaceTileType, rpg::detail::RoadOverlayAutotileRole::Top));
+
+        return roadOverlayVertexArray.getVertexCount() == renderSnapshot.visibleRoadOverlays.size() * 6U
+            && matchesTexturedVertex(
+                roadOverlayVertexArray[0],
+                0.0F,
+                0.0F,
+                sf::Color::White,
+                static_cast<float>(textureRect.position.x),
+                static_cast<float>(textureRect.position.y))
+            && matchesTexturedVertex(
+                roadOverlayVertexArray[2],
+                16.0F,
+                16.0F,
+                sf::Color::White,
+                static_cast<float>(textureRect.position.x + textureRect.size.x),
+                static_cast<float>(textureRect.position.y + textureRect.size.y));
+    };
+
+    return matchesSurfaceTopTransition(rpg::TileType::Grass)
+        && matchesSurfaceTopTransition(rpg::TileType::Forest)
+        && matchesSurfaceTopTransition(rpg::TileType::Sand);
 }
 
 bool verifyTileGridBatchUsesBoundsDerivedStrips()
@@ -280,6 +378,16 @@ int main(int argc, char** argv)
     }
 
     if (!verifyTileGridBatchUsesOverlayRectangles())
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyRoadOverlayBatchUsesExpectedGeometry(assetRoot))
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyRoadOverlayBatchUsesSurfaceSpecificTransitions(assetRoot))
     {
         return EXIT_FAILURE;
     }

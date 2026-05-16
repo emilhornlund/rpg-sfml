@@ -130,6 +130,22 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
+[[nodiscard]] bool anyGroundContentOccupiesRoad(
+    const rpg::World& world,
+    const std::vector<rpg::VisibleWorldContent>& visibleContent) noexcept
+{
+    for (const rpg::VisibleWorldContent& visibleInstance : visibleContent)
+    {
+        if (visibleInstance.instance.type == rpg::ContentType::Shrub
+            && world.hasRoadOverlay(visibleInstance.instance.anchorTile))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [[nodiscard]] bool isInBounds(const rpg::TileCoordinates& coordinates, const rpg::WorldConfig& config) noexcept
 {
     return coordinates.x >= 0
@@ -241,6 +257,16 @@ struct CardinalNeighborMask
         && firstChunk.chunkY == secondChunk.chunkY
         && firstChunk.tiles == secondChunk.tiles
         && areEqual(firstChunk.metadata, secondChunk.metadata);
+}
+
+[[nodiscard]] bool verifyGroundContentAvoidsRoadCoveredTiles()
+{
+    rpg::World world;
+    const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+    const rpg::ViewFrame frame{spawnPosition, {320.0F, 180.0F}};
+    world.updateRetentionWindow(frame);
+    const std::vector<rpg::VisibleWorldContent> visibleContent = world.getVisibleContent(frame);
+    return !anyGroundContentOccupiesRoad(world, visibleContent);
 }
 
 [[nodiscard]] bool verifyOriginAnchoredSpawnSelection()
@@ -1183,6 +1209,11 @@ int main()
     }
 
     if (!verifyDeterministicChunkGeneration())
+    {
+        return 1;
+    }
+
+    if (!verifyGroundContentAvoidsRoadCoveredTiles())
     {
         return 1;
     }

@@ -41,7 +41,7 @@ namespace detail
 class WorldContent
 {
 public:
-    explicit WorldContent(const WorldConfig& config) noexcept;
+    WorldContent(const WorldConfig& config, const TileCoordinates& spawnTile) noexcept;
 
     [[nodiscard]] ChunkContent generateChunkContent(
         const ChunkCoordinates& chunkCoordinates,
@@ -51,6 +51,7 @@ public:
 private:
     std::uint32_t m_worldSeed;
     float m_tileSize;
+    TileCoordinates m_spawnTile{0, 0};
 };
 
 [[nodiscard]] int getWorldContentVisibilityOverscanInTiles();

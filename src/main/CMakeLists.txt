@@ -18,6 +18,7 @@ add_executable(main
     GameRuntimeSupport.cpp
     OverworldRuntime.cpp
     Player.cpp
+    RoadOverlayTilesetSupport.cpp
     TerrainAutotileSupport.cpp
     TilesetAssetLoader.cpp
     VegetationAtlasSupport.cpp
@@ -58,10 +59,12 @@ add_custom_command(TARGET main POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${RPG_MAIN_FONT_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_TILESET_SOURCE_DIR}/overworld-terrain-tileset.png"
+        "${RPG_MAIN_TILESET_SOURCE_DIR}/overworld-ground-overlay-tileset.png"
         "${RPG_MAIN_TILESET_SOURCE_DIR}/overworld-vegetation-tileset.png"
         "${RPG_MAIN_TILESET_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${RPG_MAIN_CATALOG_SOURCE_DIR}/overworld-terrain-tileset-catalog.json"
+        "${RPG_MAIN_CATALOG_SOURCE_DIR}/overworld-ground-overlay-tileset-catalog.json"
         "${RPG_MAIN_CATALOG_SOURCE_DIR}/overworld-vegetation-tileset-catalog.json"
         "${RPG_MAIN_CATALOG_OUTPUT_DIR}"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different

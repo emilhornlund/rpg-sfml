@@ -183,6 +183,21 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
+[[nodiscard]] bool containsVisibleRoadOverlay(
+    const std::vector<rpg::OverworldRenderRoadOverlay>& visibleRoadOverlays,
+    const rpg::TileCoordinates& coordinates) noexcept
+{
+    for (const rpg::OverworldRenderRoadOverlay& roadOverlay : visibleRoadOverlays)
+    {
+        if (roadOverlay.coordinates.x == coordinates.x && roadOverlay.coordinates.y == coordinates.y)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 [[nodiscard]] const rpg::OverworldRenderMarker* findPlayerMarker(
     const std::vector<rpg::OverworldRenderMarker>& markers) noexcept
 {
@@ -241,6 +256,7 @@ constexpr float kFloatTolerance = 0.001F;
     runtime.initialize({1280.0F, 720.0F});
     const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
     const rpg::WorldPosition spawnPosition = world.getSpawnPosition();
+    const rpg::TileCoordinates spawnTile = world.getSpawnTile();
     const rpg::OverworldRenderMarker* playerMarker = findPlayerMarker(renderSnapshot.markers);
 
     return playerMarker != nullptr
@@ -253,7 +269,8 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(playerMarker->sortKeyY, spawnPosition.y)
         && playerMarker->facingDirection == rpg::PlayerFacingDirection::Down
         && playerMarker->animationFrameIndex == 1
-        && containsVisibleTile(renderSnapshot.visibleTiles, world.getSpawnTile());
+        && containsVisibleTile(renderSnapshot.visibleTiles, spawnTile)
+        && containsVisibleRoadOverlay(renderSnapshot.visibleRoadOverlays, spawnTile);
 }
 
 [[nodiscard]] bool verifyRepeatedInitializationRefreshesPublishedSnapshot()
@@ -278,6 +295,37 @@ constexpr float kFloatTolerance = 0.001F;
         && areClose(renderSnapshot.cameraFrame.size.height, 900.0F / 3.0F)
         && areClose(playerMarker->position.x, spawnPosition.x)
         && areClose(playerMarker->position.y, spawnPosition.y);
+}
+
+[[nodiscard]] bool verifyRoadOverlaysRemainDeterministicForRepeatedSnapshots()
+{
+    rpg::OverworldRuntime runtime;
+    runtime.initialize({320.0F, 180.0F});
+    const rpg::OverworldRenderSnapshot firstSnapshot = runtime.getRenderSnapshot();
+    runtime.initialize({320.0F, 180.0F});
+    const rpg::OverworldRenderSnapshot secondSnapshot = runtime.getRenderSnapshot();
+
+    if (firstSnapshot.visibleRoadOverlays.size() != secondSnapshot.visibleRoadOverlays.size())
+    {
+        return false;
+    }
+
+    for (std::size_t index = 0; index < firstSnapshot.visibleRoadOverlays.size(); ++index)
+    {
+        const rpg::OverworldRenderRoadOverlay& lhs = firstSnapshot.visibleRoadOverlays[index];
+        const rpg::OverworldRenderRoadOverlay& rhs = secondSnapshot.visibleRoadOverlays[index];
+
+        if (lhs.coordinates.x != rhs.coordinates.x
+            || lhs.coordinates.y != rhs.coordinates.y
+            || lhs.surfaceTileType != rhs.surfaceTileType
+            || !areClose(lhs.position.x, rhs.position.x)
+            || !areClose(lhs.position.y, rhs.position.y))
+        {
+            return false;
+        }
+    }
+
+    return !firstSnapshot.visibleRoadOverlays.empty();
 }
 
 [[nodiscard]] bool verifyGameplayProgression()
@@ -661,6 +709,11 @@ int main()
     }
 
     if (!verifyRepeatedInitializationRefreshesPublishedSnapshot())
+    {
+        return 1;
+    }
+
+    if (!verifyRoadOverlaysRemainDeterministicForRepeatedSnapshots())
     {
         return 1;
     }

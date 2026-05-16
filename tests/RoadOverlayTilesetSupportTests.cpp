@@ -1,5 +1,5 @@
 /**
- * @file GameResourceBootstrapSupportTests.cpp
+ * @file RoadOverlayTilesetSupportTests.cpp
  *
  * MIT License
  *
@@ -24,32 +24,22 @@
  * THE SOFTWARE.
  */
 
-#include "GameResourceBootstrapSupport.hpp"
-
-#include <filesystem>
+#include "RoadOverlayTilesetSupport.hpp"
 
 namespace
 {
 
-[[nodiscard]] bool verifyGameRenderResourcesLoad(const std::filesystem::path& assetRoot)
+[[nodiscard]] bool verifyMetadataLoads(const char* path)
 {
-    const rpg::detail::GameRenderResources resources = rpg::detail::loadGameRenderResources(assetRoot);
-
-    return resources.terrainTileset.getSize().x > 0U
-        && resources.terrainTileset.getSize().y > 0U
-        && !resources.terrainTileset.isSmooth()
-        && resources.terrainTilesetMetadata.getBaseVariantCount(rpg::TileType::Grass) == 5
-        && resources.groundOverlayTileset.getSize().x > 0U
-        && resources.groundOverlayTileset.getSize().y > 0U
-        && !resources.groundOverlayTileset.isSmooth()
-        && resources.groundOverlayTilesetMetadata.getBaseVariantCount() == 24
-        && resources.vegetationTileset.getSize().x > 0U
-        && resources.vegetationTileset.getSize().y > 0U
-        && !resources.vegetationTileset.isSmooth()
-        && resources.vegetationTilesetMetadata.getPrototypeCount() == 25
-        && resources.playerSpritesheet.getSize().x > 0U
-        && resources.playerSpritesheet.getSize().y > 0U
-        && !resources.playerSpritesheet.isSmooth();
+    const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::RoadOverlayTilesetMetadata::loadFromFile(path);
+    const rpg::detail::RoadOverlayAtlasCell sandRight = metadata.getTransitionCell(
+        rpg::TileType::Sand,
+        rpg::detail::RoadOverlayAutotileRole::Right);
+    return metadata.getBaseVariantCount() == 24
+        && metadata.getBaseVariant(4).tileX == 4
+        && metadata.getBaseVariant(4).tileY == 0
+        && sandRight.tileX == 7
+        && sandRight.tileY == 5;
 }
 
 } // namespace
@@ -61,5 +51,5 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    return verifyGameRenderResourcesLoad(argv[1]) ? 0 : 1;
+    return verifyMetadataLoads(argv[1]) ? 0 : 1;
 }

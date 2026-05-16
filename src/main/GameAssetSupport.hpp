@@ -27,6 +27,7 @@
 #ifndef RPG_MAIN_GAME_ASSET_SUPPORT_HPP
 #define RPG_MAIN_GAME_ASSET_SUPPORT_HPP
 
+#include "RoadOverlayTilesetSupport.hpp"
 #include "TerrainAutotileSupport.hpp"
 #include "VegetationAtlasSupport.hpp"
 
@@ -38,6 +39,7 @@ namespace rpg::detail
 inline constexpr char kAssetDirectoryName[] = "assets";
 inline constexpr char kTerrainTilesetCatalogFilename[] = "overworld-terrain-tileset-catalog.json";
 inline constexpr char kVegetationTilesetCatalogFilename[] = "overworld-vegetation-tileset-catalog.json";
+inline constexpr char kGroundOverlayTilesetCatalogFilename[] = "overworld-ground-overlay-tileset-catalog.json";
 inline constexpr char kTilesetCatalogDirectory[] = "output/catalogs";
 inline constexpr char kSpritesheetDirectory[] = "output/spritesheets";
 inline constexpr char kFontDirectory[] = "output/fonts";
@@ -74,6 +76,11 @@ inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
     return assetRoot / kTilesetCatalogDirectory / kVegetationTilesetCatalogFilename;
 }
 
+[[nodiscard]] inline std::filesystem::path getGroundOverlayTilesetCatalogPath(const std::filesystem::path& assetRoot)
+{
+    return assetRoot / kTilesetCatalogDirectory / kGroundOverlayTilesetCatalogFilename;
+}
+
 [[nodiscard]] inline std::filesystem::path getDebugOverlayFontPath(const std::filesystem::path& assetRoot)
 {
     return assetRoot / kFontDirectory / kDebugOverlayFontFilename;
@@ -91,6 +98,13 @@ inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
     return VegetationTilesetMetadata::loadFromAssetRoot(
         assetRoot,
         std::filesystem::path(kTilesetCatalogDirectory) / kVegetationTilesetCatalogFilename);
+}
+
+[[nodiscard]] inline RoadOverlayTilesetMetadata loadGroundOverlayTilesetMetadata(const std::filesystem::path& assetRoot)
+{
+    return RoadOverlayTilesetMetadata::loadFromAssetRoot(
+        assetRoot,
+        std::filesystem::path(kTilesetCatalogDirectory) / kGroundOverlayTilesetCatalogFilename);
 }
 
 } // namespace rpg::detail

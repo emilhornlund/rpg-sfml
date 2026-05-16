@@ -28,6 +28,7 @@
 #define RPG_MAIN_GAME_RENDER_BATCH_SUPPORT_HPP
 
 #include "GameRuntimeSupport.hpp"
+#include "RoadOverlayTilesetSupport.hpp"
 #include "TerrainAutotileSupport.hpp"
 
 #include <SFML/Graphics/Color.hpp>
@@ -43,6 +44,11 @@ namespace rpg::detail
     const TerrainTilesetMetadata& terrainTilesetMetadata,
     const OverworldRenderSnapshot& renderSnapshot,
     float animationElapsedSeconds,
+    std::uint32_t seed);
+
+[[nodiscard]] sf::VertexArray buildRoadOverlayVertexArray(
+    const RoadOverlayTilesetMetadata& roadOverlayTilesetMetadata,
+    const OverworldRenderSnapshot& renderSnapshot,
     std::uint32_t seed);
 
 [[nodiscard]] sf::VertexArray buildTileGridVertexArray(

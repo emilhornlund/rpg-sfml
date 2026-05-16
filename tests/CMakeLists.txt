@@ -69,6 +69,7 @@ rpg_add_test_executable(player_occlusion_silhouette_tests
 rpg_add_test_executable(game_asset_support_tests
     SOURCES
         GameAssetSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/RoadOverlayTilesetSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
@@ -108,6 +109,7 @@ rpg_add_test_executable(game_resource_bootstrap_support_tests
     SOURCES
         GameResourceBootstrapSupportTests.cpp
         "${PROJECT_SOURCE_DIR}/src/main/GameResourceBootstrapSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/RoadOverlayTilesetSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/VegetationAtlasSupport.cpp"
@@ -138,6 +140,7 @@ rpg_add_test_executable(game_scene_render_support_tests
     SOURCES
         GameSceneRenderSupportTests.cpp
         "${PROJECT_SOURCE_DIR}/src/main/GameResourceBootstrapSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/RoadOverlayTilesetSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/GameSceneRenderSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/GameRenderSupport.cpp"
@@ -171,6 +174,7 @@ rpg_add_test_executable(game_render_batch_support_tests
         GameRenderBatchSupportTests.cpp
         "${PROJECT_SOURCE_DIR}/src/main/GameRenderBatchSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/GameRuntimeSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/RoadOverlayTilesetSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TerrainAutotileSupport.cpp"
         "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
     LINK_LIBRARIES
@@ -262,6 +266,14 @@ rpg_add_test_executable(terrain_autotile_support_tests
         "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
     TEST_ARGS
         "${PROJECT_SOURCE_DIR}/assets/output/catalogs/overworld-terrain-tileset-catalog.json"
+)
+rpg_add_test_executable(road_overlay_tileset_support_tests
+    SOURCES
+        RoadOverlayTilesetSupportTests.cpp
+        "${PROJECT_SOURCE_DIR}/src/main/RoadOverlayTilesetSupport.cpp"
+        "${PROJECT_SOURCE_DIR}/src/main/TilesetAssetLoader.cpp"
+    TEST_ARGS
+        "${PROJECT_SOURCE_DIR}/assets/output/catalogs/overworld-ground-overlay-tileset-catalog.json"
 )
 rpg_add_test_executable(tileset_asset_loader_tests
     SOURCES

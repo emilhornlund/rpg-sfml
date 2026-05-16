@@ -129,6 +129,53 @@ namespace
         && foundTreeAnchor;
 }
 
+[[nodiscard]] bool verifyGroundOverlayDocument(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::TilesetAssetDocument overlay = rpg::detail::TilesetAssetDocument::loadFromAssetRoot(
+        assetRoot,
+        "output/catalogs/overworld-ground-overlay-tileset-catalog.json");
+    bool foundBaseTile = false;
+    bool foundTransitionTile = false;
+
+    for (const rpg::detail::TilesetAssetTile& tile : overlay.getTiles())
+    {
+        if (tile.kind != rpg::detail::TilesetAssetTileKind::Overlay || !tile.overlay.has_value())
+        {
+            continue;
+        }
+
+        if (tile.overlay->id == "dirt_road"
+            && tile.overlay->overlayClass == "base"
+            && tile.overlay->variant.has_value()
+            && *tile.overlay->variant == "base_1"
+            && tile.atlas.column == 0
+            && tile.atlas.row == 0)
+        {
+            foundBaseTile = true;
+        }
+
+        if (tile.overlay->id == "dirt_road"
+            && tile.overlay->overlayClass == "transition"
+            && tile.overlay->onSurface.has_value()
+            && *tile.overlay->onSurface == "grass"
+            && tile.overlay->autotile.has_value()
+            && tile.overlay->autotile->role == "top"
+            && tile.atlas.column == 6
+            && tile.atlas.row == 2)
+        {
+            foundTransitionTile = true;
+        }
+    }
+
+    return overlay.getTileset().id == "overworld-ground-overlay-tileset"
+        && overlay.getTileset().runtime.image == "output/tilesets/overworld-ground-overlay-tileset.png"
+        && overlay.getTileset().grid.tileSize == 16
+        && overlay.getTileset().grid.tileCount == 60
+        && overlay.getResolvedImagePath() == assetRoot / "output/tilesets/overworld-ground-overlay-tileset.png"
+        && foundBaseTile
+        && foundTransitionTile;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -146,6 +193,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifyVegetationDocument(assetRoot))
+    {
+        return 1;
+    }
+
+    if (!verifyGroundOverlayDocument(assetRoot))
     {
         return 1;
     }

@@ -49,6 +49,7 @@ enum class TilesetAssetTileKind
 {
     Terrain,
     Object,
+    Overlay,
     Empty
 };
 
@@ -118,6 +119,16 @@ struct TilesetAssetObjectData
     std::vector<std::pair<std::string, float>> biomes;
 };
 
+struct TilesetAssetOverlayData
+{
+    std::string id;
+    std::string overlayClass;
+    std::optional<std::string> variant;
+    std::optional<std::string> onSurface;
+    std::optional<int> animationFrame;
+    std::optional<TilesetAssetAutotile> autotile;
+};
+
 struct TilesetAssetTile
 {
     TilesetAssetTileKind kind = TilesetAssetTileKind::Empty;
@@ -128,6 +139,7 @@ struct TilesetAssetTile
     std::string notes;
     std::optional<TilesetAssetTerrainData> terrain;
     std::optional<TilesetAssetObjectData> object;
+    std::optional<TilesetAssetOverlayData> overlay;
 };
 
 class TilesetAssetDocument

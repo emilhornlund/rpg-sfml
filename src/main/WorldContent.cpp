@@ -150,6 +150,29 @@ std::size_t g_worldContentConstructionCount = 0;
         (static_cast<float>(coordinates.y) + 0.5F) * tileSize};
 }
 
+[[nodiscard]] constexpr bool supportsRoadOverlaySurface(const TileType tileType) noexcept
+{
+    return tileType == TileType::Grass || tileType == TileType::Sand || tileType == TileType::Forest;
+}
+
+[[nodiscard]] bool hasRoadOverlayAt(
+    const TileCoordinates& coordinates,
+    const TileType tileType,
+    const TileCoordinates& spawnTile) noexcept
+{
+    if (!supportsRoadOverlaySurface(tileType))
+    {
+        return false;
+    }
+
+    constexpr int kRoadHalfLengthInTiles = 48;
+    const int deltaX = coordinates.x - spawnTile.x;
+    const int deltaY = coordinates.y - spawnTile.y;
+    const bool horizontalRoad = deltaY == 0 && std::abs(deltaX) <= kRoadHalfLengthInTiles;
+    const bool verticalRoad = deltaX == 0 && std::abs(deltaY) <= kRoadHalfLengthInTiles;
+    return horizontalRoad || verticalRoad;
+}
+
 struct PrototypeDescriptor
 {
     const VegetationPrototype* prototype = nullptr;
@@ -592,9 +615,10 @@ int getWorldContentVisibilityOverscanInTiles()
     return std::max(metadata.getMaxPrototypeWidthInTiles(), metadata.getMaxPrototypeHeightInTiles());
 }
 
-WorldContent::WorldContent(const WorldConfig& config) noexcept
+WorldContent::WorldContent(const WorldConfig& config, const TileCoordinates& spawnTile) noexcept
     : m_worldSeed(config.seed)
     , m_tileSize(config.tileSize)
+    , m_spawnTile(spawnTile)
 {
     ++g_worldContentConstructionCount;
 }
@@ -753,6 +777,11 @@ ChunkContent WorldContent::generateChunkContent(
                 getPrototypePool(tileType, VegetationPlacementMode::GroundDense);
 
             if (prototypePool.empty())
+            {
+                continue;
+            }
+
+            if (hasRoadOverlayAt(anchorTile, tileType, m_spawnTile))
             {
                 continue;
             }

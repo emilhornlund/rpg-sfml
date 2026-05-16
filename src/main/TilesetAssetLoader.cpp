@@ -620,6 +620,26 @@ private:
     return data;
 }
 
+[[nodiscard]] std::optional<TilesetAssetAutotile> parseOptionalAutotile(
+    const JsonObject& object,
+    const std::string_view fieldName,
+    const std::string_view context)
+{
+    const JsonValue* autotileValue = getOptionalField(object, fieldName);
+
+    if (!autotileValue || std::holds_alternative<std::nullptr_t>(autotileValue->value))
+    {
+        return std::nullopt;
+    }
+
+    const std::string autotileContext = std::string(context) + "." + std::string(fieldName);
+    const JsonObject& autotile = asObject(*autotileValue, autotileContext);
+    return TilesetAssetAutotile{
+        asInt(getRequiredField(autotile, "patternX", autotileContext), autotileContext + ".patternX"),
+        asInt(getRequiredField(autotile, "patternY", autotileContext), autotileContext + ".patternY"),
+        asString(getRequiredField(autotile, "role", autotileContext), autotileContext + ".role")};
+}
+
 [[nodiscard]] TilesetAssetObjectData parseObjectData(const JsonObject& object)
 {
     const JsonObject& objectData = asObject(getRequiredField(object, "object", "tile"), "tile.object");
@@ -633,6 +653,19 @@ private:
         getOptionalPlacementMode(objectData, "placementMode", "tile.object"),
         parseOptionalStringArray(objectData, "placeOn", "tile.object.placeOn"),
         parseOptionalFloatObject(objectData, "biomes", "tile.object.biomes")};
+}
+
+[[nodiscard]] TilesetAssetOverlayData parseOverlayData(const JsonObject& object)
+{
+    const JsonObject& overlay = asObject(getRequiredField(object, "overlay", "tile"), "tile.overlay");
+    TilesetAssetOverlayData data;
+    data.id = asString(getRequiredField(overlay, "id", "tile.overlay"), "tile.overlay.id");
+    data.overlayClass = asString(getRequiredField(overlay, "class", "tile.overlay"), "tile.overlay.class");
+    data.variant = getOptionalString(overlay, "variant");
+    data.onSurface = getOptionalString(overlay, "onSurface");
+    data.animationFrame = getOptionalInt(overlay, "animationFrame");
+    data.autotile = parseOptionalAutotile(overlay, "autotile", "tile.overlay");
+    return data;
 }
 
 [[nodiscard]] TilesetAssetTile parseTile(const JsonValue& value)
@@ -658,6 +691,13 @@ private:
     {
         tile.kind = TilesetAssetTileKind::Object;
         tile.object = parseObjectData(object);
+        return tile;
+    }
+
+    if (kindValue == "overlay")
+    {
+        tile.kind = TilesetAssetTileKind::Overlay;
+        tile.overlay = parseOverlayData(object);
         return tile;
     }
 

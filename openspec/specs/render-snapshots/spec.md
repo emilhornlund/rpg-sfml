@@ -47,6 +47,15 @@ The render snapshot SHALL include the active camera frame, the visible terrain t
 - **AND** the published object data includes ordering information sufficient for deterministic y-sorted rendering
 - **AND** it includes the camera frame used to render the snapshot
 
+### Requirement: Render snapshots publish visible road overlay entries
+The overworld runtime SHALL publish visible road overlay entries for the active camera frame as part of the gameplay-owned render snapshot so the outer game shell can render road overlays without querying `World` directly.
+
+#### Scenario: Snapshot carries visible road overlay geometry and surface context
+- **WHEN** the overworld runtime prepares a render snapshot for a frame containing visible roads
+- **THEN** the snapshot includes visible road overlay entries covering the active camera-bounded area
+- **AND** each entry provides the world-space geometry and underlying terrain context needed to render the overlay tile
+- **AND** the outer game shell does not need to inspect `World` directly to discover road-covered tiles for that frame
+
 ### Requirement: Snapshot entries are render-ready without gameplay reinterpretation
 Each visible tile entry, marker entry, and generated-content entry in the render snapshot SHALL provide the world-space geometry and presentation identifiers needed for drawing so the outer game shell can render the frame without re-deriving gameplay presentation rules from simulation state. Player-facing snapshot data SHALL include the placement and animation selectors needed to choose the correct player sprite frame from the bundled walking spritesheet without requiring the game shell to infer facing or movement presentation from raw gameplay state. Generated-content-facing snapshot data SHALL include the identity, footprint, opaque appearance selectors, and ordering data needed to draw deterministic world content without requiring the shell to inspect `World` or raw chunk-content records directly.
 

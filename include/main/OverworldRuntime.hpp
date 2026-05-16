@@ -79,6 +79,18 @@ struct OverworldRenderTile
 };
 
 /**
+ * @brief Render-ready road overlay entry for the overworld view.
+ */
+struct OverworldRenderRoadOverlay
+{
+    TileCoordinates coordinates{0, 0};
+    TileType surfaceTileType = TileType::Grass;
+    WorldSize size{0.0F, 0.0F};
+    WorldPosition origin{0.0F, 0.0F};
+    WorldPosition position{0.0F, 0.0F};
+};
+
+/**
  * @brief Render-ready marker entry for gameplay entities in the overworld view.
  */
 struct OverworldRenderMarker
@@ -115,6 +127,7 @@ struct OverworldRenderSnapshot
 {
     ViewFrame cameraFrame{{0.0F, 0.0F}, {0.0F, 0.0F}};
     std::vector<OverworldRenderTile> visibleTiles;
+    std::vector<OverworldRenderRoadOverlay> visibleRoadOverlays;
     std::vector<OverworldRenderContent> generatedContent;
     std::vector<OverworldRenderMarker> markers;
 };

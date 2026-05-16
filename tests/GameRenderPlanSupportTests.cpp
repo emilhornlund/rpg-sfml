@@ -63,6 +63,7 @@ namespace
     const rpg::OverworldRenderSnapshot renderSnapshot{
         {{0.0F, 0.0F}, {320.0F, 180.0F}},
         {},
+        {},
         {backgroundVegetation, frontVegetation},
         {playerMarker}};
 
@@ -101,9 +102,11 @@ namespace
         {{0.0F, 0.0F}, {320.0F, 180.0F}},
         {},
         {},
+        {},
         {nonPlayerMarker, playerMarker}};
     const rpg::OverworldRenderSnapshot snapshotWithoutMarkers{
         {{0.0F, 0.0F}, {320.0F, 180.0F}},
+        {},
         {},
         {},
         {}};
@@ -155,6 +158,7 @@ namespace
 
     const rpg::OverworldRenderSnapshot renderSnapshot{
         {{0.0F, 0.0F}, {320.0F, 180.0F}},
+        {},
         {},
         {backgroundVegetation, overlappingFrontVegetation, nonOverlappingFrontVegetation},
         {playerMarker}};

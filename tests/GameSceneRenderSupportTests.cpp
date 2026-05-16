@@ -27,10 +27,54 @@
 #include "GameResourceBootstrapSupport.hpp"
 #include "GameSceneRenderSupport.hpp"
 
+#include <SFML/Graphics/Image.hpp>
+#include <SFML/Graphics/RenderTexture.hpp>
+#include <SFML/Graphics/Texture.hpp>
+
+#include <cmath>
 #include <filesystem>
 
 namespace
 {
+
+[[nodiscard]] sf::VertexArray makeSolidQuadVertexArray(const sf::Color& color)
+{
+    sf::VertexArray vertexArray(sf::PrimitiveType::Triangles, 6U);
+    vertexArray[0] = {{0.0F, 0.0F}, color};
+    vertexArray[1] = {{0.0F, 16.0F}, color};
+    vertexArray[2] = {{16.0F, 16.0F}, color};
+    vertexArray[3] = {{0.0F, 0.0F}, color};
+    vertexArray[4] = {{16.0F, 16.0F}, color};
+    vertexArray[5] = {{16.0F, 0.0F}, color};
+    return vertexArray;
+}
+
+[[nodiscard]] sf::Texture makeSolidTexture(const sf::Vector2u size, const sf::Color& color)
+{
+    const sf::Image image(size, color);
+    sf::Texture texture(image);
+    texture.setSmooth(false);
+    return texture;
+}
+
+[[nodiscard]] sf::Color renderCenterPixel(
+    rpg::detail::OverworldSceneRenderFrame& renderFrame,
+    const rpg::OverworldRenderSnapshot& renderSnapshot,
+    const rpg::detail::OverworldRenderPlan& renderPlan)
+{
+    sf::RenderTexture renderTexture;
+
+    if (!renderTexture.resize({16U, 16U}))
+    {
+        return sf::Color::Transparent;
+    }
+
+    renderTexture.clear(sf::Color::Transparent);
+    const sf::View view({8.0F, 8.0F}, {16.0F, 16.0F});
+    rpg::detail::renderOverworldScene(renderTexture, view, renderFrame, renderSnapshot, renderPlan);
+    renderTexture.display();
+    return renderTexture.getTexture().copyToImage().getPixel({8U, 8U});
+}
 
 [[nodiscard]] rpg::OverworldRenderSnapshot makeRenderSnapshot()
 {
@@ -39,6 +83,9 @@ namespace
         {{
              {{0, 0}, rpg::TileType::Grass, {16.0F, 16.0F}, {8.0F, 8.0F}, {8.0F, 8.0F}},
              {{1, 0}, rpg::TileType::Grass, {16.0F, 16.0F}, {8.0F, 8.0F}, {24.0F, 8.0F}},
+         }},
+        {{
+             {{0, 0}, rpg::TileType::Grass, {16.0F, 16.0F}, {8.0F, 8.0F}, {8.0F, 8.0F}},
          }},
         {{
              {11, rpg::ContentType::Shrub, "bush_small_1", {0, 0}, {32.0F, 32.0F}, {8.0F, 24.0F}, {8.0F, 24.0F}, {18}, 24.0F},
@@ -64,7 +111,9 @@ namespace
     return renderFrame.worldTileSize == 16.0F
         && renderFrame.vegetationTilesetMetadata == &renderResources.vegetationTilesetMetadata
         && renderFrame.terrainRenderStates.texture == &renderResources.terrainTileset
+        && renderFrame.roadOverlayRenderStates.texture == &renderResources.groundOverlayTileset
         && renderFrame.terrainVertexArray.getVertexCount() == renderSnapshot.visibleTiles.size() * 6U
+        && renderFrame.roadOverlayVertexArray.getVertexCount() == renderSnapshot.visibleRoadOverlays.size() * 6U
         && renderFrame.tileGridVertexArray.getVertexCount() > 0U
         && renderFrame.vegetationSprite.getTexture().getSize() == renderResources.vegetationTileset.getSize()
         && renderFrame.playerSprite.getTexture().getSize() == renderResources.playerSpritesheet.getSize();
@@ -85,6 +134,63 @@ namespace
     return renderFrame.tileGridVertexArray.getVertexCount() == 0U;
 }
 
+[[nodiscard]] bool verifySceneRenderPassOrdering(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::VegetationTilesetMetadata vegetationMetadata = rpg::detail::loadVegetationTilesetMetadata(assetRoot);
+    const sf::Texture vegetationTileset = makeSolidTexture({512U, 512U}, sf::Color::Red);
+    const sf::Texture playerSpritesheet = makeSolidTexture({144U, 192U}, sf::Color::Blue);
+    rpg::detail::OverworldSceneRenderFrame renderFrame(vegetationTileset, playerSpritesheet);
+    renderFrame.worldTileSize = 16.0F;
+    renderFrame.vegetationTilesetMetadata = &vegetationMetadata;
+    renderFrame.terrainVertexArray = makeSolidQuadVertexArray(sf::Color::Green);
+    renderFrame.roadOverlayVertexArray = makeSolidQuadVertexArray(sf::Color(120, 72, 24));
+
+    rpg::OverworldRenderSnapshot renderSnapshot;
+    renderSnapshot.cameraFrame = {{8.0F, 8.0F}, {16.0F, 16.0F}};
+    renderSnapshot.generatedContent = {{
+        11,
+        rpg::ContentType::Shrub,
+        "bush_small_1",
+        {0, 0},
+        {16.0F, 16.0F},
+        {8.0F, 8.0F},
+        {8.0F, 8.0F},
+        {18},
+        8.0F,
+    }};
+    renderSnapshot.markers = {{
+        {16.0F, 16.0F},
+        {8.0F, 8.0F},
+        {8.0F, 8.0F},
+        rpg::OverworldRenderMarkerAppearance::Player,
+        rpg::PlayerFacingDirection::Down,
+        1,
+        8.0F,
+    }};
+
+    const rpg::detail::OverworldRenderPlan terrainOnlyPlan{};
+    const rpg::detail::OverworldRenderPlan contentPlan{
+        {{{rpg::detail::OverworldRenderQueueEntryKind::GeneratedContent, {8.0F, 0U, 11U}, 0U}}},
+        std::nullopt,
+        {},
+        {},
+        {}};
+    const rpg::detail::OverworldRenderPlan playerPlan{
+        {{{rpg::detail::OverworldRenderQueueEntryKind::PlayerMarker, {8.0F, 1U, 1U}, 0U}}},
+        0U,
+        {},
+        {},
+        {}};
+
+    const sf::Color roadPixel = renderCenterPixel(renderFrame, renderSnapshot, terrainOnlyPlan);
+    const sf::Color vegetationPixel = renderCenterPixel(renderFrame, renderSnapshot, contentPlan);
+    const sf::Color playerPixel = renderCenterPixel(renderFrame, renderSnapshot, playerPlan);
+
+    return roadPixel == sf::Color(120, 72, 24)
+        && vegetationPixel == sf::Color::Red
+        && playerPixel == sf::Color::Blue;
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -102,6 +208,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifySceneRenderFrameSkipsTileGridWhenDisabled(assetRoot))
+    {
+        return 1;
+    }
+
+    if (!verifySceneRenderPassOrdering(assetRoot))
     {
         return 1;
     }
