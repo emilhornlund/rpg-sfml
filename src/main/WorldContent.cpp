@@ -26,7 +26,7 @@
 
 #include "WorldContent.hpp"
 #include "GameAssetSupport.hpp"
-#include "RoadNetworkSupport.hpp"
+#include "RoadStampSupport.hpp"
 #include "WorldTerrainGenerator.hpp"
 
 #include <algorithm>
@@ -688,7 +688,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
+            if (getRoadStampedTile(anchorTile, tileType, *m_roadNetwork, getRoadTileType).isPublished)
             {
                 continue;
             }
@@ -750,7 +750,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
+            if (getRoadStampedTile(anchorTile, tileType, *m_roadNetwork, getRoadTileType).isPublished)
             {
                 continue;
             }
@@ -797,7 +797,7 @@ ChunkContent WorldContent::generateChunkContent(
                 continue;
             }
 
-            if (hasPublishedRoadOverlayAt(anchorTile, tileType, *m_roadNetwork, getRoadTileType))
+            if (getRoadStampedTile(anchorTile, tileType, *m_roadNetwork, getRoadTileType).isPublished)
             {
                 continue;
             }

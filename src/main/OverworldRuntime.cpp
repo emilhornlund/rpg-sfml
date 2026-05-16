@@ -67,7 +67,9 @@ namespace
         visibleRoadOverlay.surfaceTileType,
         {tileSize, tileSize},
         {tileSize * 0.5F, tileSize * 0.5F},
-        visibleRoadOverlay.center};
+        visibleRoadOverlay.center,
+        visibleRoadOverlay.hasStampedNeighborRoadOccupancy,
+        visibleRoadOverlay.stampedNeighborRoadOccupancy};
 }
 
 [[nodiscard]] OverworldRenderMarker makePlayerRenderMarker(

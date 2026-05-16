@@ -31,6 +31,7 @@
 #include <main/Player.hpp>
 #include <main/World.hpp>
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -88,6 +89,8 @@ struct OverworldRenderRoadOverlay
     WorldSize size{0.0F, 0.0F};
     WorldPosition origin{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
+    bool hasStampedNeighborRoadOccupancy = false;
+    std::array<bool, 8> stampedNeighborRoadOccupancy{};
 };
 
 /**

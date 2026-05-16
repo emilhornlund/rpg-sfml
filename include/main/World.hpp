@@ -31,6 +31,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
@@ -96,6 +97,8 @@ struct VisibleWorldRoadOverlay
     TileCoordinates coordinates{0, 0};
     TileType surfaceTileType = TileType::Grass;
     WorldPosition center{0.0F, 0.0F};
+    bool hasStampedNeighborRoadOccupancy = false;
+    std::array<bool, 8> stampedNeighborRoadOccupancy{};
 };
 
 /**

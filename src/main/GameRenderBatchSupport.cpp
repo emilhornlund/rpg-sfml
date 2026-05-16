@@ -567,10 +567,13 @@ sf::VertexArray buildRoadOverlayVertexArray(
 
     for (const OverworldRenderRoadOverlay& roadOverlay : renderSnapshot.visibleRoadOverlays)
     {
+        const std::array<bool, 8> occupancy = roadOverlay.hasStampedNeighborRoadOccupancy
+            ? roadOverlay.stampedNeighborRoadOccupancy
+            : getNeighborRoadOverlayOccupancy(visibleRoadOverlaySurfaces, roadOverlay);
         const sf::IntRect textureRect = getRoadOverlayTilesetRect(selectRoadOverlayAtlasCell(
             roadOverlayTilesetMetadata,
             roadOverlay,
-            getNeighborRoadOverlayOccupancy(visibleRoadOverlaySurfaces, roadOverlay),
+            occupancy,
             seed));
         const float left = roadOverlay.position.x - roadOverlay.origin.x;
         const float top = roadOverlay.position.y - roadOverlay.origin.y;

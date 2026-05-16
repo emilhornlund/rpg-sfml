@@ -27,6 +27,7 @@
 #include "BiomeSampler.hpp"
 #include "GameAssetSupport.hpp"
 #include "RoadNetworkSupport.hpp"
+#include "RoadStampSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -121,14 +122,20 @@ constexpr float kFloatTolerance = 0.001F;
 {
     return lhs.coordinates.x == rhs.coordinates.x
         && lhs.coordinates.y == rhs.coordinates.y
-        && lhs.kind == rhs.kind;
+        && lhs.kind == rhs.kind
+        && lhs.stampMetadata.footprintWidth == rhs.stampMetadata.footprintWidth
+        && lhs.stampMetadata.shoulderWidth == rhs.stampMetadata.shoulderWidth;
 }
 
 [[nodiscard]] bool areEqual(const rpg::detail::RoadSegment& lhs, const rpg::detail::RoadSegment& rhs) noexcept
 {
     if (lhs.fromNodeIndex != rhs.fromNodeIndex
         || lhs.toNodeIndex != rhs.toNodeIndex
-        || lhs.polyline.size() != rhs.polyline.size())
+        || lhs.polyline.size() != rhs.polyline.size()
+        || lhs.stampMetadata.roadClass != rhs.stampMetadata.roadClass
+        || lhs.stampMetadata.carriageWidth != rhs.stampMetadata.carriageWidth
+        || lhs.stampMetadata.shoulderWidth != rhs.stampMetadata.shoulderWidth
+        || lhs.stampMetadata.stampBends != rhs.stampMetadata.stampBends)
     {
         return false;
     }
@@ -375,6 +382,7 @@ template <std::size_t kHeight>
     constexpr rpg::TileCoordinates kSpawnTile{0, 0};
     constexpr rpg::TileType kSurface = rpg::TileType::Grass;
     constexpr int kRoadSearchLimit = 52;
+    const rpg::detail::RoadNetwork network = rpg::detail::buildRoadNetwork(kSpawnTile, seed);
     const int patternWidth = static_cast<int>(pattern[0].size());
 
     for (const std::string_view row : pattern)
@@ -396,11 +404,14 @@ template <std::size_t kHeight>
                 for (int columnIndex = 0; columnIndex < patternWidth; ++columnIndex)
                 {
                     const bool expectedRoad = pattern[rowIndex][static_cast<std::size_t>(columnIndex)] == '#';
-                    const bool hasRoad = rpg::detail::hasRoadOverlayAt(
+                    const bool hasRoad = rpg::detail::hasPublishedStampedRoadOverlayAt(
                         {originX + columnIndex, originY + static_cast<int>(rowIndex)},
                         kSurface,
-                        kSpawnTile,
-                        seed);
+                        network,
+                        [](const rpg::TileCoordinates&)
+                        {
+                            return kSurface;
+                        });
 
                     if (hasRoad != expectedRoad)
                     {
@@ -580,6 +591,119 @@ struct CardinalNeighborMask
     }
 
     return foundBranch && foundLoop && foundNonLoop;
+}
+
+[[nodiscard]] bool verifyRoadNetworkPublishesDeterministicStampMetadata()
+{
+    constexpr std::uint32_t kSeed = 0x00C0FFEEU;
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    const rpg::detail::RoadNetwork firstNetwork = rpg::detail::buildRoadNetwork(kSpawnTile, kSeed);
+    const rpg::detail::RoadNetwork secondNetwork = rpg::detail::buildRoadNetwork(kSpawnTile, kSeed);
+
+    if (!areEqual(firstNetwork, secondNetwork))
+    {
+        return false;
+    }
+
+    const bool foundMainShoulder = std::any_of(
+        firstNetwork.segments.begin(),
+        firstNetwork.segments.end(),
+        [](const rpg::detail::RoadSegment& segment)
+        {
+            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Main
+                && segment.stampMetadata.shoulderWidth > 0;
+        });
+    const bool foundBranchWithoutShoulder = std::any_of(
+        firstNetwork.segments.begin(),
+        firstNetwork.segments.end(),
+        [](const rpg::detail::RoadSegment& segment)
+        {
+            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Branch
+                && segment.stampMetadata.shoulderWidth == 0;
+        });
+
+    return !firstNetwork.nodes.empty()
+        && firstNetwork.nodes.front().stampMetadata.shoulderWidth > 0
+        && foundMainShoulder
+        && foundBranchWithoutShoulder;
+}
+
+[[nodiscard]] bool verifyStampedRoadSupportExpandsMainRoadsAndJunctions()
+{
+    constexpr rpg::TileType kSurface = rpg::TileType::Grass;
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    const rpg::detail::RoadNetwork network = rpg::detail::buildRoadNetwork(kSpawnTile, 0x00C0FFEEU);
+    const auto tileTypeLookup = [](const rpg::TileCoordinates&)
+    {
+        return kSurface;
+    };
+    const rpg::TileCoordinates spawn = network.nodes.front().coordinates;
+    const rpg::TileCoordinates eastJunction = network.nodes[1].coordinates;
+    const rpg::TileCoordinates eastDestination = network.nodes[3].coordinates;
+    const rpg::detail::RoadStampedTile spawnStampedTile =
+        rpg::detail::getRoadStampedTile(spawn, kSurface, network, tileTypeLookup);
+    const rpg::detail::RoadStampedTile shoulderTile =
+        rpg::detail::getRoadStampedTile({spawn.x - 1, spawn.y}, kSurface, network, tileTypeLookup);
+    const rpg::detail::RoadStampedTile junctionStampedTile =
+        rpg::detail::getRoadStampedTile(eastJunction, kSurface, network, tileTypeLookup);
+    const rpg::detail::RoadStampedTile destinationStampedTile =
+        rpg::detail::getRoadStampedTile(eastDestination, kSurface, network, tileTypeLookup);
+    const int junctionCardinalConnections =
+        static_cast<int>(junctionStampedTile.publishedNeighborOccupancy[0])
+        + static_cast<int>(junctionStampedTile.publishedNeighborOccupancy[2])
+        + static_cast<int>(junctionStampedTile.publishedNeighborOccupancy[4])
+        + static_cast<int>(junctionStampedTile.publishedNeighborOccupancy[6]);
+
+    return spawnStampedTile.isPublished
+        && shoulderTile.stampedWidth > destinationStampedTile.stampedWidth
+        && shoulderTile.isPublished
+        && shoulderTile.isShoulder
+        && junctionStampedTile.isPublished
+        && junctionStampedTile.isIntersection
+        && junctionCardinalConnections >= 3;
+}
+
+[[nodiscard]] bool verifyStampedRoadSupportKeepsBendsConnected()
+{
+    constexpr std::array<std::uint32_t, 3> kSeeds = {{
+        0x00C0FFEEU,
+        0x12345678U,
+        0x13572468U,
+    }};
+    constexpr rpg::TileType kSurface = rpg::TileType::Grass;
+    constexpr rpg::TileCoordinates kSpawnTile{0, 0};
+    const auto tileTypeLookup = [](const rpg::TileCoordinates&)
+    {
+        return kSurface;
+    };
+
+    for (const std::uint32_t seed : kSeeds)
+    {
+        const rpg::detail::RoadNetwork network = rpg::detail::buildRoadNetwork(kSpawnTile, seed);
+
+        for (const rpg::detail::RoadSegment& segment : network.segments)
+        {
+            if (segment.polyline.size() < 3U)
+            {
+                continue;
+            }
+
+            const rpg::TileCoordinates bendCoordinates = segment.polyline[1];
+            const rpg::detail::RoadStampedTile bendTile =
+                rpg::detail::getRoadStampedTile(bendCoordinates, kSurface, network, tileTypeLookup);
+            const int cardinalConnections =
+                static_cast<int>(bendTile.publishedNeighborOccupancy[0])
+                + static_cast<int>(bendTile.publishedNeighborOccupancy[2])
+                + static_cast<int>(bendTile.publishedNeighborOccupancy[4])
+                + static_cast<int>(bendTile.publishedNeighborOccupancy[6]);
+
+            return bendTile.isPublished
+                && bendTile.isIntersection
+                && cardinalConnections >= 2;
+        }
+    }
+
+    return false;
 }
 
 [[nodiscard]] bool verifySharedRoadOverlaySupportAvoidsSingleTileNotches()
@@ -1568,6 +1692,21 @@ int main()
     }
 
     if (!verifyRoadNetworkConnectsSpawnAndSupportsDeterministicLayouts())
+    {
+        return 1;
+    }
+
+    if (!verifyRoadNetworkPublishesDeterministicStampMetadata())
+    {
+        return 1;
+    }
+
+    if (!verifyStampedRoadSupportExpandsMainRoadsAndJunctions())
+    {
+        return 1;
+    }
+
+    if (!verifyStampedRoadSupportKeepsBendsConnected())
     {
         return 1;
     }

@@ -26,7 +26,7 @@
 
 #include <main/World.hpp>
 
-#include "RoadNetworkSupport.hpp"
+#include "RoadStampSupport.hpp"
 #include "WorldContent.hpp"
 #include "WorldTerrainGenerator.hpp"
 
@@ -229,11 +229,11 @@ bool World::hasRoadOverlay(const TileCoordinates& coordinates) const
     {
         return getTileType(tileCoordinates);
     };
-    return detail::hasPublishedRoadOverlayAt(
+    return detail::getRoadStampedTile(
         coordinates,
         getTileType(coordinates),
         *m_state.roadNetwork,
-        getTileTypeAtCoordinates);
+        getTileTypeAtCoordinates).isPublished;
 }
 
 ChunkCoordinates World::getChunkCoordinates(const TileCoordinates& coordinates) const noexcept
@@ -378,19 +378,23 @@ std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFra
                         return getTileType(tileCoordinates);
                     };
 
-                    if (!detail::hasPublishedRoadOverlayAt(
-                            worldCoordinates,
-                            tileType,
-                            *m_state.roadNetwork,
-                            getTileTypeAtCoordinates))
+                    const detail::RoadStampedTile stampedTile = detail::getRoadStampedTile(
+                        worldCoordinates,
+                        tileType,
+                        *m_state.roadNetwork,
+                        getTileTypeAtCoordinates);
+
+                    if (!stampedTile.isPublished)
                     {
                         continue;
                     }
 
-                    visibleRoadOverlays.push_back({
-                        worldCoordinates,
-                        tileType,
-                        getTileCenter(worldCoordinates)});
+                    visibleRoadOverlays.push_back(
+                        {worldCoordinates,
+                         tileType,
+                         getTileCenter(worldCoordinates),
+                         true,
+                         stampedTile.publishedNeighborOccupancy});
                 }
             }
         }

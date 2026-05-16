@@ -100,6 +100,18 @@ namespace
         {(static_cast<float>(x) + 0.5F) * 16.0F, (static_cast<float>(y) + 0.5F) * 16.0F}};
 }
 
+[[nodiscard]] rpg::OverworldRenderRoadOverlay makeVisibleRoadOverlayWithStampedOccupancy(
+    const int x,
+    const int y,
+    const rpg::TileType surfaceTileType,
+    const std::array<bool, 8>& stampedNeighborRoadOccupancy) noexcept
+{
+    rpg::OverworldRenderRoadOverlay roadOverlay = makeVisibleRoadOverlay(x, y, surfaceTileType);
+    roadOverlay.hasStampedNeighborRoadOccupancy = true;
+    roadOverlay.stampedNeighborRoadOccupancy = stampedNeighborRoadOccupancy;
+    return roadOverlay;
+}
+
 [[nodiscard]] sf::IntRect makeRoadOverlayTilesetRect(const rpg::detail::RoadOverlayAtlasCell& cell) noexcept
 {
     return {
@@ -462,6 +474,25 @@ bool verifyRoadOverlayBatchResolvesNorthTrioAsBottomTransition(const std::filesy
     return matchesRoadOverlayQuad(roadOverlayVertexArray, 0U, bottomRect);
 }
 
+bool verifyRoadOverlayBatchUsesStampedNeighborOccupancy(const std::filesystem::path& assetRoot)
+{
+    const rpg::detail::RoadOverlayTilesetMetadata metadata = rpg::detail::loadGroundOverlayTilesetMetadata(assetRoot);
+    rpg::OverworldRenderSnapshot renderSnapshot;
+    renderSnapshot.visibleRoadOverlays = {
+        makeVisibleRoadOverlayWithStampedOccupancy(
+            0,
+            0,
+            rpg::TileType::Grass,
+            {false, false, true, false, true, false, true, false})};
+
+    const sf::VertexArray roadOverlayVertexArray = rpg::detail::buildRoadOverlayVertexArray(metadata, renderSnapshot, 1337U);
+    const sf::IntRect topRect = makeRoadOverlayTilesetRect(
+        metadata.getTransitionCell(rpg::TileType::Grass, rpg::detail::RoadOverlayAutotileRole::Top));
+
+    return roadOverlayVertexArray.getVertexCount() == 6U
+        && matchesRoadOverlayQuad(roadOverlayVertexArray, 0U, topRect);
+}
+
 bool verifyTileGridBatchUsesBoundsDerivedStrips()
 {
     const sf::Color gridColor(255, 255, 255, 96);
@@ -609,6 +640,11 @@ int main(int argc, char** argv)
     }
 
     if (!verifyRoadOverlayBatchResolvesNorthTrioAsBottomTransition(assetRoot))
+    {
+        return EXIT_FAILURE;
+    }
+
+    if (!verifyRoadOverlayBatchUsesStampedNeighborOccupancy(assetRoot))
     {
         return EXIT_FAILURE;
     }

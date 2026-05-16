@@ -319,7 +319,9 @@ constexpr float kFloatTolerance = 0.001F;
             || lhs.coordinates.y != rhs.coordinates.y
             || lhs.surfaceTileType != rhs.surfaceTileType
             || !areClose(lhs.position.x, rhs.position.x)
-            || !areClose(lhs.position.y, rhs.position.y))
+            || !areClose(lhs.position.y, rhs.position.y)
+            || lhs.hasStampedNeighborRoadOccupancy != rhs.hasStampedNeighborRoadOccupancy
+            || lhs.stampedNeighborRoadOccupancy != rhs.stampedNeighborRoadOccupancy)
         {
             return false;
         }

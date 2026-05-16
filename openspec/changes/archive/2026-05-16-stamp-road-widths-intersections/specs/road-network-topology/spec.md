@@ -1,8 +1,4 @@
-## Purpose
-
-Define the deterministic road-network topology owned by the world runtime and how that topology feeds downstream road stamping shared across systems.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: World owns a deterministic road network topology
 The world runtime SHALL derive a small road network from deterministic world-owned data rather than from render-time heuristics. The network SHALL contain stable road nodes and connecting segments suitable for representing spawn-adjacent topology such as junctions, endpoints, branches, loops, and optional destination anchors. Road nodes and segments SHALL also retain deterministic structural metadata needed by downstream road stamping, including corridor width and local junction treatment inputs, while remaining independent of renderer-facing atlas data. The same world seed SHALL produce the same road-network topology across repeated launches.
