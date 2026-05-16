@@ -37,18 +37,18 @@ namespace detail
 namespace
 {
 
-[[nodiscard]] sf::Texture loadTerrainTileset(const std::filesystem::path& assetRoot)
+[[nodiscard]] sf::Texture loadTilesetTexture(const TilesetAssetDocument& document, const char* description)
 {
-    sf::Texture terrainTileset;
-    const std::filesystem::path terrainTilesetPath = getTerrainTilesetPath(assetRoot);
+    sf::Texture tileset;
+    const std::filesystem::path& tilesetPath = document.getResolvedImagePath();
 
-    if (!terrainTileset.loadFromFile(terrainTilesetPath.string()))
+    if (!tileset.loadFromFile(tilesetPath.string()))
     {
-        throw std::runtime_error("Failed to load overworld terrain tileset from " + terrainTilesetPath.string());
+        throw std::runtime_error("Failed to load " + std::string(description) + " from " + tilesetPath.string());
     }
 
-    terrainTileset.setSmooth(false);
-    return terrainTileset;
+    tileset.setSmooth(false);
+    return tileset;
 }
 
 [[nodiscard]] sf::Texture loadPlayerSpritesheet(const std::filesystem::path& assetRoot)
@@ -65,29 +65,22 @@ namespace
     return playerSpritesheet;
 }
 
-[[nodiscard]] sf::Texture loadVegetationTileset(const std::filesystem::path& assetRoot)
-{
-    sf::Texture vegetationTileset;
-    const std::filesystem::path vegetationTilesetPath = getVegetationTilesetPath(assetRoot);
-
-    if (!vegetationTileset.loadFromFile(vegetationTilesetPath.string()))
-    {
-        throw std::runtime_error("Failed to load overworld vegetation tileset from " + vegetationTilesetPath.string());
-    }
-
-    vegetationTileset.setSmooth(false);
-    return vegetationTileset;
-}
-
 } // namespace
 
 GameRenderResources loadGameRenderResources(const std::filesystem::path& assetRoot)
 {
+    const TilesetAssetDocument terrainDocument = TilesetAssetDocument::loadFromAssetRoot(
+        assetRoot,
+        std::filesystem::path(kTilesetCatalogDirectory) / kTerrainTilesetCatalogFilename);
+    const TilesetAssetDocument vegetationDocument = TilesetAssetDocument::loadFromAssetRoot(
+        assetRoot,
+        std::filesystem::path(kTilesetCatalogDirectory) / kVegetationTilesetCatalogFilename);
+
     return {
-        loadTerrainTileset(assetRoot),
-        loadTerrainTilesetMetadata(assetRoot),
-        loadVegetationTileset(assetRoot),
-        loadVegetationTilesetMetadata(assetRoot),
+        loadTilesetTexture(terrainDocument, "overworld terrain tileset"),
+        TerrainTilesetMetadata::loadFromDocument(terrainDocument),
+        loadTilesetTexture(vegetationDocument, "overworld vegetation tileset"),
+        VegetationTilesetMetadata::loadFromDocument(vegetationDocument),
         loadPlayerSpritesheet(assetRoot),
         loadPlayerOcclusionShader(),
     };

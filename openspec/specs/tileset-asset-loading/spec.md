@@ -18,12 +18,17 @@ The runtime SHALL load wrapped tileset catalog documents from the staged executa
 - **AND** it does not require a separate one-off file loader architecture
 
 ### Requirement: Runtime resolves tileset metadata relative to an asset root
-The runtime SHALL resolve tileset metadata, including the referenced image path and grid information, relative to a known runtime asset root so wrapped catalog documents can live in generated subdirectories while still referring to staged tileset images in the asset root.
+The runtime SHALL resolve wrapped tileset catalog metadata relative to a known runtime asset root so generated catalog documents can live in `assets/output/catalogs/` while still referring to both authored source metadata and staged runtime atlas images. When runtime code needs a tileset texture, it SHALL resolve that texture from the catalog's explicit runtime image metadata rather than from `tileset.source.image`.
 
-#### Scenario: Catalog image source resolves from wrapped metadata
-- **WHEN** a loaded tileset catalog document references its tileset image through `tileset.source.image`
+#### Scenario: Catalog runtime image resolves from wrapped metadata
+- **WHEN** a loaded tileset catalog document references its runtime tileset image through `tileset.runtime.image`
 - **THEN** the runtime resolves that image from the staged asset root
-- **AND** the resolution remains valid even when the catalog document is stored under `assets/output/catalogs/`
+- **AND** the resolution remains valid when the catalog document is stored under `assets/output/catalogs/`
+
+#### Scenario: Authored source image metadata remains non-runtime traceability data
+- **WHEN** a loaded tileset catalog document includes `tileset.source.image`
+- **THEN** the runtime preserves that value as authored source metadata
+- **AND** runtime texture loading does not treat that source image path as the staged executable atlas location
 
 ### Requirement: Vegetation catalog loading preserves placement metadata
 The runtime SHALL preserve vegetation anchor placement metadata from the staged vegetation catalog, including `placeOn` tile constraints, `biomes` weights, and `placementMode`, so vegetation placement can use the staged asset data as its source of truth.

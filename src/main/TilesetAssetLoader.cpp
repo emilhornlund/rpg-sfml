@@ -353,6 +353,18 @@ private:
     return *object;
 }
 
+[[nodiscard]] std::filesystem::path inferAssetRootFromCatalogPath(const std::filesystem::path& catalogPath)
+{
+    const std::filesystem::path catalogDirectory = catalogPath.parent_path().lexically_normal();
+
+    if (catalogDirectory.filename() == "catalogs" && catalogDirectory.parent_path().filename() == "output")
+    {
+        return catalogDirectory.parent_path().parent_path();
+    }
+
+    return catalogDirectory;
+}
+
 [[nodiscard]] const JsonArray& asArray(const JsonValue& value, const std::string_view context)
 {
     const auto* array = std::get_if<JsonArray>(&value.value);
@@ -669,6 +681,7 @@ private:
 
     const JsonObject& tileset = asObject(getRequiredField(root, "tileset", "root"), "root.tileset");
     const JsonObject& source = asObject(getRequiredField(tileset, "source", "root.tileset"), "root.tileset.source");
+    const JsonObject& runtime = asObject(getRequiredField(tileset, "runtime", "root.tileset"), "root.tileset.runtime");
     const JsonObject& grid = asObject(getRequiredField(tileset, "grid", "root.tileset"), "root.tileset.grid");
 
     TilesetAssetMetadata metadata;
@@ -676,6 +689,8 @@ private:
     metadata.source.tsx = asString(getRequiredField(source, "tsx", "root.tileset.source"), "root.tileset.source.tsx");
     metadata.source.image =
         asString(getRequiredField(source, "image", "root.tileset.source"), "root.tileset.source.image");
+    metadata.runtime.image =
+        asString(getRequiredField(runtime, "image", "root.tileset.runtime"), "root.tileset.runtime.image");
     metadata.grid = {
         asInt(getRequiredField(grid, "tileSize", "root.tileset.grid"), "root.tileset.grid.tileSize"),
         asInt(getRequiredField(grid, "columns", "root.tileset.grid"), "root.tileset.grid.columns"),
@@ -692,7 +707,7 @@ private:
     return {
         normalizedAssetRoot,
         catalogPath.lexically_normal(),
-        (normalizedAssetRoot / metadata.source.image).lexically_normal(),
+        (normalizedAssetRoot / metadata.runtime.image).lexically_normal(),
         std::move(metadata),
         std::move(tiles)};
 }
@@ -701,7 +716,7 @@ private:
 
 TilesetAssetDocument TilesetAssetDocument::loadFromFile(const std::filesystem::path& catalogPath)
 {
-    return parseDocument(catalogPath, catalogPath.parent_path());
+    return parseDocument(catalogPath, inferAssetRootFromCatalogPath(catalogPath));
 }
 
 TilesetAssetDocument TilesetAssetDocument::loadFromAssetRoot(

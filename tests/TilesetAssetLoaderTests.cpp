@@ -53,9 +53,11 @@ namespace
     }
 
     return terrain.getTileset().id == "overworld-terrain-tileset"
+        && terrain.getTileset().source.image == "assets/source/tilesets/overworld-terrain/overworld-terrain-tileset.png"
+        && terrain.getTileset().runtime.image == "output/tilesets/overworld-terrain-tileset.png"
         && terrain.getTileset().grid.tileSize == 16
-        && terrain.getTileset().grid.tileCount == 437
-        && terrain.getResolvedImagePath() == assetRoot / "overworld-terrain-tileset.png"
+        && terrain.getTileset().grid.tileCount == 256
+        && terrain.getResolvedImagePath() == assetRoot / "output/tilesets/overworld-terrain-tileset.png"
         && foundGrassBase;
 }
 
@@ -115,9 +117,12 @@ namespace
     }
 
     return vegetation.getTileset().id == "overworld-vegetation-tileset"
+        && vegetation.getTileset().source.image
+            == "assets/source/tilesets/overworld-vegetation/overworld-vegetation-tileset.png"
+        && vegetation.getTileset().runtime.image == "output/tilesets/overworld-vegetation-tileset.png"
         && vegetation.getTileset().grid.tileSize == 16
-        && vegetation.getTileset().grid.tileCount == 322
-        && vegetation.getResolvedImagePath() == assetRoot / "overworld-vegetation-tileset.png"
+        && vegetation.getTileset().grid.tileCount == 225
+        && vegetation.getResolvedImagePath() == assetRoot / "output/tilesets/overworld-vegetation-tileset.png"
         && foundObjectTile
         && foundWaterLilyAnchor
         && foundPropAnchor

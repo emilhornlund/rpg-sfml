@@ -36,11 +36,10 @@ namespace rpg::detail
 {
 
 inline constexpr char kAssetDirectoryName[] = "assets";
-inline constexpr char kTerrainTilesetFilename[] = "overworld-terrain-tileset.png";
 inline constexpr char kTerrainTilesetCatalogFilename[] = "overworld-terrain-tileset-catalog.json";
-inline constexpr char kVegetationTilesetFilename[] = "overworld-vegetation-tileset.png";
 inline constexpr char kVegetationTilesetCatalogFilename[] = "overworld-vegetation-tileset-catalog.json";
 inline constexpr char kTilesetCatalogDirectory[] = "output/catalogs";
+inline constexpr char kSpritesheetDirectory[] = "output/spritesheets";
 inline constexpr char kFontDirectory[] = "output/fonts";
 inline constexpr char kPlayerSpritesheetFilename[] = "player-walking-spritesheet.png";
 inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
@@ -60,19 +59,9 @@ inline constexpr char kDebugOverlayFontFilename[] = "PixelOperator8.ttf";
     return getAssetRootPath(getExecutableDirectory());
 }
 
-[[nodiscard]] inline std::filesystem::path getTerrainTilesetPath(const std::filesystem::path& assetRoot)
-{
-    return assetRoot / kTerrainTilesetFilename;
-}
-
 [[nodiscard]] inline std::filesystem::path getPlayerSpritesheetPath(const std::filesystem::path& assetRoot)
 {
-    return assetRoot / kPlayerSpritesheetFilename;
-}
-
-[[nodiscard]] inline std::filesystem::path getVegetationTilesetPath(const std::filesystem::path& assetRoot)
-{
-    return assetRoot / kVegetationTilesetFilename;
+    return assetRoot / kSpritesheetDirectory / kPlayerSpritesheetFilename;
 }
 
 [[nodiscard]] inline std::filesystem::path getTerrainTilesetCatalogPath(const std::filesystem::path& assetRoot)

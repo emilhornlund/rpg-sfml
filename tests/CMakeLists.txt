@@ -323,11 +323,11 @@ add_test(
 add_test(
     NAME main_asset_staging_check
     COMMAND ${CMAKE_COMMAND}
-        -DTERRAIN_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-terrain-tileset.png
-        -DVEGETATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/overworld-vegetation-tileset.png
+        -DTERRAIN_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/tilesets/overworld-terrain-tileset.png
+        -DVEGETATION_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/tilesets/overworld-vegetation-tileset.png
         -DTERRAIN_CATALOG_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/catalogs/overworld-terrain-tileset-catalog.json
         -DVEGETATION_CATALOG_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/catalogs/overworld-vegetation-tileset-catalog.json
-        -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/player-walking-spritesheet.png
+        -DPLAYER_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/spritesheets/player-walking-spritesheet.png
         -DDEBUG_OVERLAY_FONT_ASSET_PATH=${PROJECT_BINARY_DIR}/src/main/assets/output/fonts/PixelOperator8.ttf
         -P "${CMAKE_CURRENT_SOURCE_DIR}/check_main_asset_staging.cmake"
 )

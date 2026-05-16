@@ -1,8 +1,4 @@
-## Purpose
-
-Define the repository and runtime asset layout required for bundled executable assets.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Build stages bundled runtime assets from the repository root
 The project SHALL source bundled runtime assets from the repository-root `assets/` directory and SHALL stage the executable's required runtime files into the built executable's `assets/` directory using the same consolidated runtime layout under `output/`. The staged runtime files SHALL include runtime tileset PNGs under `output/tilesets/`, generated catalog files under `output/catalogs/`, runtime spritesheets under `output/spritesheets/`, and the bundled font asset required for the debug overlay text under `output/fonts/`.

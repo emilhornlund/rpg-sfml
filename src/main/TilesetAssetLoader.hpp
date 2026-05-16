@@ -76,10 +76,16 @@ struct TilesetAssetSource
     std::string image;
 };
 
+struct TilesetAssetRuntime
+{
+    std::string image;
+};
+
 struct TilesetAssetMetadata
 {
     std::string id;
     TilesetAssetSource source;
+    TilesetAssetRuntime runtime;
     TilesetAssetGrid grid;
 };
 

@@ -63,14 +63,14 @@ namespace
         && metadata.getDecorVariantCount(rpg::TileType::Forest) == 13
         && metadata.getDecorVariantCount(rpg::TileType::Sand) == 20
         && metadata.getWaterAnimationFrameCount() == 3
-        && grassTop.tileX == 1
-        && grassTop.tileY == 5
-        && forestCorner.tileX == 3
-        && forestCorner.tileY == 3
-        && grassDecor.tileX == 0
-        && grassDecor.tileY == 1
-        && waterFrameOne.tileX == 10
-        && waterFrameOne.tileY == 6;
+        && grassTop.tileX == 5
+        && grassTop.tileY == 4
+        && forestCorner.tileX == 14
+        && forestCorner.tileY == 2
+        && grassDecor.tileX == 5
+        && grassDecor.tileY == 0
+        && waterFrameOne.tileX == 13
+        && waterFrameOne.tileY == 5;
 }
 
 [[nodiscard]] bool verifyTransitionPriorityAndRoleSelection()
@@ -369,11 +369,11 @@ namespace
         && firstAppearanceSelection.useDecor == repeatedAppearanceSelection.useDecor
         && firstAppearanceSelection.variantIndex == repeatedAppearanceSelection.variantIndex
         && secondAnimationFrame == 1
-        && isolatedSandCell.tileX == 2
-        && isolatedSandCell.tileY == 3
+        && isolatedSandCell.tileX == 13
+        && isolatedSandCell.tileY == 2
         && isolatedGrassCell.tileX == expectedGrassCell.tileX
         && isolatedGrassCell.tileY == expectedGrassCell.tileY
-        && openWaterCell.tileX == 13
+        && openWaterCell.tileX == 0
         && openWaterCell.tileY == 6
         && foundDecorSelection;
 }

@@ -38,9 +38,8 @@ namespace
     const std::filesystem::path assetRoot = rpg::detail::getAssetRootPath(fakeExecutableDirectory);
 
     return assetRoot == fakeExecutableDirectory / "assets"
-        && rpg::detail::getTerrainTilesetPath(assetRoot) == assetRoot / "overworld-terrain-tileset.png"
-        && rpg::detail::getVegetationTilesetPath(assetRoot) == assetRoot / "overworld-vegetation-tileset.png"
-        && rpg::detail::getPlayerSpritesheetPath(assetRoot) == assetRoot / "player-walking-spritesheet.png"
+        && rpg::detail::getPlayerSpritesheetPath(assetRoot)
+            == assetRoot / "output/spritesheets/player-walking-spritesheet.png"
         && rpg::detail::getTerrainTilesetCatalogPath(assetRoot)
             == assetRoot / "output/catalogs/overworld-terrain-tileset-catalog.json"
         && rpg::detail::getVegetationTilesetCatalogPath(assetRoot)
@@ -59,8 +58,8 @@ namespace
     return metadata.getBaseVariantCount(rpg::TileType::Grass) == 5
         && metadata.getDecorVariantCount(rpg::TileType::Forest) == 13
         && metadata.getWaterAnimationFrameCount() == 3
-        && topTransition.tileX == 1
-        && topTransition.tileY == 5;
+        && topTransition.tileX == 5
+        && topTransition.tileY == 4;
 }
 
 [[nodiscard]] bool verifyVegetationMetadataLoading(const std::filesystem::path& assetRoot)
