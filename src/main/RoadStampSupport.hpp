@@ -58,6 +58,13 @@ struct RoadStampState
     int stampedWidth = 0;
 };
 
+[[nodiscard]] constexpr bool isIntersectionTopology(const RoadNodeTopology topology) noexcept
+{
+    return topology == RoadNodeTopology::Tee
+        || topology == RoadNodeTopology::Cross
+        || topology == RoadNodeTopology::Plaza;
+}
+
 [[nodiscard]] inline bool occupiesAnchoredSquare(
     const TileCoordinates& coordinates,
     const TileCoordinates& anchor,
@@ -180,7 +187,7 @@ struct RoadStampState
         if (occupiesAnchoredSquareCore(coordinates, node.coordinates, footprintWidth))
         {
             state.carriage = true;
-            state.intersection = state.intersection || node.kind != RoadNodeKind::Destination;
+            state.intersection = state.intersection || isIntersectionTopology(node.topology);
             state.stampedWidth = std::max(state.stampedWidth, footprintWidth);
         }
         else if (node.stampMetadata.shoulderWidth > 0
@@ -191,7 +198,7 @@ struct RoadStampState
                      node.stampMetadata.shoulderWidth))
         {
             state.shoulder = true;
-            state.intersection = state.intersection || node.kind != RoadNodeKind::Destination;
+            state.intersection = state.intersection || isIntersectionTopology(node.topology);
             state.stampedWidth = std::max(
                 state.stampedWidth,
                 footprintWidth + (node.stampMetadata.shoulderWidth * 2));

@@ -198,6 +198,36 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
+[[nodiscard]] const rpg::OverworldRenderTile* findVisibleTile(
+    const std::vector<rpg::OverworldRenderTile>& visibleTiles,
+    const rpg::TileCoordinates& coordinates) noexcept
+{
+    for (const rpg::OverworldRenderTile& visibleTile : visibleTiles)
+    {
+        if (visibleTile.coordinates.x == coordinates.x && visibleTile.coordinates.y == coordinates.y)
+        {
+            return &visibleTile;
+        }
+    }
+
+    return nullptr;
+}
+
+[[nodiscard]] const rpg::OverworldRenderRoadOverlay* findVisibleRoadOverlay(
+    const std::vector<rpg::OverworldRenderRoadOverlay>& visibleRoadOverlays,
+    const rpg::TileCoordinates& coordinates) noexcept
+{
+    for (const rpg::OverworldRenderRoadOverlay& roadOverlay : visibleRoadOverlays)
+    {
+        if (roadOverlay.coordinates.x == coordinates.x && roadOverlay.coordinates.y == coordinates.y)
+        {
+            return &roadOverlay;
+        }
+    }
+
+    return nullptr;
+}
+
 [[nodiscard]] const rpg::OverworldRenderMarker* findPlayerMarker(
     const std::vector<rpg::OverworldRenderMarker>& markers) noexcept
 {
@@ -328,6 +358,49 @@ constexpr float kFloatTolerance = 0.001F;
     }
 
     return !firstSnapshot.visibleRoadOverlays.empty();
+}
+
+[[nodiscard]] bool verifyRenderSnapshotPublishesWorldBackedNeighborContext()
+{
+    rpg::OverworldRuntime runtime;
+    rpg::World world;
+    runtime.initialize({320.0F, 180.0F});
+    const rpg::OverworldRenderSnapshot& renderSnapshot = runtime.getRenderSnapshot();
+    const std::vector<rpg::VisibleWorldTile> visibleTiles = world.getVisibleTiles(renderSnapshot.cameraFrame);
+    const std::vector<rpg::VisibleWorldRoadOverlay> visibleRoadOverlays = world.getVisibleRoadOverlays(renderSnapshot.cameraFrame);
+
+    if (renderSnapshot.visibleTiles.empty() || renderSnapshot.visibleRoadOverlays.empty())
+    {
+        return false;
+    }
+
+    for (const rpg::VisibleWorldTile& visibleTile : visibleTiles)
+    {
+        const rpg::OverworldRenderTile* renderTile = findVisibleTile(renderSnapshot.visibleTiles, visibleTile.coordinates);
+
+        if (renderTile == nullptr
+            || !renderTile->hasNeighborTileTypes
+            || renderTile->neighborTileTypes != visibleTile.neighborTileTypes)
+        {
+            return false;
+        }
+    }
+
+    for (const rpg::VisibleWorldRoadOverlay& visibleRoadOverlay : visibleRoadOverlays)
+    {
+        const rpg::OverworldRenderRoadOverlay* renderRoadOverlay = findVisibleRoadOverlay(
+            renderSnapshot.visibleRoadOverlays,
+            visibleRoadOverlay.coordinates);
+
+        if (renderRoadOverlay == nullptr
+            || !renderRoadOverlay->hasStampedNeighborRoadOccupancy
+            || renderRoadOverlay->stampedNeighborRoadOccupancy != visibleRoadOverlay.stampedNeighborRoadOccupancy)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 [[nodiscard]] bool verifyGameplayProgression()
@@ -716,6 +789,11 @@ int main()
     }
 
     if (!verifyRoadOverlaysRemainDeterministicForRepeatedSnapshots())
+    {
+        return 1;
+    }
+
+    if (!verifyRenderSnapshotPublishesWorldBackedNeighborContext())
     {
         return 1;
     }

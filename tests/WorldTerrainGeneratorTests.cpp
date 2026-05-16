@@ -122,7 +122,8 @@ constexpr float kFloatTolerance = 0.001F;
 {
     return lhs.coordinates.x == rhs.coordinates.x
         && lhs.coordinates.y == rhs.coordinates.y
-        && lhs.kind == rhs.kind
+        && lhs.anchorKind == rhs.anchorKind
+        && lhs.topology == rhs.topology
         && lhs.stampMetadata.footprintWidth == rhs.stampMetadata.footprintWidth
         && lhs.stampMetadata.shoulderWidth == rhs.stampMetadata.shoulderWidth;
 }
@@ -228,16 +229,16 @@ constexpr float kFloatTolerance = 0.001F;
     return false;
 }
 
-[[nodiscard]] std::size_t countRoadNodesOfKind(
+[[nodiscard]] std::size_t countRoadNodesWithAnchor(
     const rpg::detail::RoadNetwork& network,
-    const rpg::detail::RoadNodeKind kind) noexcept
+    const rpg::detail::RoadNodeAnchorKind anchorKind) noexcept
 {
     return static_cast<std::size_t>(std::count_if(
         network.nodes.begin(),
         network.nodes.end(),
-        [kind](const rpg::detail::RoadNode& node)
+        [anchorKind](const rpg::detail::RoadNode& node)
         {
-            return node.kind == kind;
+            return node.anchorKind == anchorKind;
         }));
 }
 
@@ -567,10 +568,10 @@ struct CardinalNeighborMask
         const rpg::detail::RoadNetwork network = rpg::detail::buildRoadNetwork(kSpawnTile, seed);
 
         if (network.nodes.empty()
-            || network.nodes.front().kind != rpg::detail::RoadNodeKind::Spawn
+            || network.nodes.front().anchorKind != rpg::detail::RoadNodeAnchorKind::Spawn
             || network.nodes.front().coordinates.x != kSpawnTile.x
             || network.nodes.front().coordinates.y != kSpawnTile.y
-            || countRoadNodesOfKind(network, rpg::detail::RoadNodeKind::Destination) < 3U
+            || countRoadNodesWithAnchor(network, rpg::detail::RoadNodeAnchorKind::Destination) < 4U
             || getRoadNodeConnectionCount(network, 0U) == 0U
             || !isRoadNetworkFullyConnected(network))
         {
@@ -583,7 +584,9 @@ struct CardinalNeighborMask
             [&network](const rpg::detail::RoadNode& node)
             {
                 const std::size_t nodeIndex = static_cast<std::size_t>(&node - network.nodes.data());
-                return node.kind == rpg::detail::RoadNodeKind::Junction
+                return (node.topology == rpg::detail::RoadNodeTopology::Tee
+                        || node.topology == rpg::detail::RoadNodeTopology::Cross
+                        || node.topology == rpg::detail::RoadNodeTopology::Plaza)
                     && getRoadNodeConnectionCount(network, nodeIndex) >= 3U;
             });
         foundLoop = foundLoop || doesRoadNetworkContainLoop(network);
@@ -610,22 +613,40 @@ struct CardinalNeighborMask
         firstNetwork.segments.end(),
         [](const rpg::detail::RoadSegment& segment)
         {
-            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Main
+            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::MainRoad
                 && segment.stampMetadata.shoulderWidth > 0;
         });
-    const bool foundBranchWithoutShoulder = std::any_of(
+    const bool foundRoadWithoutShoulder = std::any_of(
         firstNetwork.segments.begin(),
         firstNetwork.segments.end(),
         [](const rpg::detail::RoadSegment& segment)
         {
-            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Branch
+            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Road
                 && segment.stampMetadata.shoulderWidth == 0;
+        });
+    const bool foundTrailWithoutShoulder = std::any_of(
+        firstNetwork.segments.begin(),
+        firstNetwork.segments.end(),
+        [](const rpg::detail::RoadSegment& segment)
+        {
+            return segment.stampMetadata.roadClass == rpg::detail::RoadSegmentClass::Trail
+                && segment.stampMetadata.shoulderWidth == 0;
+        });
+    const bool foundPlazaNode = std::any_of(
+        firstNetwork.nodes.begin(),
+        firstNetwork.nodes.end(),
+        [](const rpg::detail::RoadNode& node)
+        {
+            return node.topology == rpg::detail::RoadNodeTopology::Plaza
+                && node.stampMetadata.footprintWidth >= 3;
         });
 
     return !firstNetwork.nodes.empty()
         && firstNetwork.nodes.front().stampMetadata.shoulderWidth > 0
         && foundMainShoulder
-        && foundBranchWithoutShoulder;
+        && foundRoadWithoutShoulder
+        && foundTrailWithoutShoulder
+        && foundPlazaNode;
 }
 
 [[nodiscard]] bool verifyStampedRoadSupportExpandsMainRoadsAndJunctions()

@@ -77,6 +77,8 @@ struct OverworldRenderTile
     WorldSize size{0.0F, 0.0F};
     WorldPosition origin{0.0F, 0.0F};
     WorldPosition position{0.0F, 0.0F};
+    bool hasNeighborTileTypes = false;
+    std::array<TileType, 8> neighborTileTypes{};
 };
 
 /**

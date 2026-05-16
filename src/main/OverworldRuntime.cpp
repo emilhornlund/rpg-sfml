@@ -55,7 +55,9 @@ namespace
         visibleTile.tileType,
         {tileSize, tileSize},
         {tileSize * 0.5F, tileSize * 0.5F},
-        visibleTile.center};
+        visibleTile.center,
+        visibleTile.hasNeighborTileTypes,
+        visibleTile.neighborTileTypes};
 }
 
 [[nodiscard]] constexpr OverworldRenderRoadOverlay makeRenderRoadOverlay(

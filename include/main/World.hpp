@@ -87,6 +87,8 @@ struct VisibleWorldTile
     TileCoordinates coordinates{0, 0};
     TileType tileType = TileType::Water;
     WorldPosition center{0.0F, 0.0F};
+    bool hasNeighborTileTypes = false;
+    std::array<TileType, 8> neighborTileTypes{};
 };
 
 /**

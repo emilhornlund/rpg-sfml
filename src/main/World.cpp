@@ -165,6 +165,22 @@ struct WorldBounds
         && bottom >= bounds.top;
 }
 
+template <typename TileTypeLookup>
+[[nodiscard]] std::array<TileType, 8> getNeighborTileTypes(
+    const TileCoordinates& coordinates,
+    const TileTypeLookup& tileTypeLookup)
+{
+    return {
+        tileTypeLookup({coordinates.x, coordinates.y - 1}),
+        tileTypeLookup({coordinates.x + 1, coordinates.y - 1}),
+        tileTypeLookup({coordinates.x + 1, coordinates.y}),
+        tileTypeLookup({coordinates.x + 1, coordinates.y + 1}),
+        tileTypeLookup({coordinates.x, coordinates.y + 1}),
+        tileTypeLookup({coordinates.x - 1, coordinates.y + 1}),
+        tileTypeLookup({coordinates.x - 1, coordinates.y}),
+        tileTypeLookup({coordinates.x - 1, coordinates.y - 1})};
+}
+
 } // namespace
 
 World::World()
@@ -298,6 +314,10 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
 
     const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
     const int chunkSizeInTiles = detail::getChunkSizeInTiles();
+    const auto getTileTypeAtCoordinates = [this](const TileCoordinates& tileCoordinates)
+    {
+        return getTileType(tileCoordinates);
+    };
 
     for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
     {
@@ -325,7 +345,9 @@ std::vector<VisibleWorldTile> World::getVisibleTiles(const ViewFrame& frame) con
                     visibleTiles.push_back({
                         worldCoordinates,
                         chunk.tiles[toIndex({localX, localY}, chunkSizeInTiles)],
-                        getTileCenter(worldCoordinates)});
+                        getTileCenter(worldCoordinates),
+                        true,
+                        getNeighborTileTypes(worldCoordinates, getTileTypeAtCoordinates)});
                 }
             }
         }
@@ -347,6 +369,10 @@ std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFra
 
     const VisibleChunkBounds chunkBounds = getVisibleChunkBounds(bounds);
     const int chunkSizeInTiles = detail::getChunkSizeInTiles();
+    const auto getTileTypeAtCoordinates = [this](const TileCoordinates& tileCoordinates)
+    {
+        return getTileType(tileCoordinates);
+    };
 
     for (int chunkY = chunkBounds.minY; chunkY <= chunkBounds.maxY; ++chunkY)
     {
@@ -372,11 +398,6 @@ std::vector<VisibleWorldRoadOverlay> World::getVisibleRoadOverlays(const ViewFra
                     }
 
                     const TileType tileType = chunk.tiles[toIndex({localX, localY}, chunkSizeInTiles)];
-
-                    const auto getTileTypeAtCoordinates = [this](const TileCoordinates& tileCoordinates)
-                    {
-                        return getTileType(tileCoordinates);
-                    };
 
                     const detail::RoadStampedTile stampedTile = detail::getRoadStampedTile(
                         worldCoordinates,

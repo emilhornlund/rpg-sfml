@@ -1,21 +1,4 @@
-## Purpose
-
-Define how deterministic road topology is stamped into a shared structural road field before overlay publication and final visual selection.
-
-## Requirements
-
-### Requirement: World stamps structural road tiles from deterministic topology
-The world runtime SHALL convert deterministic road topology into a stamped road field before visible road overlay publication or render-time autotile selection. The stamped road field SHALL be derived from stable road nodes, segments, and their structural metadata, and the same world seed plus queried tile coordinates SHALL produce the same stamped road result across repeated launches and repeated frame queries.
-
-#### Scenario: Repeated stamping stays stable
-- **WHEN** the runtime stamps the same road topology for the same world seed and tile-space query area multiple times
-- **THEN** it produces the same stamped road structure on every evaluation
-- **AND** the result does not depend on camera movement history, chunk retention order, or runtime random state
-
-#### Scenario: Stamping remains separate from final visual selection
-- **WHEN** the runtime stamps roads for a visible query area
-- **THEN** the stamped result describes structural road information needed for downstream systems
-- **AND** it does not require world-owned systems to publish atlas coordinates, texture rectangles, or renderer-specific tile roles
+## MODIFIED Requirements
 
 ### Requirement: Stamping applies explicit width and intersection rules
 The road-stamping stage SHALL construct tile-space road structure by applying deterministic width, shoulder, curve, endpoint, and intersection rules from segment and node metadata rather than from simple corridor overlap. Segment semantic class SHALL influence corridor treatment so trails, roads, and main roads can stamp different structural footprints. Node topology semantics SHALL influence local junction treatment so dead ends, corners, tees, crosses, and plazas stamp readable structural shapes. The stamped result SHALL preserve road continuity through bends, junctions, loops, and destination approaches while remaining suitable for world queries and renderer-facing neighbor analysis.

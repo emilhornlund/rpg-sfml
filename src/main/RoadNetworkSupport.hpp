@@ -40,18 +40,27 @@ namespace rpg
 namespace detail
 {
 
-enum class RoadNodeKind
+enum class RoadNodeAnchorKind
 {
+    None,
     Spawn,
-    Junction,
     Destination
+};
+
+enum class RoadNodeTopology
+{
+    DeadEnd,
+    Corner,
+    Tee,
+    Cross,
+    Plaza
 };
 
 enum class RoadSegmentClass
 {
-    Main,
-    Branch,
-    Connector
+    Trail,
+    Road,
+    MainRoad
 };
 
 struct RoadNodeStampMetadata
@@ -62,7 +71,7 @@ struct RoadNodeStampMetadata
 
 struct RoadSegmentStampMetadata
 {
-    RoadSegmentClass roadClass = RoadSegmentClass::Branch;
+    RoadSegmentClass roadClass = RoadSegmentClass::Road;
     int carriageWidth = 2;
     int shoulderWidth = 0;
     bool stampBends = true;
@@ -71,7 +80,8 @@ struct RoadSegmentStampMetadata
 struct RoadNode
 {
     TileCoordinates coordinates{0, 0};
-    RoadNodeKind kind = RoadNodeKind::Spawn;
+    RoadNodeAnchorKind anchorKind = RoadNodeAnchorKind::None;
+    RoadNodeTopology topology = RoadNodeTopology::DeadEnd;
     RoadNodeStampMetadata stampMetadata;
 };
 
@@ -125,10 +135,11 @@ struct RoadNetwork
 [[nodiscard]] inline std::size_t appendRoadNode(
     RoadNetwork& network,
     const TileCoordinates& coordinates,
-    const RoadNodeKind kind,
+    const RoadNodeAnchorKind anchorKind,
+    const RoadNodeTopology topology,
     const RoadNodeStampMetadata& stampMetadata = {})
 {
-    network.nodes.push_back({coordinates, kind, stampMetadata});
+    network.nodes.push_back({coordinates, anchorKind, topology, stampMetadata});
     return network.nodes.size() - 1U;
 }
 
@@ -155,39 +166,57 @@ inline void appendRoadSegment(
     const int eastDestinationOffset = selectRoadNetworkOffset(seed, 0x3C6EF372U, 6, 2, 4);
     const int southDestinationOffset = selectRoadNetworkOffset(seed, 0xA54FF53AU, 6, 2, 4);
     const int northDestinationOffset = selectRoadNetworkOffset(seed, 0x510E527FU, 6, 2, 4);
+    const int westDestinationOffset = selectRoadNetworkOffset(seed, 0x1F83D9ABU, 4, 2, 3);
     const bool hasLoop = (hashRoadNetworkSelection(seed, 0x5BE0CD19U) & 1U) == 0U;
     const RoadNodeStampMetadata spawnNodeMetadata{2, 1};
+    const RoadNodeStampMetadata plazaNodeMetadata{3, 1};
     const RoadNodeStampMetadata junctionNodeMetadata{2, 1};
     const RoadNodeStampMetadata destinationNodeMetadata{2, 0};
-    const RoadSegmentStampMetadata mainRoadMetadata{RoadSegmentClass::Main, 2, 1, true};
-    const RoadSegmentStampMetadata branchRoadMetadata{RoadSegmentClass::Branch, 2, 0, true};
-    const RoadSegmentStampMetadata connectorRoadMetadata{RoadSegmentClass::Connector, 2, 0, true};
+    const RoadSegmentStampMetadata mainRoadMetadata{RoadSegmentClass::MainRoad, 2, 1, true};
+    const RoadSegmentStampMetadata roadMetadata{RoadSegmentClass::Road, 2, 0, true};
+    const RoadSegmentStampMetadata trailMetadata{RoadSegmentClass::Trail, 2, 0, true};
 
-    const std::size_t spawnNodeIndex = appendRoadNode(network, spawnTile, RoadNodeKind::Spawn, spawnNodeMetadata);
+    const std::size_t spawnNodeIndex = appendRoadNode(
+        network,
+        spawnTile,
+        RoadNodeAnchorKind::Spawn,
+        RoadNodeTopology::Corner,
+        spawnNodeMetadata);
     const std::size_t eastJunctionIndex = appendRoadNode(
         network,
         {spawnTile.x + eastJunctionOffset, spawnTile.y},
-        RoadNodeKind::Junction,
-        junctionNodeMetadata);
+        RoadNodeAnchorKind::None,
+        RoadNodeTopology::Plaza,
+        plazaNodeMetadata);
     const std::size_t southJunctionIndex = appendRoadNode(
         network,
         {spawnTile.x, spawnTile.y + southJunctionOffset},
-        RoadNodeKind::Junction,
+        RoadNodeAnchorKind::None,
+        hasLoop ? RoadNodeTopology::Cross : RoadNodeTopology::Tee,
         junctionNodeMetadata);
     const std::size_t eastDestinationIndex = appendRoadNode(
         network,
         {network.nodes[eastJunctionIndex].coordinates.x + eastDestinationOffset, network.nodes[eastJunctionIndex].coordinates.y},
-        RoadNodeKind::Destination,
+        RoadNodeAnchorKind::Destination,
+        RoadNodeTopology::DeadEnd,
         destinationNodeMetadata);
     const std::size_t southDestinationIndex = appendRoadNode(
         network,
         {network.nodes[southJunctionIndex].coordinates.x, network.nodes[southJunctionIndex].coordinates.y + southDestinationOffset},
-        RoadNodeKind::Destination,
+        RoadNodeAnchorKind::Destination,
+        RoadNodeTopology::DeadEnd,
         destinationNodeMetadata);
     const std::size_t northDestinationIndex = appendRoadNode(
         network,
         {network.nodes[eastJunctionIndex].coordinates.x, network.nodes[eastJunctionIndex].coordinates.y - northDestinationOffset},
-        RoadNodeKind::Destination,
+        RoadNodeAnchorKind::Destination,
+        RoadNodeTopology::DeadEnd,
+        destinationNodeMetadata);
+    const std::size_t westDestinationIndex = appendRoadNode(
+        network,
+        {network.nodes[southJunctionIndex].coordinates.x - westDestinationOffset, network.nodes[southJunctionIndex].coordinates.y},
+        RoadNodeAnchorKind::Destination,
+        RoadNodeTopology::DeadEnd,
         destinationNodeMetadata);
 
     appendRoadSegment(
@@ -207,19 +236,25 @@ inline void appendRoadSegment(
         eastJunctionIndex,
         eastDestinationIndex,
         {network.nodes[eastJunctionIndex].coordinates, network.nodes[eastDestinationIndex].coordinates},
-        branchRoadMetadata);
+        roadMetadata);
     appendRoadSegment(
         network,
         southJunctionIndex,
         southDestinationIndex,
         {network.nodes[southJunctionIndex].coordinates, network.nodes[southDestinationIndex].coordinates},
-        branchRoadMetadata);
+        roadMetadata);
     appendRoadSegment(
         network,
         eastJunctionIndex,
         northDestinationIndex,
         {network.nodes[eastJunctionIndex].coordinates, network.nodes[northDestinationIndex].coordinates},
-        branchRoadMetadata);
+        roadMetadata);
+    appendRoadSegment(
+        network,
+        southJunctionIndex,
+        westDestinationIndex,
+        {network.nodes[southJunctionIndex].coordinates, network.nodes[westDestinationIndex].coordinates},
+        trailMetadata);
 
     if (hasLoop)
     {
@@ -232,7 +267,7 @@ inline void appendRoadSegment(
                 {network.nodes[eastJunctionIndex].coordinates.x, network.nodes[southJunctionIndex].coordinates.y},
                 network.nodes[southJunctionIndex].coordinates,
             },
-            connectorRoadMetadata);
+            roadMetadata);
     }
 
     return network;

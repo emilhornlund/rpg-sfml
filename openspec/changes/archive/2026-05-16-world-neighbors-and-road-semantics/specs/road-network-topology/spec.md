@@ -1,8 +1,4 @@
-## Purpose
-
-Define the deterministic road-network topology owned by the world runtime and how that topology feeds downstream road stamping shared across systems.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: World owns a deterministic road network topology
 The world runtime SHALL derive a small road network from deterministic world-owned data rather than from render-time heuristics. The network SHALL contain stable road nodes and connecting segments suitable for representing spawn-adjacent topology such as dead ends, corners, tees, crosses, plazas, branches, loops, and optional destination anchors. Road segments SHALL retain deterministic semantic classification such as trail, road, and main road, and road nodes SHALL retain deterministic topology semantics describing their local structural shape separately from gameplay anchor roles such as spawn and destination. Road nodes and segments SHALL also retain deterministic structural metadata needed by downstream road stamping, including corridor width and local junction treatment inputs, while remaining independent of renderer-facing atlas data. The same world seed SHALL produce the same road-network topology across repeated launches.
@@ -22,11 +18,6 @@ The world runtime SHALL derive a small road network from deterministic world-own
 - **THEN** the resulting topology can classify segments as trail, road, or main road
 - **AND** it can classify local node structure as dead end, corner, tee, cross, or plaza without conflating those shapes with spawn or destination anchors
 - **AND** those semantics remain deterministic for the same world seed
-
-#### Scenario: Topology can express branches, loops, and destinations
-- **WHEN** the world generates a deterministic road network for seeds that select richer layouts
-- **THEN** the resulting topology may include branch junctions, loop-closing segment connections, and destination-oriented endpoints or centers
-- **AND** those features remain encoded as nodes, segment connections, and deterministic structural metadata rather than as hard-coded occupancy special cases
 
 ### Requirement: Road occupancy is projected from topology footprints
 The world runtime SHALL hand deterministic road topology to a dedicated road-stamping stage instead of treating topology footprints as the final published rasterized road shape. Topology-owned nodes, segments, and their structural metadata SHALL define the intent that the stamping stage expands into tile-space road structure for segments, junctions, endpoints, dead ends, corners, tees, crosses, plazas, and destination approaches. Tiles covered by that stamped structure SHALL be treated as road-covered consistently across world queries, visible road publication, and road-aware content exclusion.
